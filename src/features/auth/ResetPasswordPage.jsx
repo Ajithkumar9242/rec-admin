@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Form, Input, Button, Typography, Alert, Result } from 'antd';
-import { LockOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { LockOutlined, CheckCircleOutlined, KeyOutlined } from '@ant-design/icons';
 import { useSearchParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '../../services/api.js';
@@ -54,7 +54,7 @@ export function ResetPasswordPage() {
           style={{ marginBottom: 24, borderRadius: 8 }}
         />
         <Link to="/login">
-          <Button type="primary" size="large">
+          <Button type="primary" size="large" style={{ height: 44, fontWeight: 600 }}>
             {t('resetPassword.goToSignIn')}
           </Button>
         </Link>
@@ -70,7 +70,7 @@ export function ResetPasswordPage() {
         subTitle={t('resetPassword.successMessage')}
         extra={[
           <Link to="/login" key="signin">
-            <Button type="primary" size="large" block>
+            <Button type="primary" size="large" block style={{ height: 44, fontWeight: 600 }}>
               {t('resetPassword.goToSignIn')}
             </Button>
           </Link>,
@@ -82,10 +82,26 @@ export function ResetPasswordPage() {
   return (
     <div>
       <div style={{ textAlign: 'center', marginBottom: 24 }}>
-        <Title level={3} style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>
+        <div
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: '50%',
+            backgroundColor: '#eaf5f8',
+            color: brandTokens.navy,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 20,
+            marginBottom: 12,
+          }}
+        >
+          <KeyOutlined />
+        </div>
+        <Title level={3} style={{ margin: 0, fontSize: 24, fontWeight: 700 }}>
           {t('resetPassword.title')}
         </Title>
-        <Paragraph type="secondary" style={{ marginTop: 8, fontSize: 13 }}>
+        <Paragraph type="secondary" style={{ marginTop: 6, fontSize: 13 }}>
           {t('resetPassword.subtitle')}
         </Paragraph>
       </div>
@@ -127,6 +143,7 @@ export function ResetPasswordPage() {
             prefix={<LockOutlined style={{ color: brandTokens.muted }} />}
             placeholder={t('resetPassword.newPasswordPlaceholder')}
             size="large"
+            style={{ height: 44 }}
             autoFocus
           />
         </Form.Item>
@@ -151,10 +168,11 @@ export function ResetPasswordPage() {
             prefix={<LockOutlined style={{ color: brandTokens.muted }} />}
             placeholder={t('resetPassword.confirmPasswordPlaceholder')}
             size="large"
+            style={{ height: 44 }}
           />
         </Form.Item>
 
-        <Form.Item style={{ marginTop: 24 }}>
+        <Form.Item style={{ marginTop: 24, marginBottom: 0 }}>
           <Button
             type="primary"
             htmlType="submit"
@@ -162,6 +180,7 @@ export function ResetPasswordPage() {
             block
             loading={submitting}
             disabled={submitting}
+            style={{ height: 44, fontWeight: 600 }}
           >
             {submitting ? t('resetPassword.updating') : t('resetPassword.submitButton')}
           </Button>

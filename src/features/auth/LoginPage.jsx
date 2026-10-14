@@ -1,25 +1,33 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Input, Button, Typography, Alert, Space } from 'antd';
-import { MailOutlined, LockOutlined } from '@ant-design/icons';
+import { MailOutlined, LockOutlined, SafetyCertificateOutlined } from '@ant-design/icons';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
-import { loginUser, clearAuthError } from '../../store/authSlice.js';
+import {
+  loginUser,
+  clearAuthError,
+  AuthState,
+  resetAuthState,
+} from '../../store/authSlice.js';
 import { TwoFactorVerifyStep } from './TwoFactorVerifyStep.jsx';
 import { BackupCodeVerifyStep } from './BackupCodeVerifyStep.jsx';
+import { MFAEnrollStep } from './MFAEnrollStep.jsx';
 import { brandTokens } from '../../theme/tokens.js';
 
 const { Title, Paragraph, Text } = Typography;
 
 export function LoginPage() {
   const [form] = Form.useForm();
-  const [authStep, setAuthStep] = useState('credentials'); // 'credentials' | 'totp' | 'backup_code'
+  const [activeStep, setActiveStep] = useState('credentials'); // 'credentials' | 'totp' | 'backup_code' | 'enroll'
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useDispatch();
   const { t } = useTranslation();
 
-  const { isAuthenticated, pending2FA, loading, error } = useSelector((state) => state.auth);
+  const { isAuthenticated, authState, loading, error, pendingAdminId } = useSelector(
+    (state) => state.auth
+  );
 
   // If already authenticated, redirect to destination or /admin
   useEffect(() => {
@@ -29,16 +37,18 @@ export function LoginPage() {
     }
   }, [isAuthenticated, navigate, location]);
 
-  // When 2FA is required after password check, shift step
+  // Handle authState transitions from login response
   useEffect(() => {
-    if (pending2FA.requires2FA) {
-      setAuthStep('totp');
-    } else {
-      setAuthStep('credentials');
+    if (authState === AuthState.PASSWORD_ACCEPTED_MFA_PENDING) {
+      setActiveStep('totp');
+    } else if (authState === AuthState.MFA_ENROLLMENT_REQUIRED) {
+      setActiveStep('enroll');
+    } else if (authState === AuthState.UNAUTHENTICATED) {
+      setActiveStep('credentials');
     }
-  }, [pending2FA.requires2FA]);
+  }, [authState]);
 
-  // Clear auth error when switching step or unmounting
+  // Clean errors when component unmounts
   useEffect(() => {
     return () => {
       dispatch(clearAuthError());
@@ -55,21 +65,56 @@ export function LoginPage() {
     );
   };
 
-  if (authStep === 'totp') {
-    return <TwoFactorVerifyStep onSwitchToBackupCode={() => setAuthStep('backup_code')} />;
+  const handleEnrollComplete = () => {
+    navigate('/admin', { replace: true });
+  };
+
+  if (activeStep === 'totp') {
+    return (
+      <TwoFactorVerifyStep
+        adminId={pendingAdminId}
+        onSwitchToBackupCode={() => setActiveStep('backup_code')}
+      />
+    );
   }
 
-  if (authStep === 'backup_code') {
-    return <BackupCodeVerifyStep onSwitchToTotp={() => setAuthStep('totp')} />;
+  if (activeStep === 'backup_code') {
+    return (
+      <BackupCodeVerifyStep
+        adminId={pendingAdminId}
+        onSwitchToTotp={() => setActiveStep('totp')}
+      />
+    );
+  }
+
+  if (activeStep === 'enroll') {
+    return <MFAEnrollStep onComplete={handleEnrollComplete} />;
   }
 
   return (
     <div>
       <div style={{ textAlign: 'center', marginBottom: 28 }}>
-        <Title level={3} style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>
+        <div
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: 10,
+            backgroundColor: brandTokens.navy,
+            color: brandTokens.teal,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 22,
+            marginBottom: 12,
+            boxShadow: '0 4px 12px rgba(22, 49, 63, 0.18)',
+          }}
+        >
+          <SafetyCertificateOutlined />
+        </div>
+        <Title level={3} style={{ margin: 0, fontSize: 24, fontWeight: 700 }}>
           {t('auth.signInTitle')}
         </Title>
-        <Paragraph type="secondary" style={{ marginTop: 8, fontSize: 13 }}>
+        <Paragraph type="secondary" style={{ marginTop: 6, fontSize: 13 }}>
           {t('auth.signInSubtitle')}
         </Paragraph>
       </div>
@@ -112,7 +157,14 @@ export function LoginPage() {
         <Form.Item
           name="password"
           label={
-            <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                width: '100%',
+              }}
+            >
               <span>{t('auth.passwordLabel')}</span>
               <Link
                 to="/forgot-password"
@@ -121,6 +173,7 @@ export function LoginPage() {
                   color: brandTokens.teal,
                   fontWeight: 500,
                   marginLeft: 'auto',
+                  whiteSpace: 'nowrap',
                 }}
               >
                 {t('auth.forgotPassword')}
@@ -151,6 +204,7 @@ export function LoginPage() {
             style={{
               fontWeight: 600,
               fontSize: 15,
+              height: 44,
             }}
           >
             {loading ? t('auth.signingIn') : t('auth.signInButton')}

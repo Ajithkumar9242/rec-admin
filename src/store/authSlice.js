@@ -1,15 +1,26 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import api from '../services/api.js';
 
+export const AuthState = {
+  UNAUTHENTICATED: 'UNAUTHENTICATED',
+  PASSWORD_ACCEPTED_MFA_PENDING: 'PASSWORD_ACCEPTED_MFA_PENDING',
+  MFA_ENROLLMENT_REQUIRED: 'MFA_ENROLLMENT_REQUIRED',
+  AUTHENTICATED_MFA_VERIFIED: 'AUTHENTICATED_MFA_VERIFIED',
+  SESSION_EXPIRED_OR_REVOKED: 'SESSION_EXPIRED_OR_REVOKED',
+};
+
 // Restore active session on application launch
 export const fetchCurrentUser = createAsyncThunk(
   'auth/fetchCurrentUser',
   async (_, { rejectWithValue }) => {
     try {
       const response = await api.get('/auth/me');
-      return response.data.user;
+      return response.data;
     } catch (error) {
-      return rejectWithValue(error.response?.data?.error || 'Session unauthenticated');
+      return rejectWithValue({
+        error: error.response?.data?.error || 'Session unauthenticated',
+        state: error.response?.data?.state || AuthState.UNAUTHENTICATED,
+      });
     }
   }
 );
@@ -33,7 +44,7 @@ export const verify2FACode = createAsyncThunk(
   async ({ adminId, code }, { rejectWithValue }) => {
     try {
       const response = await api.post('/auth/verify-2fa', { adminId, code });
-      return response.data.user;
+      return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.error || 'Invalid 2FA code');
     }
@@ -46,9 +57,22 @@ export const verifyBackupCode = createAsyncThunk(
   async ({ adminId, code }, { rejectWithValue }) => {
     try {
       const response = await api.post('/auth/verify-backup-code', { adminId, code });
-      return response.data.user;
+      return response.data;
     } catch (error) {
       return rejectWithValue(error.response?.data?.error || 'Invalid backup code');
+    }
+  }
+);
+
+// Confirm initial mandatory MFA enrollment
+export const confirmMandatoryMFA = createAsyncThunk(
+  'auth/confirmMandatoryMFA',
+  async ({ code }, { rejectWithValue }) => {
+    try {
+      const response = await api.post('/auth/2fa/confirm', { code });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.error || 'Failed to confirm MFA setup');
     }
   }
 );
@@ -58,21 +82,20 @@ export const logoutUser = createAsyncThunk('auth/logoutUser', async () => {
   try {
     await api.post('/auth/logout');
   } catch (error) {
-    // Continue clearing local state even if backend was unreachable
+    // Continue clearing local state
   }
   return true;
 });
 
 const initialState = {
   user: null,
+  authState: AuthState.UNAUTHENTICATED,
   isAuthenticated: false,
-  isInitialized: false, // Prevents premature redirection on startup
+  isInitialized: false,
   loading: false,
   error: null,
-  pending2FA: {
-    requires2FA: false,
-    adminId: null,
-  },
+  pendingAdminId: null,
+  initialBackupCodes: null, // Shown once upon mandatory enrollment
 };
 
 export const authSlice = createSlice({
@@ -82,11 +105,13 @@ export const authSlice = createSlice({
     clearAuthError: (state) => {
       state.error = null;
     },
-    resetPending2FA: (state) => {
-      state.pending2FA = {
-        requires2FA: false,
-        adminId: null,
-      };
+    resetAuthState: (state) => {
+      state.authState = AuthState.UNAUTHENTICATED;
+      state.pendingAdminId = null;
+      state.error = null;
+    },
+    clearInitialBackupCodes: (state) => {
+      state.initialBackupCodes = null;
     },
     updateUserSecurityState: (state, action) => {
       if (state.user) {
@@ -101,14 +126,16 @@ export const authSlice = createSlice({
         state.loading = true;
       })
       .addCase(fetchCurrentUser.fulfilled, (state, action) => {
-        state.user = action.payload;
-        state.isAuthenticated = true;
+        state.user = action.payload.user;
+        state.authState = action.payload.state || AuthState.AUTHENTICATED_MFA_VERIFIED;
+        state.isAuthenticated = state.authState === AuthState.AUTHENTICATED_MFA_VERIFIED;
         state.isInitialized = true;
         state.loading = false;
         state.error = null;
       })
-      .addCase(fetchCurrentUser.rejected, (state) => {
+      .addCase(fetchCurrentUser.rejected, (state, action) => {
         state.user = null;
+        state.authState = action.payload?.state || AuthState.UNAUTHENTICATED;
         state.isAuthenticated = false;
         state.isInitialized = true;
         state.loading = false;
@@ -122,20 +149,21 @@ export const authSlice = createSlice({
       })
       .addCase(loginUser.fulfilled, (state, action) => {
         state.loading = false;
-        if (action.payload.requires2FA) {
-          state.pending2FA = {
-            requires2FA: true,
-            adminId: action.payload.adminId,
-          };
-        } else {
+        state.authState = action.payload.state;
+        state.pendingAdminId = action.payload.adminId;
+
+        if (action.payload.state === AuthState.AUTHENTICATED_MFA_VERIFIED) {
           state.user = action.payload.user;
           state.isAuthenticated = true;
-          state.pending2FA = { requires2FA: false, adminId: null };
+        } else {
+          state.isAuthenticated = false;
+          state.user = null;
         }
       })
       .addCase(loginUser.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
+        state.authState = AuthState.UNAUTHENTICATED;
       });
 
     // 2FA Verification
@@ -146,9 +174,10 @@ export const authSlice = createSlice({
       })
       .addCase(verify2FACode.fulfilled, (state, action) => {
         state.loading = false;
-        state.user = action.payload;
+        state.user = action.payload.user;
+        state.authState = AuthState.AUTHENTICATED_MFA_VERIFIED;
         state.isAuthenticated = true;
-        state.pending2FA = { requires2FA: false, adminId: null };
+        state.pendingAdminId = null;
       })
       .addCase(verify2FACode.rejected, (state, action) => {
         state.loading = false;
@@ -163,11 +192,31 @@ export const authSlice = createSlice({
       })
       .addCase(verifyBackupCode.fulfilled, (state, action) => {
         state.loading = false;
-        state.user = action.payload;
+        state.user = action.payload.user;
+        state.authState = AuthState.AUTHENTICATED_MFA_VERIFIED;
         state.isAuthenticated = true;
-        state.pending2FA = { requires2FA: false, adminId: null };
+        state.pendingAdminId = null;
       })
       .addCase(verifyBackupCode.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      });
+
+    // Mandatory MFA Enrollment Confirmation
+    builder
+      .addCase(confirmMandatoryMFA.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(confirmMandatoryMFA.fulfilled, (state, action) => {
+        state.loading = false;
+        state.user = action.payload.user;
+        state.authState = AuthState.AUTHENTICATED_MFA_VERIFIED;
+        state.isAuthenticated = true;
+        state.pendingAdminId = null;
+        state.initialBackupCodes = action.payload.backupCodes || [];
+      })
+      .addCase(confirmMandatoryMFA.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       });
@@ -175,12 +224,20 @@ export const authSlice = createSlice({
     // Logout
     builder.addCase(logoutUser.fulfilled, (state) => {
       state.user = null;
+      state.authState = AuthState.UNAUTHENTICATED;
       state.isAuthenticated = false;
-      state.pending2FA = { requires2FA: false, adminId: null };
+      state.pendingAdminId = null;
+      state.initialBackupCodes = null;
       state.error = null;
     });
   },
 });
 
-export const { clearAuthError, resetPending2FA, updateUserSecurityState } = authSlice.actions;
+export const {
+  clearAuthError,
+  resetAuthState,
+  clearInitialBackupCodes,
+  updateUserSecurityState,
+} = authSlice.actions;
+
 export default authSlice.reducer;

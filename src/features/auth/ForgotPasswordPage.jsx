@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Form, Input, Button, Typography, Alert, Space } from 'antd';
-import { MailOutlined, ArrowLeftOutlined, CheckCircleOutlined } from '@ant-design/icons';
+import { MailOutlined, ArrowLeftOutlined, CheckCircleOutlined, LockOutlined } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import api from '../../services/api.js';
@@ -22,7 +22,6 @@ export function ForgotPasswordPage() {
       await api.post('/auth/forgot-password', { email: values.email });
       setSubmitted(true);
     } catch (error) {
-      // In case of network error or rate limit
       setErrorMessage(error.response?.data?.error || t('auth.networkError'));
     } finally {
       setSubmitting(false);
@@ -32,10 +31,26 @@ export function ForgotPasswordPage() {
   return (
     <div>
       <div style={{ textAlign: 'center', marginBottom: 24 }}>
-        <Title level={3} style={{ margin: 0, fontSize: 22, fontWeight: 700 }}>
+        <div
+          style={{
+            width: 44,
+            height: 44,
+            borderRadius: '50%',
+            backgroundColor: '#eaf5f8',
+            color: brandTokens.navy,
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 20,
+            marginBottom: 12,
+          }}
+        >
+          <LockOutlined />
+        </div>
+        <Title level={3} style={{ margin: 0, fontSize: 24, fontWeight: 700 }}>
           {t('forgotPassword.title')}
         </Title>
-        <Paragraph type="secondary" style={{ marginTop: 8, fontSize: 13 }}>
+        <Paragraph type="secondary" style={{ marginTop: 6, fontSize: 13 }}>
           {t('forgotPassword.subtitle')}
         </Paragraph>
       </div>
@@ -47,11 +62,11 @@ export function ForgotPasswordPage() {
             showIcon
             icon={<CheckCircleOutlined />}
             message={t('forgotPassword.successAlert')}
-            style={{ marginBottom: 24, borderRadius: 8 }}
+            style={{ marginBottom: 24, borderRadius: 8, fontSize: 13 }}
           />
 
           <Link to="/login" style={{ textDecoration: 'none' }}>
-            <Button type="primary" size="large" block>
+            <Button type="primary" size="large" block style={{ height: 44, fontWeight: 600 }}>
               {t('forgotPassword.backToSignIn')}
             </Button>
           </Link>
@@ -87,6 +102,7 @@ export function ForgotPasswordPage() {
                 prefix={<MailOutlined style={{ color: brandTokens.muted }} />}
                 placeholder={t('auth.emailPlaceholder')}
                 size="large"
+                style={{ height: 44 }}
                 autoFocus
               />
             </Form.Item>
@@ -99,6 +115,7 @@ export function ForgotPasswordPage() {
                 block
                 loading={submitting}
                 disabled={submitting}
+                style={{ height: 44, fontWeight: 600 }}
               >
                 {submitting ? t('forgotPassword.submitting') : t('forgotPassword.submitButton')}
               </Button>

@@ -54,7 +54,7 @@ export function AdminShell() {
     {
       key: '/admin',
       icon: <DashboardOutlined />,
-      label: t('shell.overview'),
+      label: t('shell.dashboard'),
     },
     {
       key: '/admin/security',

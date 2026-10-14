@@ -22,6 +22,8 @@ import {
   DownloadOutlined,
   ReloadOutlined,
   LockOutlined,
+  UserOutlined,
+  MailOutlined,
 } from '@ant-design/icons';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
@@ -52,6 +54,54 @@ export function SecuritySettingsPage() {
   const [regenLoading, setRegenLoading] = useState(false);
   const [regenError, setRegenError] = useState(null);
   const [regenForm] = Form.useForm();
+
+  // Profile Update State
+  const [profileForm] = Form.useForm();
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileError, setProfileError] = useState(null);
+
+  // Change Password State
+  const [pwdForm] = Form.useForm();
+  const [pwdLoading, setPwdLoading] = useState(false);
+  const [pwdError, setPwdError] = useState(null);
+
+  // Update Profile (Name & Email Identifier)
+  const handleUpdateProfile = async (values) => {
+    setProfileLoading(true);
+    setProfileError(null);
+    try {
+      const res = await api.patch('/admin/profile', {
+        name: values.name,
+        email: values.email,
+        currentPassword: values.currentPassword,
+      });
+      dispatch(updateUserSecurityState(res.data.user));
+      profileForm.setFieldsValue({ currentPassword: '' });
+      message.success(t('profile.updateSuccess'));
+    } catch (err) {
+      setProfileError(err.response?.data?.error || 'Failed to update profile');
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
+  // Change Password
+  const handleChangePassword = async (values) => {
+    setPwdLoading(true);
+    setPwdError(null);
+    try {
+      await api.post('/admin/change-password', {
+        currentPassword: values.currentPassword,
+        newPassword: values.newPassword,
+      });
+      pwdForm.resetFields();
+      message.success(t('profile.changePasswordSuccess'));
+    } catch (err) {
+      setPwdError(err.response?.data?.error || 'Failed to change password');
+    } finally {
+      setPwdLoading(false);
+    }
+  };
 
   // Start 2FA Setup
   const handleStartEnrollment = async () => {
@@ -219,6 +269,164 @@ export function SecuritySettingsPage() {
             )}
           </Col>
         </Row>
+      </Card>
+
+      {/* Administrator Profile & Login Identifier Card */}
+      <Card
+        title={
+          <Space>
+            <UserOutlined style={{ color: brandTokens.navy }} />
+            <span>{t('profile.title')}</span>
+          </Space>
+        }
+        style={{ borderRadius: 12, marginBottom: 24 }}
+      >
+        <Paragraph type="secondary" style={{ marginBottom: 20 }}>
+          {t('profile.subtitle')}
+        </Paragraph>
+
+        {profileError && (
+          <Alert
+            message={profileError}
+            type="error"
+            showIcon
+            closable
+            onClose={() => setProfileError(null)}
+            style={{ marginBottom: 16, borderRadius: 8 }}
+          />
+        )}
+
+        <Form
+          form={profileForm}
+          layout="vertical"
+          onFinish={handleUpdateProfile}
+          initialValues={{
+            name: user?.name,
+            email: user?.email,
+          }}
+        >
+          <Row gutter={[16, 0]}>
+            <Col xs={24} md={12}>
+              <Form.Item
+                name="name"
+                label={t('profile.nameLabel')}
+                rules={[{ required: true, message: t('profile.namePlaceholder') }]}
+              >
+                <Input
+                  prefix={<UserOutlined style={{ color: brandTokens.muted }} />}
+                  placeholder={t('profile.namePlaceholder')}
+                  size="large"
+                />
+              </Form.Item>
+            </Col>
+
+            <Col xs={24} md={12}>
+              <Form.Item
+                name="email"
+                label={t('profile.emailLabel')}
+                rules={[
+                  { required: true, message: t('validation.emailRequired') },
+                  { type: 'email', message: t('validation.emailInvalid') },
+                ]}
+              >
+                <Input
+                  prefix={<MailOutlined style={{ color: brandTokens.muted }} />}
+                  placeholder="admin@company.com"
+                  size="large"
+                />
+              </Form.Item>
+            </Col>
+          </Row>
+
+          <Form.Item
+            name="currentPassword"
+            label={t('profile.currentPasswordPrompt')}
+            rules={[{ required: true, message: t('validation.passwordRequired') }]}
+            style={{ maxWidth: 400 }}
+          >
+            <Input.Password
+              prefix={<LockOutlined style={{ color: brandTokens.muted }} />}
+              placeholder={t('profile.currentPasswordPlaceholder')}
+              size="large"
+            />
+          </Form.Item>
+
+          <Button
+            type="primary"
+            htmlType="submit"
+            size="large"
+            loading={profileLoading}
+            style={{ fontWeight: 600 }}
+          >
+            {t('profile.updateButton')}
+          </Button>
+        </Form>
+      </Card>
+
+      {/* Change Password Card */}
+      <Card
+        title={
+          <Space>
+            <LockOutlined style={{ color: brandTokens.navy }} />
+            <span>{t('profile.changePasswordTitle')}</span>
+          </Space>
+        }
+        style={{ borderRadius: 12, marginBottom: 24 }}
+      >
+        {pwdError && (
+          <Alert
+            message={pwdError}
+            type="error"
+            showIcon
+            closable
+            onClose={() => setPwdError(null)}
+            style={{ marginBottom: 16, borderRadius: 8 }}
+          />
+        )}
+
+        <Form
+          form={pwdForm}
+          layout="vertical"
+          onFinish={handleChangePassword}
+          style={{ maxWidth: 480 }}
+        >
+          <Form.Item
+            name="currentPassword"
+            label={t('profile.currentPasswordLabel')}
+            rules={[{ required: true, message: t('validation.passwordRequired') }]}
+          >
+            <Input.Password
+              prefix={<LockOutlined style={{ color: brandTokens.muted }} />}
+              placeholder={t('profile.currentPasswordPlaceholder')}
+              size="large"
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="newPassword"
+            label={t('profile.newPasswordLabel')}
+            rules={[
+              { required: true, message: t('validation.passwordRequired') },
+              { min: 8, message: t('validation.passwordMinLength') },
+            ]}
+          >
+            <Input.Password
+              prefix={<LockOutlined style={{ color: brandTokens.muted }} />}
+              placeholder={t('profile.newPasswordPlaceholder')}
+              size="large"
+            />
+          </Form.Item>
+
+          <Button
+            type="primary"
+            htmlType="submit"
+            size="large"
+            loading={pwdLoading}
+            style={{ fontWeight: 600 }}
+          >
+            {t('profile.changePasswordButton')}
+          </Button>
+        </Form>
       </Card>
 
       {/* 2FA Enrollment Modal */}
