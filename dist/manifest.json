@@ -1,0 +1,15 @@
+{
+  "short_name": "RecruiTrain",
+  "name": "RecruiTrain Admin Portal",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2316313f'><rect width='24' height='24' rx='6' fill='%2316313f'/><path d='M12 2L4 6v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V6l-9-4z' fill='%234fa8c0'/></svg>",
+      "type": "image/svg+xml",
+      "sizes": "192x192 512x512"
+    }
+  ],
+  "start_url": "/admin",
+  "background_color": "#16313f",
+  "theme_color": "#16313f",
+  "display": "standalone"
+}
