@@ -26,7 +26,9 @@ function renderWithProviders(ui, { initialState = {}, route = '/login' } = {}) {
     store,
     ...render(
       <Provider store={store}>
-        <MemoryRouter initialEntries={[route]}>{ui}</MemoryRouter>
+        <MemoryRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }} initialEntries={[route]}>
+          {ui}
+        </MemoryRouter>
       </Provider>
     ),
   };

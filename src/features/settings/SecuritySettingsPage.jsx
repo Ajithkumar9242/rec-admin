@@ -438,7 +438,7 @@ export function SecuritySettingsPage() {
           enrollForm.resetFields();
         }}
         footer={null}
-        destroyOnClose
+        destroyOnHidden
         centered
         width={480}
       >
@@ -606,7 +606,7 @@ export function SecuritySettingsPage() {
           regenForm.resetFields();
         }}
         footer={null}
-        destroyOnClose
+        destroyOnHidden
         centered
       >
         <Paragraph type="secondary" style={{ marginTop: 8 }}>

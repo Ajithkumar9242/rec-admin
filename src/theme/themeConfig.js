@@ -39,15 +39,15 @@ export function getAntdTheme(isDarkMode = false) {
         boxShadowCard: semantic.boxShadow,
       },
       Layout: {
-        colorBgBody: semantic.bgApp,
-        colorBgHeader: isDarkMode ? '#12242f' : '#16313f',
-        colorBgSider: isDarkMode ? '#0d1a22' : '#16313f',
+        bodyBg: semantic.bgApp,
+        headerBg: isDarkMode ? '#12242f' : '#16313f',
+        siderBg: isDarkMode ? '#0d1a22' : '#16313f',
       },
       Menu: {
-        colorItemBg: 'transparent',
-        colorItemText: isDarkMode ? '#8fa9b5' : '#b8ced6',
-        colorItemTextSelected: '#ffffff',
-        colorItemBgSelected: brandTokens.teal,
+        itemBg: 'transparent',
+        itemColor: isDarkMode ? '#8fa9b5' : '#b8ced6',
+        itemSelectedColor: '#ffffff',
+        itemSelectedBg: brandTokens.teal,
         borderRadius: 6,
       },
       Typography: {

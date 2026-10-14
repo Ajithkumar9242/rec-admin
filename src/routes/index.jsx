@@ -7,7 +7,7 @@ import { AdminShell } from '../components/AdminShell.jsx';
 import { LoginPage } from '../features/auth/LoginPage.jsx';
 import { ForgotPasswordPage } from '../features/auth/ForgotPasswordPage.jsx';
 import { ResetPasswordPage } from '../features/auth/ResetPasswordPage.jsx';
-import { OverviewPage } from '../features/dashboard/OverviewPage.jsx';
+import { DashboardPage } from '../features/dashboard/DashboardPage.jsx';
 import { SecuritySettingsPage } from '../features/settings/SecuritySettingsPage.jsx';
 
 function RootRedirect() {
@@ -61,7 +61,7 @@ export function AppRoutes() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<OverviewPage />} />
+        <Route index element={<DashboardPage />} />
         <Route path="security" element={<SecuritySettingsPage />} />
       </Route>
 

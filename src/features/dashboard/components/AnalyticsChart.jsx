@@ -21,13 +21,15 @@ export function AnalyticsChart({
     return (
       <Card
         style={{ borderRadius: 12, border: '1px solid #dce9ed', minHeight: 280 }}
-        bodyStyle={{
-          padding: 24,
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minHeight: 230,
+        styles={{
+          body: {
+            padding: 24,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            minHeight: 230,
+          },
         }}
       >
         <Empty
@@ -124,7 +126,7 @@ export function AnalyticsChart({
         </Space>
       }
       style={{ borderRadius: 12, border: '1px solid #dce9ed' }}
-      bodyStyle={{ padding: '16px 20px 20px 20px' }}
+      styles={{ body: { padding: '16px 20px 20px 20px' } }}
     >
       <div style={{ width: '100%', overflowX: 'auto' }}>
         <svg

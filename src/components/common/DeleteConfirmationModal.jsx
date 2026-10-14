@@ -49,7 +49,7 @@ export function DeleteConfirmationModal({
           {mode === 'MOVE_TO_TRASH' ? t('trash.moveToTrash') : t('trash.permanentDelete')}
         </Button>,
       ]}
-      destroyOnClose
+      destroyOnHidden
     >
       <div style={{ padding: '8px 0' }}>
         <Paragraph>

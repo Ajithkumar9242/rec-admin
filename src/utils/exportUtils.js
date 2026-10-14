@@ -20,7 +20,7 @@ export function sanitizeCellForCsv(value) {
   str = str.replace(/\r\n/g, ' ').replace(/[\r\n]/g, ' ');
 
   // Defend against formula injection (CWE-1236)
-  if (/^[=+\-@\t\r]/.test(str)) {
+  if (/^[=+\-@\t]/.test(str)) {
     str = `'${str}`;
   }
 

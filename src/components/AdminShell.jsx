@@ -9,6 +9,7 @@ import {
   Dropdown,
   Popconfirm,
   Badge,
+  Grid,
   theme,
 } from 'antd';
 import {
@@ -36,6 +37,7 @@ const { Header, Sider, Content } = Layout;
 
 export function AdminShell() {
   const [collapsed, setCollapsed] = useState(false);
+  const screens = Grid.useBreakpoint() || {};
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useDispatch();
@@ -44,6 +46,7 @@ export function AdminShell() {
   const isDarkMode = useSelector((state) => state.theme.isDarkMode);
 
   const semantic = isDarkMode ? darkSemanticTokens : lightSemanticTokens;
+  const isMobile = Boolean(screens.xs);
 
   const handleLogout = async () => {
     await dispatch(logoutUser());
@@ -126,26 +129,47 @@ export function AdminShell() {
   ];
 
   return (
-    <Layout style={{ minHeight: '100vh', background: semantic.bgApp }}>
+    <Layout
+      style={{
+        height: '100dvh',
+        minHeight: '100vh',
+        overflow: 'hidden',
+        background: semantic.bgApp,
+        display: 'flex',
+        flexDirection: 'row',
+      }}
+    >
       <Sider
         trigger={null}
         collapsible
         collapsed={collapsed}
+        breakpoint="lg"
+        collapsedWidth={isMobile ? 0 : 80}
+        onBreakpoint={(broken) => {
+          if (broken) setCollapsed(true);
+        }}
         width={240}
         style={{
+          height: '100%',
+          maxHeight: '100dvh',
           background: isDarkMode ? '#12242f' : '#16313f',
           boxShadow: '2px 0 8px rgba(0,0,0,0.15)',
-          zIndex: 10,
+          zIndex: 100,
+          display: 'flex',
+          flexDirection: 'column',
+          flexShrink: 0,
         }}
       >
         <div
           style={{
             height: 64,
+            minHeight: 64,
             display: 'flex',
             alignItems: 'center',
             justifyContent: collapsed ? 'center' : 'flex-start',
             padding: collapsed ? '0' : '0 20px',
             borderBottom: `1px solid ${isDarkMode ? '#1d3848' : '#1e3d4e'}`,
+            flexShrink: 0,
           }}
         >
           {collapsed ? (
@@ -172,31 +196,54 @@ export function AdminShell() {
           )}
         </div>
 
-        <Menu
-          theme="dark"
-          mode="inline"
-          selectedKeys={[location.pathname]}
-          items={menuItems}
-          onClick={handleMenuClick}
+        <div
           style={{
-            background: 'transparent',
-            padding: '12px 8px',
-            borderRight: 'none',
+            flex: 1,
+            minHeight: 0,
+            overflowY: 'auto',
+            overflowX: 'hidden',
           }}
-        />
+        >
+          <Menu
+            theme="dark"
+            mode="inline"
+            selectedKeys={[location.pathname]}
+            items={menuItems}
+            onClick={handleMenuClick}
+            style={{
+              background: 'transparent',
+              padding: '12px 8px',
+              borderRight: 'none',
+            }}
+          />
+        </div>
       </Sider>
 
-      <Layout style={{ background: semantic.bgApp }}>
+      <Layout
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          flex: 1,
+          height: '100%',
+          minHeight: 0,
+          minWidth: 0,
+          background: semantic.bgApp,
+          overflow: 'hidden',
+        }}
+      >
         <Header
           style={{
-            padding: '0 24px',
+            padding: isMobile ? '0 12px' : '0 24px',
             background: semantic.bgSurface,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             borderBottom: `1px solid ${semantic.borderDefault}`,
             height: 64,
+            minHeight: 64,
             lineHeight: '64px',
+            flexShrink: 0,
+            zIndex: 10,
           }}
         >
           <Button
@@ -206,14 +253,16 @@ export function AdminShell() {
             style={{ fontSize: 16, width: 40, height: 40 }}
           />
 
-          <Space size={16} align="center">
-            <Badge status="success" text={t('shell.platformStatus')} style={{ marginRight: 8 }} />
+          <Space size={isMobile ? 8 : 16} align="center">
+            {!isMobile && (
+              <Badge status="success" text={t('shell.platformStatus')} style={{ marginRight: 8 }} />
+            )}
             <ThemeSwitcher />
             <LanguageSwitcher />
 
             <Dropdown menu={{ items: userMenuItems }} trigger={['click']}>
               <Button type="text" style={{ padding: '4px 8px', height: 'auto' }}>
-                <Space align="center">
+                <Space align="center" size={6}>
                   <Avatar
                     style={{
                       backgroundColor: brandTokens.navy,
@@ -224,9 +273,11 @@ export function AdminShell() {
                   >
                     {user?.name?.[0]?.toUpperCase()}
                   </Avatar>
-                  <span style={{ fontWeight: 500, color: semantic.textPrimary }}>
-                    {user?.name}
-                  </span>
+                  {!isMobile && (
+                    <span style={{ fontWeight: 500, color: semantic.textPrimary }}>
+                      {user?.name}
+                    </span>
+                  )}
                 </Space>
               </Button>
             </Dropdown>
@@ -249,9 +300,13 @@ export function AdminShell() {
 
         <Content
           style={{
-            margin: '24px',
-            padding: 0,
-            minHeight: 280,
+            flex: 1,
+            minHeight: 0,
+            minWidth: 0,
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            padding: isMobile ? '16px' : '24px',
+            boxSizing: 'border-box',
           }}
         >
           <Outlet />

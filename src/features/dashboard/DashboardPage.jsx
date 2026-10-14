@@ -231,24 +231,35 @@ export function DashboardPage() {
         </div>
 
         {/* Global Toolbar */}
-        <Space wrap size={12}>
+        <Space wrap size={12} align="center">
           <RangePicker
             value={dateRange}
             onChange={handleDateChange}
             allowClear={false}
+            placeholder={[t('dashboard.from'), t('dashboard.to')]}
             style={{ borderRadius: 6 }}
           />
 
-          <Select
-            value={groupBy}
-            onChange={(val) => setGroupBy(val)}
-            style={{ width: 120 }}
-            options={[
-              { value: 'day', label: `${t('dashboard.groupBy')}: ${t('dashboard.day')}` },
-              { value: 'month', label: `${t('dashboard.groupBy')}: ${t('dashboard.month')}` },
-              { value: 'year', label: `${t('dashboard.groupBy')}: ${t('dashboard.year')}` },
-            ]}
-          />
+          <Space size={6} align="center">
+            <label
+              htmlFor="dashboard-group-by-select"
+              style={{ fontSize: 13, fontWeight: 500, color: '#5c7480', cursor: 'pointer' }}
+            >
+              {t('dashboard.groupBy')}:
+            </label>
+            <Select
+              id="dashboard-group-by-select"
+              aria-label={t('dashboard.groupBy')}
+              value={groupBy}
+              onChange={(val) => setGroupBy(val)}
+              style={{ width: 110 }}
+              options={[
+                { value: 'day', label: t('dashboard.day') },
+                { value: 'month', label: t('dashboard.month') },
+                { value: 'year', label: t('dashboard.year') },
+              ]}
+            />
+          </Space>
 
           <Button onClick={handleResetFilters}>
             {t('dashboard.resetFilter')}
@@ -278,6 +289,11 @@ export function DashboardPage() {
           message={fetchError}
           type="error"
           showIcon
+          action={
+            <Button size="small" danger onClick={() => fetchDashboard(dateRange, groupBy)}>
+              {t('common.retry') || 'Retry'}
+            </Button>
+          }
           style={{ marginBottom: 20, borderRadius: 8 }}
         />
       )}
@@ -288,9 +304,9 @@ export function DashboardPage() {
           {/* Active Jobs */}
           <Col xs={24} sm={12} lg={6}>
             <Card
-              bordered
+              variant="outlined"
               style={{ borderRadius: 12, border: '1px solid #dce9ed' }}
-              bodyStyle={{ padding: 18 }}
+              styles={{ body: { padding: 18 } }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <Statistic
@@ -310,9 +326,9 @@ export function DashboardPage() {
           {/* Inactive Jobs */}
           <Col xs={24} sm={12} lg={6}>
             <Card
-              bordered
+              variant="outlined"
               style={{ borderRadius: 12, border: '1px solid #dce9ed' }}
-              bodyStyle={{ padding: 18 }}
+              styles={{ body: { padding: 18 } }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <Statistic
@@ -332,9 +348,9 @@ export function DashboardPage() {
           {/* Total Companies / Employers */}
           <Col xs={24} sm={12} lg={6}>
             <Card
-              bordered
+              variant="outlined"
               style={{ borderRadius: 12, border: '1px solid #dce9ed' }}
-              bodyStyle={{ padding: 18 }}
+              styles={{ body: { padding: 18 } }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <Statistic
@@ -355,9 +371,9 @@ export function DashboardPage() {
           {/* Total Candidates */}
           <Col xs={24} sm={12} lg={6}>
             <Card
-              bordered
+              variant="outlined"
               style={{ borderRadius: 12, border: '1px solid #dce9ed' }}
-              bodyStyle={{ padding: 18 }}
+              styles={{ body: { padding: 18 } }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <Statistic
@@ -378,14 +394,14 @@ export function DashboardPage() {
           {/* Connected Real Metrics: Active Administrators */}
           <Col xs={24} sm={12} lg={6}>
             <Card
-              bordered
+              variant="outlined"
               style={{ borderRadius: 12, border: '1px solid #dce9ed' }}
-              bodyStyle={{ padding: 18 }}
+              styles={{ body: { padding: 18 } }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <Statistic
                   title={t('dashboard.activeAdmins')}
-                  value={kpis?.activeAdmins?.count ?? (loading ? '...' : 1)}
+                  value={kpis?.activeAdmins?.count ?? (loading ? '...' : (fetchError ? '—' : 1))}
                   valueStyle={{ fontSize: 24, fontWeight: 700, color: brandTokens.teal }}
                   prefix={<CheckCircleOutlined style={{ color: brandTokens.teal, marginRight: 8, fontSize: 18 }} />}
                 />
@@ -399,14 +415,14 @@ export function DashboardPage() {
           {/* Connected Real Metrics: Total Administrators */}
           <Col xs={24} sm={12} lg={6}>
             <Card
-              bordered
+              variant="outlined"
               style={{ borderRadius: 12, border: '1px solid #dce9ed' }}
-              bodyStyle={{ padding: 18 }}
+              styles={{ body: { padding: 18 } }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <Statistic
                   title={t('dashboard.totalAdmins')}
-                  value={kpis?.totalAdmins?.count ?? (loading ? '...' : 1)}
+                  value={kpis?.totalAdmins?.count ?? (loading ? '...' : (fetchError ? '—' : 1))}
                   valueStyle={{ fontSize: 24, fontWeight: 700, color: brandTokens.navy }}
                   prefix={<TeamOutlined style={{ color: brandTokens.navy, marginRight: 8, fontSize: 18 }} />}
                 />
@@ -420,14 +436,14 @@ export function DashboardPage() {
           {/* Connected Real Metrics: Security Events */}
           <Col xs={24} sm={12} lg={6}>
             <Card
-              bordered
+              variant="outlined"
               style={{ borderRadius: 12, border: '1px solid #dce9ed' }}
-              bodyStyle={{ padding: 18 }}
+              styles={{ body: { padding: 18 } }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <Statistic
                   title={t('dashboard.securityEvents')}
-                  value={kpis?.totalAuditEvents?.count ?? (loading ? '...' : 0)}
+                  value={kpis?.totalAuditEvents?.count ?? (loading ? '...' : (fetchError ? '—' : 0))}
                   valueStyle={{ fontSize: 24, fontWeight: 700, color: brandTokens.amber }}
                   prefix={<AuditOutlined style={{ color: brandTokens.amber, marginRight: 8, fontSize: 18 }} />}
                 />
@@ -441,14 +457,14 @@ export function DashboardPage() {
           {/* Connected Real Metrics: MFA Adoption */}
           <Col xs={24} sm={12} lg={6}>
             <Card
-              bordered
+              variant="outlined"
               style={{ borderRadius: 12, border: '1px solid #dce9ed' }}
-              bodyStyle={{ padding: 18 }}
+              styles={{ body: { padding: 18 } }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <Statistic
                   title={t('dashboard.mfaAdoption')}
-                  value={kpis?.mfaAdoption?.percentage ?? 100}
+                  value={kpis?.mfaAdoption?.percentage ?? (loading ? '...' : (fetchError ? '—' : 100))}
                   suffix="%"
                   valueStyle={{ fontSize: 24, fontWeight: 700, color: brandTokens.success }}
                   prefix={<SafetyCertificateOutlined style={{ color: brandTokens.success, marginRight: 8, fontSize: 18 }} />}
@@ -530,7 +546,7 @@ export function DashboardPage() {
               </Space>
             }
             style={{ borderRadius: 12, border: '1px solid #dce9ed', minHeight: 330 }}
-            bodyStyle={{ padding: 20 }}
+            styles={{ body: { padding: 20 } }}
           >
             <div
               style={{

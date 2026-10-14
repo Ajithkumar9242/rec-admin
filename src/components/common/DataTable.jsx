@@ -27,6 +27,19 @@ import { exportToCsv } from '../../utils/exportUtils.js';
 const { Text } = Typography;
 
 /**
+ * Standard Status Tag Badge for Active/Inactive and boolean flags
+ */
+export function StatusBadge({ status, activeLabel, inactiveLabel }) {
+  const { t } = useTranslation();
+  const isActive = String(status).toUpperCase() === 'ACTIVE' || status === true;
+  return (
+    <Tag color={isActive ? 'success' : 'default'}>
+      {isActive ? (activeLabel || t('common.active')) : (inactiveLabel || t('common.inactive'))}
+    </Tag>
+  );
+}
+
+/**
  * Reusable Standard DataTable Component
  *
  * Provides canonical patterns for upcoming entity management modules:
@@ -93,14 +106,7 @@ export function DataTable({
     if (statusColIndex !== -1 && !list[statusColIndex].render) {
       list[statusColIndex] = {
         ...list[statusColIndex],
-        render: (status) => {
-          const isActive = String(status).toUpperCase() === 'ACTIVE' || status === true;
-          return (
-            <Tag color={isActive ? 'success' : 'default'}>
-              {isActive ? t('common.active') : t('common.inactive')}
-            </Tag>
-          );
-        },
+        render: (status) => <StatusBadge status={status} />,
       };
     }
 
@@ -164,7 +170,7 @@ export function DataTable({
   return (
     <Card
       style={{ borderRadius: 12, border: '1px solid #dce9ed' }}
-      bodyStyle={{ padding: 20 }}
+      styles={{ body: { padding: 20 } }}
     >
       {(title || subtitle || searchable || exportable || onCreate) && (
         <div
