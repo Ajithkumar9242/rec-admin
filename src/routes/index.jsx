@@ -9,6 +9,10 @@ import { ForgotPasswordPage } from '../features/auth/ForgotPasswordPage.jsx';
 import { ResetPasswordPage } from '../features/auth/ResetPasswordPage.jsx';
 import { DashboardPage } from '../features/dashboard/DashboardPage.jsx';
 import { SecuritySettingsPage } from '../features/settings/SecuritySettingsPage.jsx';
+import { PlansPage } from '../features/billing/PlansPage.jsx';
+import { SubscriptionsPage } from '../features/billing/SubscriptionsPage.jsx';
+import { InvoicesPage } from '../features/billing/InvoicesPage.jsx';
+import { BillingAnalyticsPage } from '../features/billing/BillingAnalyticsPage.jsx';
 
 function RootRedirect() {
   const { isAuthenticated, isInitialized } = useSelector((state) => state.auth);
@@ -63,6 +67,13 @@ export function AppRoutes() {
       >
         <Route index element={<DashboardPage />} />
         <Route path="security" element={<SecuritySettingsPage />} />
+        
+        {/* Phase 3: Billing & Subscriptions Routes */}
+        <Route path="billing" element={<Navigate to="/admin/billing/plans" replace />} />
+        <Route path="billing/plans" element={<PlansPage />} />
+        <Route path="billing/subscriptions" element={<SubscriptionsPage />} />
+        <Route path="billing/invoices" element={<InvoicesPage />} />
+        <Route path="billing/analytics" element={<BillingAnalyticsPage />} />
       </Route>
 
       {/* Catch-all */}

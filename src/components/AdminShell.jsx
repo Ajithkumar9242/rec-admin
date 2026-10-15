@@ -86,15 +86,32 @@ export function AdminShell() {
       disabled: true,
     },
     {
-      key: 'billing-future',
+      key: 'billing-group',
       icon: <CreditCardOutlined />,
       label: t('shell.billing'),
-      disabled: true,
+      children: [
+        {
+          key: '/admin/billing/plans',
+          label: t('shell.plans'),
+        },
+        {
+          key: '/admin/billing/subscriptions',
+          label: t('shell.subscriptions'),
+        },
+        {
+          key: '/admin/billing/invoices',
+          label: t('shell.invoices'),
+        },
+        {
+          key: '/admin/billing/analytics',
+          label: t('shell.billingAnalytics'),
+        },
+      ],
     },
   ];
 
   const handleMenuClick = ({ key }) => {
-    if (!key.includes('future')) {
+    if (key.startsWith('/admin')) {
       navigate(key);
     }
   };

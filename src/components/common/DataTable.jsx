@@ -249,6 +249,13 @@ export function DataTable({
           message={error}
           type="error"
           showIcon
+          action={
+            onRefresh && (
+              <Button size="small" danger onClick={onRefresh}>
+                {t('common.retry') || 'Retry'}
+              </Button>
+            )
+          }
           style={{ marginBottom: 16, borderRadius: 6 }}
         />
       )}
