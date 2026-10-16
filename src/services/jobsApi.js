@@ -16,8 +16,11 @@ export const jobsApi = {
   updateJobStatus: (id, data) =>
     api.patch(`/jobs/${id}/status`, data).then((res) => res.data),
 
-  deleteJob: (id) =>
-    api.delete(`/jobs/${id}`).then((res) => res.data),
+  deleteJob: (id, mode = 'MOVE_TO_TRASH') =>
+    api.delete(`/jobs/${id}`, { params: { mode } }).then((res) => res.data),
+
+  restoreJob: (id) =>
+    api.post(`/jobs/${id}/restore`).then((res) => res.data),
 
   getJobApplicants: (id, params) =>
     api.get(`/jobs/${id}/applicants`, { params }).then((res) => res.data),

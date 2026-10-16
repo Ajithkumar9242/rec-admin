@@ -18,6 +18,7 @@ import {
   Spin,
   Alert,
   Tooltip,
+  Popconfirm,
 } from 'antd';
 import {
   ArrowLeftOutlined,
@@ -325,6 +326,11 @@ export function JobDetailsPage() {
                   </Title>
                   {job.jobCode && <Tag style={{ fontWeight: 600 }}>{job.jobCode}</Tag>}
                   {getStatusTag(job.status)}
+                  {job.deletedAt && (
+                    <Tag color="volcano" style={{ fontWeight: 600 }}>
+                      In Trash ({new Date(job.deletedAt).toLocaleDateString()})
+                    </Tag>
+                  )}
                   {getScopeTag(job.hiringScope)}
                 </Space>
                 <div style={{ marginTop: 6 }}>
@@ -348,15 +354,17 @@ export function JobDetailsPage() {
           {/* Action Buttons */}
           <Col xs={24} md={8} style={{ textAlign: 'right' }}>
             <Space wrap>
-              <Button
-                icon={<EditOutlined />}
-                onClick={() => navigate(`/admin/jobs/${id}/edit`)}
-              >
-                {t('jobs.actions.edit')}
-              </Button>
+              {!job.deletedAt && (
+                <Button
+                  icon={<EditOutlined />}
+                  onClick={() => navigate(`/admin/jobs/${id}/edit`)}
+                >
+                  {t('jobs.actions.edit')}
+                </Button>
+              )}
 
               {/* Status Moderation */}
-              {job.status === 'DRAFT' || job.status === 'CLOSED' ? (
+              {!job.deletedAt && (job.status === 'DRAFT' || job.status === 'CLOSED') ? (
                 <Button
                   type="primary"
                   icon={<CheckCircleOutlined />}
@@ -367,7 +375,7 @@ export function JobDetailsPage() {
                 </Button>
               ) : null}
 
-              {job.status === 'PUBLISHED' ? (
+              {!job.deletedAt && job.status === 'PUBLISHED' ? (
                 <>
                   <Button
                     icon={<ClockCircleOutlined />}
@@ -385,14 +393,40 @@ export function JobDetailsPage() {
                 </>
               ) : null}
 
-              {job.status !== 'ARCHIVED' && (
-                <Button
-                  danger
-                  icon={<DeleteOutlined />}
-                  onClick={handleArchiveJob}
+              {job.deletedAt ? (
+                <Popconfirm
+                  title={t('jobs.restoreTitle', 'Restore Job?')}
+                  description={`Restore "${job.title}" back to Active Jobs (Draft status)?`}
+                  onConfirm={async () => {
+                    try {
+                      const res = await jobsApi.restoreJob(job.id);
+                      message.success(res.message || 'Job restored successfully.');
+                      fetchJob();
+                    } catch (err) {
+                      const errMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'Restore failed';
+                      message.error(errMsg);
+                    }
+                  }}
+                  okText="Restore"
+                  cancelText="Cancel"
                 >
-                  {t('jobs.actions.archive')}
-                </Button>
+                  <Button
+                    type="primary"
+                    style={{ backgroundColor: '#10b981', borderColor: '#10b981' }}
+                  >
+                    Restore from Trash
+                  </Button>
+                </Popconfirm>
+              ) : (
+                job.status !== 'ARCHIVED' && (
+                  <Button
+                    danger
+                    icon={<DeleteOutlined />}
+                    onClick={handleArchiveJob}
+                  >
+                    {t('jobs.actions.archive')}
+                  </Button>
+                )
               )}
             </Space>
           </Col>

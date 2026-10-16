@@ -16,6 +16,7 @@ import {
   Dropdown,
   Popconfirm,
   Badge,
+  Tabs,
 } from 'antd';
 import {
   PlusOutlined,
@@ -31,10 +32,13 @@ import {
   StopOutlined,
   InboxOutlined,
   TeamOutlined,
+  UndoOutlined,
+  ExclamationCircleOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { DataTable } from '../../components/common/DataTable.jsx';
+import { DeleteConfirmationModal } from '../../components/common/DeleteConfirmationModal.jsx';
 import { jobsApi } from '../../services/jobsApi.js';
 import { companiesApi } from '../../services/companiesApi.js';
 import { brandTokens } from '../../theme/tokens.js';
@@ -47,6 +51,9 @@ export function JobsPage() {
   const navigate = useNavigate();
   const { message } = App.useApp();
 
+  // Active view tab ('active' | 'trash')
+  const [activeTab, setActiveTab] = useState('active');
+
   // State
   const [jobs, setJobs] = useState([]);
   const [counts, setCounts] = useState({
@@ -56,6 +63,7 @@ export function JobsPage() {
     PUBLISHED: 0,
     CLOSED: 0,
     ARCHIVED: 0,
+    TRASH: 0,
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -76,6 +84,12 @@ export function JobsPage() {
   const [moderationReason, setModerationReason] = useState('');
   const [submittingModeration, setSubmittingModeration] = useState(false);
 
+  // Delete / Trash state
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [selectedJobForDelete, setSelectedJobForDelete] = useState(null);
+  const [isPermanentOnly, setIsPermanentOnly] = useState(false);
+  const [submittingDelete, setSubmittingDelete] = useState(false);
+
   // Load companies for filter dropdown
   useEffect(() => {
     companiesApi
@@ -92,9 +106,13 @@ export function JobsPage() {
     setLoading(true);
     setError(null);
     try {
+      const isTrashView = activeTab === 'trash';
       const params = {
         page: pagination.current,
         limit: pagination.pageSize,
+        sortBy: isTrashView ? 'deletedAt' : 'createdAt',
+        sortOrder: 'desc',
+        trashed: isTrashView,
         ...(search.trim() ? { search: search.trim() } : {}),
         ...(statusFilter ? { status: statusFilter } : {}),
         ...(hiringScopeFilter ? { hiringScope: hiringScopeFilter } : {}),
@@ -115,13 +133,13 @@ export function JobsPage() {
         }));
       }
     } catch (err) {
-      const errMsg = err.response?.data?.message || err.message || 'Failed to load jobs';
+      const errMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to load jobs';
       setError(errMsg);
       message.error(errMsg);
     } finally {
       setLoading(false);
     }
-  }, [pagination.current, pagination.pageSize, search, statusFilter, hiringScopeFilter, employmentTypeFilter, companyFilter, message]);
+  }, [pagination.current, pagination.pageSize, search, statusFilter, hiringScopeFilter, employmentTypeFilter, companyFilter, activeTab, message]);
 
   useEffect(() => {
     fetchJobs();
@@ -155,15 +173,46 @@ export function JobsPage() {
     }
   };
 
-  // Handle delete (archive)
-  const handleDeleteJob = async (id) => {
+  // Handle delete (archive or permanent)
+  const handleOpenDelete = (job, permanent = false) => {
+    setSelectedJobForDelete(job);
+    setIsPermanentOnly(permanent);
+    setDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async (mode) => {
+    if (!selectedJobForDelete) return;
+    setSubmittingDelete(true);
     try {
-      await jobsApi.deleteJob(id);
-      message.success(t('jobs.messages.deleteSuccess'));
+      const res = await jobsApi.deleteJob(selectedJobForDelete.id, mode);
+      message.success(
+        mode === 'DELETE_PERMANENTLY'
+          ? (res.message || 'Job posting permanently deleted.')
+          : t('jobs.messages.deleteSuccess', 'Job posting moved to Trash.')
+      );
+      setDeleteModalOpen(false);
+      setSelectedJobForDelete(null);
       fetchJobs();
     } catch (err) {
-      const errMsg = err.response?.data?.message || err.message || 'Archive failed';
+      const errMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'Operation failed';
       message.error(errMsg);
+    } finally {
+      setSubmittingDelete(false);
+    }
+  };
+
+  // Handle restore from Trash
+  const handleRestoreJob = async (job) => {
+    try {
+      setLoading(true);
+      const res = await jobsApi.restoreJob(job.id);
+      message.success(res.message || `Job "${job.title}" restored successfully from Trash.`);
+      fetchJobs();
+    } catch (err) {
+      const errMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to restore job';
+      message.error(errMsg);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -355,27 +404,16 @@ export function JobsPage() {
           });
         }
 
-        if (record.status !== 'ARCHIVED') {
-          items.push({
-            type: 'divider',
-          });
-          items.push({
-            key: 'archive',
-            danger: true,
-            icon: <DeleteOutlined />,
-            label: t('jobs.actions.archive'),
-            onClick: () => {
-              Modal.confirm({
-                title: t('jobs.actions.archive'),
-                content: `Are you sure you want to archive job "${record.title}"?`,
-                okText: t('common.submit'),
-                cancelText: t('common.cancel'),
-                okButtonProps: { danger: true },
-                onOk: () => handleDeleteJob(record.id),
-              });
-            },
-          });
-        }
+        items.push({
+          type: 'divider',
+        });
+        items.push({
+          key: 'archive',
+          danger: true,
+          icon: <DeleteOutlined />,
+          label: t('jobs.actions.archive', 'Move to Trash'),
+          onClick: () => handleOpenDelete(record, false),
+        });
 
         return (
           <Space>
@@ -404,6 +442,145 @@ export function JobsPage() {
     },
   ];
 
+  // Trash Table Columns
+  const trashColumns = [
+    {
+      title: t('jobs.fields.jobTitle'),
+      key: 'title',
+      render: (_, record) => (
+        <div>
+          <a
+            onClick={() => navigate(`/admin/jobs/${record.id}`)}
+            style={{ fontWeight: 600, color: brandTokens.navy, cursor: 'pointer' }}
+          >
+            {record.title}
+          </a>
+          <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+            {record.jobCode ? (
+              <Tag style={{ margin: 0, padding: '0 4px', fontSize: 11 }}>{record.jobCode}</Tag>
+            ) : null}
+            {record.department && <span style={{ marginLeft: 6 }}>{record.department}</span>}
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: t('jobs.fields.company'),
+      key: 'company',
+      render: (_, record) => (
+        <div>
+          <div style={{ fontWeight: 500 }}>{record.company?.name || '—'}</div>
+          {record.company?.status && (
+            <Tag
+              color={record.company.status === 'ACTIVE' ? 'green' : 'default'}
+              style={{ fontSize: 10, lineHeight: '16px', padding: '0 4px', margin: '2px 0 0 0' }}
+            >
+              {record.company.status}
+            </Tag>
+          )}
+        </div>
+      ),
+    },
+    {
+      title: t('jobs.fields.workplaceType'),
+      key: 'location',
+      render: (_, record) => (
+        <div>
+          <div>{renderWorkplaceTag(record.workplaceType || record.workArrangement)}</div>
+          <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+            {[record.city, record.country].filter(Boolean).join(', ') || '—'}
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: t('companies.previousStatus', 'Previous Status'),
+      dataIndex: 'status',
+      key: 'status',
+      render: (status) => renderStatusTag(status),
+    },
+    {
+      title: t('companies.movedToTrashAt', 'Moved to Trash'),
+      dataIndex: 'deletedAt',
+      key: 'deletedAt',
+      render: (val) => {
+        if (!val) return '—';
+        const d = new Date(val);
+        return (
+          <Space direction="vertical" size={0}>
+            <Text style={{ fontSize: 13 }}>{d.toLocaleDateString()}</Text>
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              {d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </Text>
+          </Space>
+        );
+      },
+    },
+    {
+      title: t('companies.retentionStatus', 'Retention Window'),
+      key: 'retention',
+      render: (_, record) => {
+        if (!record.deletedAt) return '—';
+        const daysInTrash = Math.floor((Date.now() - new Date(record.deletedAt).getTime()) / (1000 * 3600 * 24));
+        const daysRemaining = Math.max(0, 30 - daysInTrash);
+        if (daysInTrash > 30) {
+          return (
+            <Tag color="error" icon={<ExclamationCircleOutlined />}>
+              Expired (&gt;30d) - Super Admin Only
+            </Tag>
+          );
+        }
+        return (
+          <Tag color="orange" icon={<ClockCircleOutlined />}>
+            {daysRemaining} day{daysRemaining === 1 ? '' : 's'} remaining
+          </Tag>
+        );
+      },
+    },
+    {
+      title: t('common.edit', 'Actions'),
+      key: 'actions',
+      align: 'right',
+      render: (_, record) => (
+        <Space>
+          <Popconfirm
+            title={t('jobs.restoreTitle', 'Restore Job?')}
+            description={`Restore "${record.title}" back to Active Jobs (Draft status)?`}
+            onConfirm={() => handleRestoreJob(record)}
+            okText={t('common.restore', 'Restore')}
+            cancelText={t('common.cancel', 'Cancel')}
+          >
+            <Button
+              type="primary"
+              size="small"
+              icon={<UndoOutlined />}
+              style={{ backgroundColor: '#10b981', borderColor: '#10b981' }}
+            >
+              {t('common.restore', 'Restore')}
+            </Button>
+          </Popconfirm>
+          <Tooltip title={t('jobs.actions.view')}>
+            <Button
+              type="text"
+              size="small"
+              icon={<EyeOutlined />}
+              onClick={() => navigate(`/admin/jobs/${record.id}`)}
+            />
+          </Tooltip>
+          <Tooltip title={t('trash.permanentDelete', 'Delete Permanently')}>
+            <Button
+              type="text"
+              size="small"
+              danger
+              icon={<DeleteOutlined />}
+              onClick={() => handleOpenDelete(record, true)}
+            />
+          </Tooltip>
+        </Space>
+      ),
+    },
+  ];
+
   return (
     <div style={{ padding: '0 4px' }}>
       {/* Page Header */}
@@ -422,13 +599,14 @@ export function JobsPage() {
             size="small"
             hoverable
             onClick={() => {
+              setActiveTab('active');
               setStatusFilter('');
               setPagination((p) => ({ ...p, current: 1 }));
             }}
             style={{
               cursor: 'pointer',
-              borderColor: statusFilter === '' ? brandTokens.navy : undefined,
-              backgroundColor: statusFilter === '' ? '#f8fafc' : undefined,
+              borderColor: activeTab === 'active' && statusFilter === '' ? brandTokens.navy : undefined,
+              backgroundColor: activeTab === 'active' && statusFilter === '' ? '#f8fafc' : undefined,
             }}
           >
             <Statistic
@@ -444,13 +622,14 @@ export function JobsPage() {
             size="small"
             hoverable
             onClick={() => {
+              setActiveTab('active');
               setStatusFilter('PUBLISHED');
               setPagination((p) => ({ ...p, current: 1 }));
             }}
             style={{
               cursor: 'pointer',
-              borderColor: statusFilter === 'PUBLISHED' ? '#16a34a' : undefined,
-              backgroundColor: statusFilter === 'PUBLISHED' ? '#f0fdf4' : undefined,
+              borderColor: activeTab === 'active' && statusFilter === 'PUBLISHED' ? '#16a34a' : undefined,
+              backgroundColor: activeTab === 'active' && statusFilter === 'PUBLISHED' ? '#f0fdf4' : undefined,
             }}
           >
             <Statistic
@@ -467,13 +646,14 @@ export function JobsPage() {
             size="small"
             hoverable
             onClick={() => {
+              setActiveTab('active');
               setStatusFilter('DRAFT');
               setPagination((p) => ({ ...p, current: 1 }));
             }}
             style={{
               cursor: 'pointer',
-              borderColor: statusFilter === 'DRAFT' ? '#64748b' : undefined,
-              backgroundColor: statusFilter === 'DRAFT' ? '#f1f5f9' : undefined,
+              borderColor: activeTab === 'active' && statusFilter === 'DRAFT' ? '#64748b' : undefined,
+              backgroundColor: activeTab === 'active' && statusFilter === 'DRAFT' ? '#f1f5f9' : undefined,
             }}
           >
             <Statistic
@@ -490,13 +670,14 @@ export function JobsPage() {
             size="small"
             hoverable
             onClick={() => {
+              setActiveTab('active');
               setStatusFilter('PENDING_APPROVAL');
               setPagination((p) => ({ ...p, current: 1 }));
             }}
             style={{
               cursor: 'pointer',
-              borderColor: statusFilter === 'PENDING_APPROVAL' ? '#d97706' : undefined,
-              backgroundColor: statusFilter === 'PENDING_APPROVAL' ? '#fffbeb' : undefined,
+              borderColor: activeTab === 'active' && statusFilter === 'PENDING_APPROVAL' ? '#d97706' : undefined,
+              backgroundColor: activeTab === 'active' && statusFilter === 'PENDING_APPROVAL' ? '#fffbeb' : undefined,
             }}
           >
             <Statistic
@@ -513,13 +694,14 @@ export function JobsPage() {
             size="small"
             hoverable
             onClick={() => {
+              setActiveTab('active');
               setStatusFilter('CLOSED');
               setPagination((p) => ({ ...p, current: 1 }));
             }}
             style={{
               cursor: 'pointer',
-              borderColor: statusFilter === 'CLOSED' ? '#dc2626' : undefined,
-              backgroundColor: statusFilter === 'CLOSED' ? '#fef2f2' : undefined,
+              borderColor: activeTab === 'active' && statusFilter === 'CLOSED' ? '#dc2626' : undefined,
+              backgroundColor: activeTab === 'active' && statusFilter === 'CLOSED' ? '#fef2f2' : undefined,
             }}
           >
             <Statistic
@@ -536,24 +718,57 @@ export function JobsPage() {
             size="small"
             hoverable
             onClick={() => {
-              setStatusFilter('ARCHIVED');
+              setActiveTab('trash');
+              setStatusFilter('');
               setPagination((p) => ({ ...p, current: 1 }));
             }}
             style={{
               cursor: 'pointer',
-              borderColor: statusFilter === 'ARCHIVED' ? '#a21caf' : undefined,
-              backgroundColor: statusFilter === 'ARCHIVED' ? '#fdf4ff' : undefined,
+              borderColor: activeTab === 'trash' ? '#ef4444' : undefined,
+              backgroundColor: activeTab === 'trash' ? '#fff1f0' : undefined,
             }}
           >
             <Statistic
-              title={t('jobs.status.ARCHIVED')}
-              value={counts.ARCHIVED || 0}
-              valueStyle={{ color: '#a21caf' }}
-              prefix={<InboxOutlined style={{ color: '#a21caf' }} />}
+              title={t('companies.inTrash', 'In Trash (30d)')}
+              value={counts.TRASH || 0}
+              valueStyle={{ color: counts.TRASH > 0 ? '#ef4444' : undefined }}
+              prefix={<DeleteOutlined style={{ color: '#ef4444' }} />}
             />
           </Card>
         </Col>
       </Row>
+
+      {/* Directory View Tabs: Active Jobs vs Trash & Retention */}
+      <Tabs
+        activeKey={activeTab}
+        onChange={(key) => {
+          setActiveTab(key);
+          setStatusFilter('');
+          setPagination((p) => ({ ...p, current: 1 }));
+        }}
+        size="large"
+        style={{ marginBottom: 16 }}
+        items={[
+          {
+            key: 'active',
+            label: (
+              <span style={{ fontWeight: 600 }}>
+                <CheckCircleOutlined style={{ color: '#16a34a', marginRight: 6 }} />
+                {t('jobs.activeJobs', 'Active Jobs')} ({counts.ALL || 0})
+              </span>
+            ),
+          },
+          {
+            key: 'trash',
+            label: (
+              <span style={{ fontWeight: 600 }}>
+                <DeleteOutlined style={{ color: '#ef4444', marginRight: 6 }} />
+                {t('companies.inTrash', 'Trash & Retention')} ({counts.TRASH || 0})
+              </span>
+            ),
+          },
+        ]}
+      />
 
       {/* Filter & Action Toolbar */}
       <Card variant="outlined" style={{ marginBottom: 16 }} styles={{ body: { padding: 16 } }}>
@@ -590,22 +805,24 @@ export function JobsPage() {
                   </Option>
                 ))}
               </Select>
-              <Select
-                placeholder={t('common.status')}
-                value={statusFilter || undefined}
-                onChange={(val) => {
-                  setStatusFilter(val || '');
-                  setPagination((p) => ({ ...p, current: 1 }));
-                }}
-                style={{ width: 140 }}
-                allowClear
-              >
-                <Option value="PUBLISHED">{t('jobs.status.PUBLISHED')}</Option>
-                <Option value="DRAFT">{t('jobs.status.DRAFT')}</Option>
-                <Option value="PENDING_APPROVAL">{t('jobs.status.PENDING_APPROVAL')}</Option>
-                <Option value="CLOSED">{t('jobs.status.CLOSED')}</Option>
-                <Option value="ARCHIVED">{t('jobs.status.ARCHIVED')}</Option>
-              </Select>
+              {activeTab === 'active' && (
+                <Select
+                  placeholder={t('common.status')}
+                  value={statusFilter || undefined}
+                  onChange={(val) => {
+                    setStatusFilter(val || '');
+                    setPagination((p) => ({ ...p, current: 1 }));
+                  }}
+                  style={{ width: 140 }}
+                  allowClear
+                >
+                  <Option value="PUBLISHED">{t('jobs.status.PUBLISHED')}</Option>
+                  <Option value="DRAFT">{t('jobs.status.DRAFT')}</Option>
+                  <Option value="PENDING_APPROVAL">{t('jobs.status.PENDING_APPROVAL')}</Option>
+                  <Option value="CLOSED">{t('jobs.status.CLOSED')}</Option>
+                  <Option value="ARCHIVED">{t('jobs.status.ARCHIVED')}</Option>
+                </Select>
+              )}
               <Select
                 placeholder={t('jobs.hiringScope.title')}
                 value={hiringScopeFilter || undefined}
@@ -643,21 +860,23 @@ export function JobsPage() {
             </Space>
           </Col>
           <Col xs={24} lg={6} style={{ textAlign: 'right' }}>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => navigate('/admin/jobs/new')}
-              style={{ backgroundColor: brandTokens.navy, borderColor: brandTokens.navy }}
-            >
-              {t('jobs.createJob')}
-            </Button>
+            {activeTab === 'active' && (
+              <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => navigate('/admin/jobs/new')}
+                style={{ backgroundColor: brandTokens.navy, borderColor: brandTokens.navy }}
+              >
+                {t('jobs.createJob')}
+              </Button>
+            )}
           </Col>
         </Row>
       </Card>
 
       {/* Main Table */}
       <DataTable
-        columns={columns}
+        columns={activeTab === 'trash' ? trashColumns : columns}
         dataSource={jobs}
         loading={loading}
         error={error}
@@ -670,6 +889,19 @@ export function JobsPage() {
             setPagination({ current: page, pageSize, total: pagination.total });
           },
         }}
+      />
+
+      {/* Delete / Move to Trash Confirmation Modal */}
+      <DeleteConfirmationModal
+        open={deleteModalOpen}
+        recordTitle={selectedJobForDelete?.title}
+        permanentOnly={isPermanentOnly}
+        loading={submittingDelete}
+        onCancel={() => {
+          setDeleteModalOpen(false);
+          setSelectedJobForDelete(null);
+        }}
+        onConfirm={handleConfirmDelete}
       />
 
       {/* Moderation Reason Modal */}

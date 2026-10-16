@@ -397,7 +397,7 @@ export function JobCreateEditPage() {
           title={t('jobs.sections.basic')}
           variant="outlined"
           style={{ marginBottom: 20 }}
-          headStyle={{ backgroundColor: '#f8fafc', fontWeight: 600 }}
+          styles={{ header: { backgroundColor: '#f8fafc', fontWeight: 600 } }}
         >
           <Row gutter={16}>
             <Col xs={24} md={16}>
@@ -450,7 +450,7 @@ export function JobCreateEditPage() {
           title={t('jobs.sections.organization')}
           variant="outlined"
           style={{ marginBottom: 20 }}
-          headStyle={{ backgroundColor: '#f8fafc', fontWeight: 600 }}
+          styles={{ header: { backgroundColor: '#f8fafc', fontWeight: 600 } }}
         >
           <Row gutter={16}>
             <Col xs={24} md={12}>
@@ -616,7 +616,7 @@ export function JobCreateEditPage() {
           title={t('jobs.sections.compensation')}
           variant="outlined"
           style={{ marginBottom: 20 }}
-          headStyle={{ backgroundColor: '#f8fafc', fontWeight: 600 }}
+          styles={{ header: { backgroundColor: '#f8fafc', fontWeight: 600 } }}
         >
           <Row gutter={16}>
             <Col xs={24} md={6}>
@@ -748,7 +748,7 @@ export function JobCreateEditPage() {
           title={t('jobs.sections.location')}
           variant="outlined"
           style={{ marginBottom: 20 }}
-          headStyle={{ backgroundColor: '#f8fafc', fontWeight: 600 }}
+          styles={{ header: { backgroundColor: '#f8fafc', fontWeight: 600 } }}
         >
           <Row gutter={16}>
             <Col xs={24} md={8}>
@@ -805,7 +805,7 @@ export function JobCreateEditPage() {
           title={t('jobs.sections.languages')}
           variant="outlined"
           style={{ marginBottom: 20 }}
-          headStyle={{ backgroundColor: '#f8fafc', fontWeight: 600 }}
+          styles={{ header: { backgroundColor: '#f8fafc', fontWeight: 600 } }}
         >
           <Row gutter={16}>
             <Col xs={24} md={8}>
@@ -872,7 +872,7 @@ export function JobCreateEditPage() {
           }
           variant="outlined"
           style={{ marginBottom: 20 }}
-          headStyle={{ backgroundColor: '#f8fafc', fontWeight: 600 }}
+          styles={{ header: { backgroundColor: '#f8fafc', fontWeight: 600 } }}
         >
           <Form.Item
             name="description"
