@@ -23,6 +23,7 @@ import {
   MenuFoldOutlined,
   MenuUnfoldOutlined,
   UserOutlined,
+  SettingOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -65,13 +66,57 @@ export function AdminShell() {
       label: t('shell.securitySettings'),
     },
     {
+      key: 'configuration-group',
+      icon: <SettingOutlined />,
+      label: t('shell.platformConfiguration'),
+      children: [
+        {
+          key: '/admin/configuration/industries',
+          label: t('shell.industries'),
+        },
+        {
+          key: '/admin/configuration/company-documents',
+          label: t('shell.companyDocuments'),
+        },
+        {
+          key: '/admin/configuration/candidate-documents',
+          label: t('shell.candidateDocuments'),
+        },
+        {
+          key: '/admin/configuration/recruitment-stages',
+          label: t('shell.recruitmentStages'),
+        },
+        {
+          key: '/admin/configuration/candidate-settings',
+          label: t('shell.candidateSettings'),
+        },
+        {
+          key: '/admin/configuration/employer-visibility',
+          label: t('shell.employerVisibility'),
+        },
+        {
+          key: '/admin/configuration/job-settings',
+          label: t('shell.jobSettings'),
+        },
+      ],
+    },
+    {
       type: 'divider',
     },
     {
-      key: 'employers-future',
+      key: 'companies-group',
       icon: <SolutionOutlined />,
-      label: t('shell.employers'),
-      disabled: true,
+      label: t('shell.companies', 'Companies'),
+      children: [
+        {
+          key: '/admin/companies',
+          label: t('companies.companyList', 'Company Directory'),
+        },
+        {
+          key: '/admin/companies/new',
+          label: t('companies.onboardingWizard', 'Onboard Company'),
+        },
+      ],
     },
     {
       key: 'candidates-future',

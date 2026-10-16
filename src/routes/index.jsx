@@ -13,6 +13,16 @@ import { PlansPage } from '../features/billing/PlansPage.jsx';
 import { SubscriptionsPage } from '../features/billing/SubscriptionsPage.jsx';
 import { InvoicesPage } from '../features/billing/InvoicesPage.jsx';
 import { BillingAnalyticsPage } from '../features/billing/BillingAnalyticsPage.jsx';
+import { IndustriesPage } from '../features/configuration/IndustriesPage.jsx';
+import { CompanyDocumentsPage } from '../features/configuration/CompanyDocumentsPage.jsx';
+import { CandidateDocumentsPage } from '../features/configuration/CandidateDocumentsPage.jsx';
+import { RecruitmentStagesPage } from '../features/configuration/RecruitmentStagesPage.jsx';
+import { CandidateSettingsPage } from '../features/configuration/CandidateSettingsPage.jsx';
+import { EmployerVisibilityPage } from '../features/configuration/EmployerVisibilityPage.jsx';
+import { JobSettingsPage } from '../features/configuration/JobSettingsPage.jsx';
+import { CompaniesPage } from '../features/companies/CompaniesPage.jsx';
+import { CompanyOnboardingWizard } from '../features/companies/CompanyOnboardingWizard.jsx';
+import { CompanyDetailsPage } from '../features/companies/CompanyDetailsPage.jsx';
 
 function RootRedirect() {
   const { isAuthenticated, isInitialized } = useSelector((state) => state.auth);
@@ -74,6 +84,21 @@ export function AppRoutes() {
         <Route path="billing/subscriptions" element={<SubscriptionsPage />} />
         <Route path="billing/invoices" element={<InvoicesPage />} />
         <Route path="billing/analytics" element={<BillingAnalyticsPage />} />
+
+        {/* Phase 2: Employer & Company Management Routes */}
+        <Route path="companies" element={<CompaniesPage />} />
+        <Route path="companies/new" element={<CompanyOnboardingWizard />} />
+        <Route path="companies/:id" element={<CompanyDetailsPage />} />
+
+        {/* Phase 1: Platform Configuration Routes */}
+        <Route path="configuration" element={<Navigate to="/admin/configuration/industries" replace />} />
+        <Route path="configuration/industries" element={<IndustriesPage />} />
+        <Route path="configuration/company-documents" element={<CompanyDocumentsPage />} />
+        <Route path="configuration/candidate-documents" element={<CandidateDocumentsPage />} />
+        <Route path="configuration/recruitment-stages" element={<RecruitmentStagesPage />} />
+        <Route path="configuration/candidate-settings" element={<CandidateSettingsPage />} />
+        <Route path="configuration/employer-visibility" element={<EmployerVisibilityPage />} />
+        <Route path="configuration/job-settings" element={<JobSettingsPage />} />
       </Route>
 
       {/* Catch-all */}
