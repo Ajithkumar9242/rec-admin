@@ -24,6 +24,7 @@ import {
   MenuUnfoldOutlined,
   UserOutlined,
   SettingOutlined,
+  FileTextOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -115,6 +116,21 @@ export function AdminShell() {
         {
           key: '/admin/companies/new',
           label: t('companies.onboardingWizard', 'Onboard Company'),
+        },
+      ],
+    },
+    {
+      key: 'jobs-group',
+      icon: <FileTextOutlined />,
+      label: t('shell.jobs', 'Job Postings'),
+      children: [
+        {
+          key: '/admin/jobs',
+          label: t('jobs.directory', 'Job Postings'),
+        },
+        {
+          key: '/admin/jobs/new',
+          label: t('jobs.createJob', 'Create New Job Opening'),
         },
       ],
     },

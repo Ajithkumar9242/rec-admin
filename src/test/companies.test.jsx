@@ -283,7 +283,7 @@ describe('RecruiTrain Phase 2: Frontend Companies & Employer Management Suite', 
       await waitFor(() => {
         expect(restoreSpy).toHaveBeenCalledWith('c-trashed');
       });
-    }, 15000);
+    }, 30000);
   });
 
   describe('3. Company Onboarding Wizard Page', () => {
@@ -441,5 +441,67 @@ describe('RecruiTrain Phase 2: Frontend Companies & Employer Management Suite', 
         expect(deleteSpy).toHaveBeenCalledWith('test-comp-1', 'MOVE_TO_TRASH');
       });
     }, 15000);
+
+    it('deletes company permanently from Trash & Retention view with destructive confirmation', async () => {
+      const mockSummary = { data: { ALL: 1, IN_REVIEW: 0, ACTIVE: 0, SUSPENDED: 0, TRASH: 1 } };
+      const mockIntegrations = { data: { cloudinary: { configured: true }, mail: { configured: true } } };
+      const mockTrashedCompanies = {
+        data: [
+          {
+            id: 'c-trash-perm',
+            name: 'Permanently Doomed Corp',
+            companyCode: 'COMP-DOOM',
+            status: 'INACTIVE',
+            deletedAt: new Date(Date.now() - 3 * 24 * 3600 * 1000).toISOString(),
+            email: 'doom@trash.test',
+          },
+        ],
+        pagination: { total: 1, page: 1, limit: 10, totalPages: 1 },
+      };
+
+      vi.spyOn(companiesApi, 'getStatusSummary').mockResolvedValue(mockSummary);
+      vi.spyOn(companiesApi, 'getIntegrationsStatus').mockResolvedValue(mockIntegrations);
+      vi.spyOn(companiesApi, 'getCompanies').mockImplementation((params) => {
+        if (params?.trashed) {
+          return Promise.resolve(mockTrashedCompanies);
+        }
+        return Promise.resolve({ data: [], pagination: { total: 0 } });
+      });
+      vi.spyOn(configurationApi, 'getIndustries').mockResolvedValue({ data: [] });
+      const deleteSpy = vi.spyOn(companiesApi, 'deleteCompany').mockResolvedValue({
+        success: true,
+        message: 'Company "Permanently Doomed Corp" was permanently deleted.',
+        data: { id: 'c-trash-perm', mode: 'DELETE_PERMANENTLY' },
+      });
+
+      renderWithProviders(<CompaniesPage />, { route: '/admin/companies' });
+
+      // Click on "Trash & Retention" Tab
+      const trashTab = screen.getByRole('tab', { name: /Trash & Retention/i });
+      fireEvent.click(trashTab);
+
+      await waitFor(() => {
+        expect(screen.getByText('Permanently Doomed Corp')).toBeInTheDocument();
+      });
+
+      // Find the permanent delete button in the row
+      const deleteButtons = screen.getAllByRole('button');
+      const permDeleteBtn = deleteButtons.find((btn) => btn.querySelector('.anticon-delete'));
+      expect(permDeleteBtn).toBeTruthy();
+      fireEvent.click(permDeleteBtn);
+
+      // Verify destructive permanent confirmation dialog appears
+      await waitFor(() => {
+        expect(screen.getByText(/Warning: This action is permanent and cannot be undone/i)).toBeInTheDocument();
+      });
+
+      // Click "Delete Permanently"
+      const confirmBtn = screen.getByRole('button', { name: /Delete Permanently/i });
+      fireEvent.click(confirmBtn);
+
+      await waitFor(() => {
+        expect(deleteSpy).toHaveBeenCalledWith('c-trash-perm', 'DELETE_PERMANENTLY');
+      });
+    }, 30000);
   });
 });

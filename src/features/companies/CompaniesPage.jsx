@@ -77,6 +77,7 @@ export function CompaniesPage() {
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [isPermanentOnly, setIsPermanentOnly] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [reviewForm] = Form.useForm();
   const [statusForm] = Form.useForm();
@@ -278,8 +279,9 @@ export function CompaniesPage() {
   };
 
   // Open Delete Modal
-  const handleOpenDeleteModal = (record) => {
+  const handleOpenDeleteModal = (record, permanentOnly = false) => {
     setSelectedCompany(record);
+    setIsPermanentOnly(permanentOnly || activeTab === 'trash' || Boolean(record?.deletedAt));
     setDeleteModalOpen(true);
   };
 
@@ -597,7 +599,7 @@ export function CompaniesPage() {
               type="text"
               danger
               icon={<DeleteOutlined />}
-              onClick={() => handleOpenDeleteModal(record)}
+              onClick={() => handleOpenDeleteModal(record, true)}
             />
           </Tooltip>
         </Space>
@@ -1174,6 +1176,7 @@ export function CompaniesPage() {
       <DeleteConfirmationModal
         open={deleteModalOpen}
         recordTitle={selectedCompany?.name}
+        permanentOnly={isPermanentOnly}
         onCancel={() => {
           setDeleteModalOpen(false);
           setSelectedCompany(null);

@@ -24,6 +24,7 @@ import {
   Checkbox,
   Upload,
   Radio,
+  Tooltip,
 } from 'antd';
 import {
   ArrowLeftOutlined,
@@ -357,6 +358,10 @@ export function CompanyDetailsPage() {
 
   // Document Download
   const handleDownload = async (docId) => {
+    if (company?.deletedAt) {
+      message.warning(t('companies.trashedDocAccessNotice', 'Company is in Trash. Restore company to download documents.'));
+      return;
+    }
     try {
       const res = await companiesApi.getDocumentDownloadUrl(company.id, docId);
       let url = res.data?.downloadUrl || res.data?.url;
@@ -368,12 +373,16 @@ export function CompanyDetailsPage() {
         window.open(url, '_blank');
       }
     } catch (err) {
-      message.error('Failed to generate download URL');
+      message.error(err.response?.data?.error || 'Failed to generate download URL');
     }
   };
 
   // Document Preview
   const handlePreview = async (docId) => {
+    if (company?.deletedAt) {
+      message.warning(t('companies.trashedDocAccessNotice', 'Company is in Trash. Restore company to preview documents.'));
+      return;
+    }
     try {
       const res = await companiesApi.getDocumentDownloadUrl(company.id, docId);
       let url = res.data?.previewUrl || res.data?.url;
@@ -385,7 +394,7 @@ export function CompanyDetailsPage() {
         window.open(url, '_blank');
       }
     } catch (err) {
-      message.error('Failed to open document preview');
+      message.error(err.response?.data?.error || 'Failed to open document preview');
     }
   };
 
@@ -492,37 +501,47 @@ export function CompanyDetailsPage() {
       align: 'right',
       render: (_, r) => (
         <Space>
-          <Button
-            size="small"
-            icon={<EyeOutlined />}
-            onClick={() => handlePreview(r.id)}
-          >
-            Preview
-          </Button>
-          <Button
-            size="small"
-            icon={<DownloadOutlined />}
-            onClick={() => handleDownload(r.id)}
-          >
-            Download
-          </Button>
-          <Button
-            size="small"
-            onClick={() => {
-              setSelectedDoc(r);
-              docReviewForm.setFieldsValue({ decision: 'APPROVE', rejectionReason: '' });
-              setDocReviewModalOpen(true);
-            }}
-          >
-            Review
-          </Button>
+          <Tooltip title={company?.deletedAt ? 'Restore company from trash to preview' : ''}>
+            <Button
+              size="small"
+              icon={<EyeOutlined />}
+              disabled={Boolean(company?.deletedAt)}
+              onClick={() => handlePreview(r.id)}
+            >
+              Preview
+            </Button>
+          </Tooltip>
+          <Tooltip title={company?.deletedAt ? 'Restore company from trash to download' : ''}>
+            <Button
+              size="small"
+              icon={<DownloadOutlined />}
+              disabled={Boolean(company?.deletedAt)}
+              onClick={() => handleDownload(r.id)}
+            >
+              Download
+            </Button>
+          </Tooltip>
+          <Tooltip title={company?.deletedAt ? 'Restore company from trash to review' : ''}>
+            <Button
+              size="small"
+              disabled={Boolean(company?.deletedAt)}
+              onClick={() => {
+                setSelectedDoc(r);
+                docReviewForm.setFieldsValue({ decision: 'APPROVE', rejectionReason: '' });
+                setDocReviewModalOpen(true);
+              }}
+            >
+              Review
+            </Button>
+          </Tooltip>
           <Popconfirm
             title="Delete this document?"
             onConfirm={() => handleDocDelete(r.id)}
             okText="Yes"
             cancelText="No"
+            disabled={Boolean(company?.deletedAt)}
           >
-            <Button size="small" type="text" danger icon={<DeleteOutlined />} />
+            <Button size="small" type="text" danger icon={<DeleteOutlined />} disabled={Boolean(company?.deletedAt)} />
           </Popconfirm>
         </Space>
       ),
@@ -653,6 +672,15 @@ export function CompanyDetailsPage() {
       label: `${t('companies.tabs.documents', 'Documents & Compliance')} (${company.documents?.length || 0})`,
       children: (
         <div>
+          {company.deletedAt && (
+            <Alert
+              type="warning"
+              showIcon
+              style={{ marginBottom: 16 }}
+              message={t('companies.trashedDocTabTitle', 'Company In Trash — Document Access Restricted')}
+              description={t('companies.trashedDocTabDesc', 'This company is currently in Trash. In accordance with security and retention policies, document preview, download, and modification are restricted. Restore the company to regain full access to its compliance documents.')}
+            />
+          )}
           <div style={{ marginBottom: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <Text type="secondary">
               Review and verify statutory documents submitted by this organization.
@@ -660,6 +688,7 @@ export function CompanyDetailsPage() {
             <Button
               type="primary"
               icon={<PlusOutlined />}
+              disabled={Boolean(company.deletedAt)}
               onClick={() => setDocUploadModalOpen(true)}
               style={{ backgroundColor: brandTokens.navy, borderColor: brandTokens.navy }}
             >
@@ -1538,6 +1567,7 @@ export function CompanyDetailsPage() {
       <DeleteConfirmationModal
         open={deleteModalOpen}
         recordTitle={company?.name}
+        permanentOnly={Boolean(company?.deletedAt)}
         onCancel={() => setDeleteModalOpen(false)}
         onConfirm={handleDeleteCompany}
         loading={submitting}

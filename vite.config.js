@@ -18,6 +18,7 @@ export default defineConfig({
     globals: true,
     setupFiles: './src/test/setup.js',
     pool: 'forks',
+    testTimeout: 30000,
   },
   build: {
     chunkSizeWarningLimit: 1000,

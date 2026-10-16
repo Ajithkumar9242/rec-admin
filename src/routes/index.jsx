@@ -23,6 +23,9 @@ import { JobSettingsPage } from '../features/configuration/JobSettingsPage.jsx';
 import { CompaniesPage } from '../features/companies/CompaniesPage.jsx';
 import { CompanyOnboardingWizard } from '../features/companies/CompanyOnboardingWizard.jsx';
 import { CompanyDetailsPage } from '../features/companies/CompanyDetailsPage.jsx';
+import { JobsPage } from '../features/jobs/JobsPage.jsx';
+import { JobCreateEditPage } from '../features/jobs/JobCreateEditPage.jsx';
+import { JobDetailsPage } from '../features/jobs/JobDetailsPage.jsx';
 
 function RootRedirect() {
   const { isAuthenticated, isInitialized } = useSelector((state) => state.auth);
@@ -89,6 +92,12 @@ export function AppRoutes() {
         <Route path="companies" element={<CompaniesPage />} />
         <Route path="companies/new" element={<CompanyOnboardingWizard />} />
         <Route path="companies/:id" element={<CompanyDetailsPage />} />
+
+        {/* Phase 4: Job Management Routes */}
+        <Route path="jobs" element={<JobsPage />} />
+        <Route path="jobs/new" element={<JobCreateEditPage />} />
+        <Route path="jobs/:id" element={<JobDetailsPage />} />
+        <Route path="jobs/:id/edit" element={<JobCreateEditPage />} />
 
         {/* Phase 1: Platform Configuration Routes */}
         <Route path="configuration" element={<Navigate to="/admin/configuration/industries" replace />} />
