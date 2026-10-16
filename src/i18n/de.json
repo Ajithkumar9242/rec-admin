@@ -650,9 +650,9 @@
     },
     "hiringScope": {
       "title": "Einstellungsbereich",
-      "DOMESTIC": "Inländisch",
-      "EU": "EU-weit",
-      "INTERNATIONAL": "International",
+      "DOMESTIC": "Inländische Einstellung",
+      "EU": "EU-weite Einstellung",
+      "INTERNATIONAL": "Internationale Einstellung",
       "gatedDomestic": "Unternehmen ist nicht für inländische Einstellungen konfiguriert.",
       "gatedEu": "Unternehmen ist nicht für EU-weite Einstellungen konfiguriert.",
       "gatedInternational": "Unternehmen ist nicht für internationale Einstellungen konfiguriert."
@@ -706,8 +706,8 @@
       "state": "Bundesland / Region",
       "country": "Land",
       "workplaceType": "Arbeitsmodell",
-      "germanLevel": "Erforderliches Deutschniveau",
-      "englishLevel": "Erforderliches Englischniveau",
+      "germanLevel": "Erforderliches Deutschniveau (optional)",
+      "englishLevel": "Erforderliches Englischniveau (optional)",
       "otherLanguages": "Weitere Sprachen",
       "jobDescription": "Stellenübersicht / Beschreibung",
       "responsibilities": "Hauptaufgaben",

@@ -80,11 +80,43 @@ export function JobCreateEditPage() {
     loadCatalogs();
   }, []);
 
+  // Eligible scopes based on selected company authoritative permissions
+  const eligibleScopeOptions = useMemo(() => {
+    if (!selectedCompany) {
+      return [
+        { label: t('jobs.hiringScope.DOMESTIC') || 'Domestic Hiring', value: 'DOMESTIC' },
+        { label: t('jobs.hiringScope.EU') || 'EU-wide Hiring', value: 'EU' },
+        { label: t('jobs.hiringScope.INTERNATIONAL') || 'International Hiring', value: 'INTERNATIONAL' },
+      ];
+    }
+    const options = [];
+    if (selectedCompany.hiringDomestic) {
+      options.push({
+        label: t('jobs.hiringScope.DOMESTIC') || 'Domestic Hiring',
+        value: 'DOMESTIC',
+      });
+    }
+    if (selectedCompany.hiringEu) {
+      options.push({
+        label: t('jobs.hiringScope.EU') || 'EU-wide Hiring',
+        value: 'EU',
+      });
+    }
+    if (selectedCompany.hiringInternational) {
+      options.push({
+        label: t('jobs.hiringScope.INTERNATIONAL') || 'International Hiring',
+        value: 'INTERNATIONAL',
+      });
+    }
+    return options;
+  }, [selectedCompany, t]);
+
   // Fetch company details when company is selected
   const handleCompanyChange = useCallback(async (companyId) => {
     if (!companyId) {
       setSelectedCompany(null);
       setCompanyUsers([]);
+      form.setFieldValue('hiringScopes', []);
       return;
     }
     try {
@@ -93,15 +125,15 @@ export function JobCreateEditPage() {
       setSelectedCompany(companyData);
       setCompanyUsers(companyData.users || []);
 
-      // Adjust hiringScope if current value is not permitted
-      const currentScope = form.getFieldValue('hiringScope') || 'DOMESTIC';
-      if (currentScope === 'DOMESTIC' && !companyData.hiringDomestic) {
-        form.setFieldValue('hiringScope', companyData.hiringEu ? 'EU' : (companyData.hiringInternational ? 'INTERNATIONAL' : undefined));
-      } else if (currentScope === 'EU' && !companyData.hiringEu) {
-        form.setFieldValue('hiringScope', companyData.hiringDomestic ? 'DOMESTIC' : (companyData.hiringInternational ? 'INTERNATIONAL' : undefined));
-      } else if (currentScope === 'INTERNATIONAL' && !companyData.hiringInternational) {
-        form.setFieldValue('hiringScope', companyData.hiringDomestic ? 'DOMESTIC' : (companyData.hiringEu ? 'EU' : undefined));
-      }
+      // Clear any selected scopes that the new company is not eligible to use
+      const currentScopes = form.getFieldValue('hiringScopes') || [];
+      const validScopes = (Array.isArray(currentScopes) ? currentScopes : [currentScopes]).filter((scope) => {
+        if (scope === 'DOMESTIC') return companyData.hiringDomestic;
+        if (scope === 'EU') return companyData.hiringEu;
+        if (scope === 'INTERNATIONAL') return companyData.hiringInternational;
+        return false;
+      });
+      form.setFieldValue('hiringScopes', validScopes);
     } catch (err) {
       // ignore
     }
@@ -122,6 +154,10 @@ export function JobCreateEditPage() {
           await handleCompanyChange(job.companyId);
         }
 
+        const initialScopes = Array.isArray(job.hiringScopes) && job.hiringScopes.length > 0
+          ? job.hiringScopes
+          : (job.hiringScope ? [job.hiringScope] : ['DOMESTIC']);
+
         form.setFieldsValue({
           title: job.title,
           jobCode: job.jobCode,
@@ -134,7 +170,7 @@ export function JobCreateEditPage() {
           hiringManagerId: job.hiringManagerId,
           recruiterId: job.recruiterId,
           targetJoiningDate: job.targetJoiningDate ? dayjs(job.targetJoiningDate) : undefined,
-          hiringScope: job.hiringScope || 'DOMESTIC',
+          hiringScopes: initialScopes,
           employmentType: job.employmentType || 'FULL_TIME',
           compensationType: job.compensationType || 'ANNUAL',
           currency: job.currency || 'EUR',
@@ -150,7 +186,7 @@ export function JobCreateEditPage() {
           state: job.state,
           country: job.country || 'DE',
           workplaceType: job.workArrangement || job.workplaceType || 'ON_SITE',
-          germanLevel: job.germanLevel || 'B2',
+          germanLevel: job.germanLevel || undefined,
           englishLevel: job.englishLevel || undefined,
           otherLanguages: Array.isArray(job.otherLanguages) ? job.otherLanguages : [],
           description: job.description,
@@ -217,7 +253,11 @@ export function JobCreateEditPage() {
       if (targetStatus === 'PUBLISHED') {
         await form.validateFields();
         if (selectedCompany && selectedCompany.status !== 'ACTIVE') {
-          message.error(t('jobs.messages.companyIneligible'));
+          message.error(`Company status is "${selectedCompany.status}". Only ACTIVE companies can publish jobs.`);
+          return;
+        }
+        if (selectedCompany && !selectedCompany.hiringDomestic && !selectedCompany.hiringEu && !selectedCompany.hiringInternational) {
+          message.error('Selected company has no active hiring scopes permitted. Update company configuration before publishing.');
           return;
         }
       } else {
@@ -229,20 +269,26 @@ export function JobCreateEditPage() {
 
       // Hiring scope gating check
       if (selectedCompany) {
-        const scope = values.hiringScope || 'DOMESTIC';
-        if (scope === 'DOMESTIC' && !selectedCompany.hiringDomestic) {
-          message.error(t('jobs.hiringScope.gatedDomestic'));
-          return;
-        }
-        if (scope === 'EU' && !selectedCompany.hiringEu) {
-          message.error(t('jobs.hiringScope.gatedEu'));
-          return;
-        }
-        if (scope === 'INTERNATIONAL' && !selectedCompany.hiringInternational) {
-          message.error(t('jobs.hiringScope.gatedInternational'));
-          return;
+        const scopes = values.hiringScopes || [];
+        for (const scope of scopes) {
+          if (scope === 'DOMESTIC' && !selectedCompany.hiringDomestic) {
+            message.error(t('jobs.hiringScope.gatedDomestic'));
+            return;
+          }
+          if (scope === 'EU' && !selectedCompany.hiringEu) {
+            message.error(t('jobs.hiringScope.gatedEu'));
+            return;
+          }
+          if (scope === 'INTERNATIONAL' && !selectedCompany.hiringInternational) {
+            message.error(t('jobs.hiringScope.gatedInternational'));
+            return;
+          }
         }
       }
+
+      const selectedScopes = Array.isArray(values.hiringScopes) && values.hiringScopes.length > 0
+        ? values.hiringScopes
+        : ['DOMESTIC'];
 
       // Format payload
       const payload = {
@@ -257,7 +303,8 @@ export function JobCreateEditPage() {
         hiringManagerId: values.hiringManagerId || null,
         recruiterId: values.recruiterId || null,
         targetJoiningDate: values.targetJoiningDate ? values.targetJoiningDate.toISOString() : null,
-        hiringScope: values.hiringScope || 'DOMESTIC',
+        hiringScopes: selectedScopes,
+        hiringScope: selectedScopes[0],
         employmentType: values.employmentType || 'FULL_TIME',
         compensationType: values.compensationType || 'ANNUAL',
         currency: values.currency || 'EUR',
@@ -273,7 +320,7 @@ export function JobCreateEditPage() {
         state: values.state?.trim() || null,
         country: values.country || 'DE',
         workArrangement: values.workplaceType || 'ON_SITE',
-        germanLevel: values.germanLevel || 'B2',
+        germanLevel: values.germanLevel || null,
         englishLevel: values.englishLevel || null,
         otherLanguages: Array.isArray(values.otherLanguages) ? values.otherLanguages : [],
         description: values.description?.trim() || '',
@@ -383,9 +430,8 @@ export function JobCreateEditPage() {
           autoCloseOnLimit: false,
           country: 'DE',
           workplaceType: 'ON_SITE',
-          hiringScope: 'DOMESTIC',
           employmentType: 'FULL_TIME',
-          germanLevel: 'B2',
+          hiringScopes: [],
           keywords: [],
           otherLanguages: [],
         }}
@@ -477,33 +523,23 @@ export function JobCreateEditPage() {
 
             <Col xs={24} md={12}>
               <Form.Item
-                name="hiringScope"
+                name="hiringScopes"
                 label={t('jobs.hiringScope.title')}
-                rules={[{ required: true, message: 'Hiring scope is required' }]}
+                rules={[{ required: true, message: 'At least one hiring scope must be selected' }]}
               >
-                <Select placeholder="Select hiring scope">
-                  <Option
-                    value="DOMESTIC"
-                    disabled={selectedCompany && !selectedCompany.hiringDomestic}
-                  >
-                    {t('jobs.hiringScope.DOMESTIC')}{' '}
-                    {selectedCompany && !selectedCompany.hiringDomestic ? '(Not permitted)' : ''}
-                  </Option>
-                  <Option
-                    value="EU"
-                    disabled={selectedCompany && !selectedCompany.hiringEu}
-                  >
-                    {t('jobs.hiringScope.EU')}{' '}
-                    {selectedCompany && !selectedCompany.hiringEu ? '(Not permitted)' : ''}
-                  </Option>
-                  <Option
-                    value="INTERNATIONAL"
-                    disabled={selectedCompany && !selectedCompany.hiringInternational}
-                  >
-                    {t('jobs.hiringScope.INTERNATIONAL')}{' '}
-                    {selectedCompany && !selectedCompany.hiringInternational ? '(Not permitted)' : ''}
-                  </Option>
-                </Select>
+                <Select
+                  mode="multiple"
+                  placeholder={
+                    !selectedCompany
+                      ? 'Select a company first'
+                      : eligibleScopeOptions.length === 0
+                      ? 'No hiring scopes permitted for this company'
+                      : 'Select hiring scope(s)'
+                  }
+                  options={eligibleScopeOptions}
+                  disabled={!selectedCompany || eligibleScopeOptions.length === 0}
+                  allowClear
+                />
               </Form.Item>
             </Col>
           </Row>
@@ -542,6 +578,21 @@ export function JobCreateEditPage() {
                     </Tag>
                   </span>
                 </Space>
+              }
+              description={
+                selectedCompany.status !== 'ACTIVE' ? (
+                  <div style={{ marginTop: 4 }}>
+                    <Text type="danger">
+                      Company status is "{selectedCompany.status}". Only ACTIVE companies can publish jobs.
+                    </Text>
+                  </div>
+                ) : eligibleScopeOptions.length === 0 ? (
+                  <div style={{ marginTop: 4 }}>
+                    <Text type="danger">
+                      This company has no enabled hiring scopes. Update company configuration before publishing jobs.
+                    </Text>
+                  </div>
+                ) : null
               }
             />
           )}
@@ -812,9 +863,8 @@ export function JobCreateEditPage() {
               <Form.Item
                 name="germanLevel"
                 label={t('jobs.fields.germanLevel')}
-                rules={[{ required: true, message: 'German level requirement is required' }]}
               >
-                <Select placeholder="Select CEFR Level">
+                <Select placeholder="Select CEFR Level (Optional)" allowClear>
                   <Option value="A1">A1 — Beginner</Option>
                   <Option value="A2">A2 — Elementary</Option>
                   <Option value="B1">B1 — Intermediate</Option>
@@ -840,8 +890,9 @@ export function JobCreateEditPage() {
               <Form.Item name="otherLanguages" label={t('jobs.fields.otherLanguages')}>
                 <Select
                   mode="tags"
-                  placeholder="e.g. French B1, Spanish A2"
+                  placeholder="e.g. French B1, Spanish A2 (Optional)"
                   tokenSeparators={[',']}
+                  allowClear
                 />
               </Form.Item>
             </Col>

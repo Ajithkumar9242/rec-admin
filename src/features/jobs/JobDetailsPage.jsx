@@ -331,7 +331,9 @@ export function JobDetailsPage() {
                       In Trash ({new Date(job.deletedAt).toLocaleDateString()})
                     </Tag>
                   )}
-                  {getScopeTag(job.hiringScope)}
+                  {Array.isArray(job.hiringScopes) && job.hiringScopes.length > 0
+                    ? job.hiringScopes.map((scope) => getScopeTag(scope))
+                    : getScopeTag(job.hiringScope)}
                 </Space>
                 <div style={{ marginTop: 6 }}>
                   <Text type="secondary">
@@ -530,7 +532,7 @@ export function JobDetailsPage() {
                       {job.address || '—'}
                     </Descriptions.Item>
                     <Descriptions.Item label={t('jobs.fields.germanLevel')}>
-                      <Tag color="cyan">{job.germanLevel || 'B2'}</Tag>
+                      {job.germanLevel ? <Tag color="cyan">{job.germanLevel}</Tag> : 'Not specified'}
                     </Descriptions.Item>
                     <Descriptions.Item label={t('jobs.fields.englishLevel')}>
                       {job.englishLevel ? <Tag color="blue">{job.englishLevel}</Tag> : 'Not specified'}

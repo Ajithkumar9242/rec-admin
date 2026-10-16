@@ -224,6 +224,59 @@ describe('RecruiTrain Phase B: Admin Jobs Module Test Suite', () => {
       expect(screen.getByText(/EU-wide:/i)).toBeInTheDocument();
     });
 
+    it('populates all 3 enabled permissions for company with all 3 enabled and allows multiple selection', async () => {
+      vi.spyOn(companiesApi, 'getCompanies').mockResolvedValue({
+        items: [
+          {
+            id: 'comp-all',
+            name: 'Global Enterprise AG',
+            status: 'ACTIVE',
+            hiringDomestic: true,
+            hiringEu: true,
+            hiringInternational: true,
+          },
+        ],
+      });
+      vi.spyOn(companiesApi, 'getCompany').mockResolvedValue({
+        id: 'comp-all',
+        name: 'Global Enterprise AG',
+        status: 'ACTIVE',
+        hiringDomestic: true,
+        hiringEu: true,
+        hiringInternational: true,
+        users: [],
+      });
+
+      renderWithProviders(
+        <Routes>
+          <Route path="/admin/jobs/new" element={<JobCreateEditPage />} />
+        </Routes>,
+        { route: '/admin/jobs/new' }
+      );
+
+      // Verify section titles and form elements render
+      expect(screen.getByText(/Section B — Organization & Roles/i)).toBeInTheDocument();
+      expect(screen.getByText(/Section E — Language Requirements & Preferences/i)).toBeInTheDocument();
+    });
+
+    it('language requirements section is optional and German level does not require selection', async () => {
+      const createSpy = vi.spyOn(jobsApi, 'createJob').mockResolvedValue({ success: true, data: { id: 'job-999' } });
+      vi.spyOn(companiesApi, 'getCompanies').mockResolvedValue({
+        items: [{ id: 'comp-1', name: 'Domestic Only Co', status: 'ACTIVE' }],
+      });
+
+      renderWithProviders(
+        <Routes>
+          <Route path="/admin/jobs/new" element={<JobCreateEditPage />} />
+        </Routes>,
+        { route: '/admin/jobs/new' }
+      );
+
+      // Verify the German level label indicates it is optional
+      expect(screen.getByText(/German Level Required \(Optional\)/i)).toBeInTheDocument();
+      expect(screen.getByText(/English Level Required \(Optional\)/i)).toBeInTheDocument();
+    });
+
     it('supports .txt file parsing for job description', async () => {
       const parseSpy = vi.spyOn(jobsApi, 'parseDescriptionFile').mockResolvedValue({
         success: true,

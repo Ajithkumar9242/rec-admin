@@ -324,9 +324,17 @@ export function JobsPage() {
     },
     {
       title: t('jobs.hiringScope.title'),
-      dataIndex: 'hiringScope',
       key: 'hiringScope',
-      render: (val) => renderScopeTag(val),
+      render: (_, record) => {
+        const scopes = Array.isArray(record.hiringScopes) && record.hiringScopes.length > 0
+          ? record.hiringScopes
+          : (record.hiringScope ? [record.hiringScope] : []);
+        return (
+          <Space wrap size={4}>
+            {scopes.map((s) => renderScopeTag(s))}
+          </Space>
+        );
+      },
     },
     {
       title: t('common.status'),

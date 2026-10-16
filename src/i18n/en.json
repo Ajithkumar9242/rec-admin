@@ -650,9 +650,9 @@
     },
     "hiringScope": {
       "title": "Hiring Scope",
-      "DOMESTIC": "Domestic",
-      "EU": "EU-wide",
-      "INTERNATIONAL": "International",
+      "DOMESTIC": "Domestic Hiring",
+      "EU": "EU-wide Hiring",
+      "INTERNATIONAL": "International Hiring",
       "gatedDomestic": "Company is not configured for domestic hiring.",
       "gatedEu": "Company is not configured for EU hiring.",
       "gatedInternational": "Company is not configured for international hiring."
@@ -706,8 +706,8 @@
       "state": "State / Region",
       "country": "Country",
       "workplaceType": "Workplace Arrangement",
-      "germanLevel": "German Level Required",
-      "englishLevel": "English Level Required",
+      "germanLevel": "German Level Required (Optional)",
+      "englishLevel": "English Level Required (Optional)",
       "otherLanguages": "Other Language Requirements",
       "jobDescription": "Job Summary / Overview",
       "responsibilities": "Key Responsibilities",
