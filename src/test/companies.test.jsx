@@ -208,6 +208,82 @@ describe('RecruiTrain Phase 2: Frontend Companies & Employer Management Suite', 
         }));
       });
     }, 15000);
+
+    it('switches between Active Companies and Trash & Retention view, displaying trashed companies and restoring them', async () => {
+      const mockSummary = { data: { ALL: 1, IN_REVIEW: 0, ACTIVE: 1, SUSPENDED: 0, TRASH: 1 } };
+      const mockIntegrations = { data: { cloudinary: { configured: true }, mail: { configured: true } } };
+      const mockActiveCompanies = {
+        data: [
+          {
+            id: 'c-active',
+            name: 'Active Corp GmbH',
+            companyCode: 'COMP-ACTIVE',
+            status: 'ACTIVE',
+            email: 'active@corp.test',
+          },
+        ],
+        pagination: { total: 1, page: 1, limit: 10, totalPages: 1 },
+      };
+      const mockTrashedCompanies = {
+        data: [
+          {
+            id: 'c-trashed',
+            name: 'Trashed Corp GmbH',
+            companyCode: 'COMP-TRASHED',
+            status: 'INACTIVE',
+            deletedAt: new Date(Date.now() - 2 * 24 * 3600 * 1000).toISOString(),
+            email: 'trashed@corp.test',
+          },
+        ],
+        pagination: { total: 1, page: 1, limit: 10, totalPages: 1 },
+      };
+
+      vi.spyOn(companiesApi, 'getStatusSummary').mockResolvedValue(mockSummary);
+      vi.spyOn(companiesApi, 'getIntegrationsStatus').mockResolvedValue(mockIntegrations);
+      const getCompaniesSpy = vi.spyOn(companiesApi, 'getCompanies').mockImplementation((params) => {
+        if (params?.trashed) {
+          return Promise.resolve(mockTrashedCompanies);
+        }
+        return Promise.resolve(mockActiveCompanies);
+      });
+      vi.spyOn(configurationApi, 'getIndustries').mockResolvedValue({ data: [] });
+      const restoreSpy = vi.spyOn(companiesApi, 'restoreCompany').mockResolvedValue({
+        success: true,
+        message: 'Company restored from trash.',
+      });
+
+      renderWithProviders(<CompaniesPage />, { route: '/admin/companies' });
+
+      // Initially on Active Companies tab
+      await waitFor(() => {
+        expect(screen.getByText('Active Corp GmbH')).toBeInTheDocument();
+      });
+
+      // Click on "Trash & Retention" Tab
+      const trashTab = screen.getByRole('tab', { name: /Trash & Retention/i });
+      fireEvent.click(trashTab);
+
+      // Verify trashed company and retention banner are displayed
+      await waitFor(() => {
+        expect(screen.getByText('Trashed Corp GmbH')).toBeInTheDocument();
+        expect(screen.getByText(/28 days remaining/i)).toBeInTheDocument();
+        expect(screen.getByText(/Company Trash & 30-Day Retention Policy/i)).toBeInTheDocument();
+      });
+
+      expect(getCompaniesSpy).toHaveBeenCalledWith(expect.objectContaining({ trashed: true }));
+
+      // Click Restore button on the trashed company row
+      const restoreBtn = screen.getByRole('button', { name: /Restore/i });
+      fireEvent.click(restoreBtn);
+
+      // In Popconfirm, click the confirmation button
+      const confirmPopconfirmBtn = await screen.findByRole('button', { name: /^Restore$/i });
+      fireEvent.click(confirmPopconfirmBtn);
+
+      await waitFor(() => {
+        expect(restoreSpy).toHaveBeenCalledWith('c-trashed');
+      });
+    }, 15000);
   });
 
   describe('3. Company Onboarding Wizard Page', () => {

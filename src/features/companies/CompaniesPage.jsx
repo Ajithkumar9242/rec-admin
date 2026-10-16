@@ -19,6 +19,8 @@ import {
   Badge,
   Checkbox,
   Divider,
+  Tabs,
+  Popconfirm,
 } from 'antd';
 import {
   PlusOutlined,
@@ -35,6 +37,8 @@ import {
   SolutionOutlined,
   MoreOutlined,
   UndoOutlined,
+  ClockCircleOutlined,
+  ExclamationCircleOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -54,8 +58,9 @@ export function CompaniesPage() {
   const { message } = App.useApp();
 
   // State
+  const [activeTab, setActiveTab] = useState('active'); // 'active' | 'trash'
   const [companies, setCompanies] = useState([]);
-  const [summary, setSummary] = useState({ ALL: 0, IN_REVIEW: 0, ACTIVE: 0, SUSPENDED: 0, UNVERIFIED: 0, INACTIVE: 0 });
+  const [summary, setSummary] = useState({ ALL: 0, IN_REVIEW: 0, ACTIVE: 0, SUSPENDED: 0, UNVERIFIED: 0, INACTIVE: 0, TRASH: 0 });
   const [integrations, setIntegrations] = useState(null);
   const [industries, setIndustries] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -99,11 +104,13 @@ export function CompaniesPage() {
     try {
       setLoading(true);
       setError(null);
+      const isTrashView = activeTab === 'trash';
       const params = {
         page: pagination.current,
         limit: pagination.pageSize,
-        sortBy: 'createdAt',
+        sortBy: isTrashView ? 'deletedAt' : 'createdAt',
         sortOrder: 'desc',
+        trashed: isTrashView,
       };
       if (search.trim()) params.search = search.trim();
       if (statusFilter) params.status = statusFilter;
@@ -124,7 +131,7 @@ export function CompaniesPage() {
     } finally {
       setLoading(false);
     }
-  }, [pagination.current, pagination.pageSize, search, statusFilter, industryFilter]);
+  }, [pagination.current, pagination.pageSize, search, statusFilter, industryFilter, activeTab]);
 
   useEffect(() => {
     loadMeta();
@@ -478,6 +485,126 @@ export function CompaniesPage() {
     },
   ];
 
+  // Dedicated Columns for Trash & Retention View
+  const trashColumns = [
+    {
+      title: t('companies.colName', 'Company / Code'),
+      key: 'name',
+      render: (_, record) => (
+        <Space direction="vertical" size={2}>
+          <Space>
+            <Text strong style={{ fontSize: 14 }}>{record.name}</Text>
+            {record.companyCode && (
+              <Tag style={{ fontSize: 11, fontWeight: 600 }}>{record.companyCode}</Tag>
+            )}
+          </Space>
+          {record.legalName && (
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              {record.legalName}
+            </Text>
+          )}
+        </Space>
+      ),
+    },
+    {
+      title: t('companies.colIndustry', 'Industry & Contact'),
+      key: 'industry',
+      render: (_, record) => (
+        <Space direction="vertical" size={2}>
+          <Text>{record.industry?.name || '—'}</Text>
+          <Space size={4}>
+            <Tag style={{ fontSize: 11 }}>{record.country || 'DE'}</Tag>
+            <Text type="secondary" style={{ fontSize: 12 }}>{record.email || '—'}</Text>
+          </Space>
+        </Space>
+      ),
+    },
+    {
+      title: t('companies.previousStatus', 'Previous Status'),
+      dataIndex: 'status',
+      key: 'status',
+      render: (status) => renderStatusTag(status),
+    },
+    {
+      title: t('companies.movedToTrashAt', 'Moved to Trash'),
+      dataIndex: 'deletedAt',
+      key: 'deletedAt',
+      render: (val) => {
+        if (!val) return '—';
+        const d = new Date(val);
+        return (
+          <Space direction="vertical" size={0}>
+            <Text style={{ fontSize: 13 }}>{d.toLocaleDateString()}</Text>
+            <Text type="secondary" style={{ fontSize: 11 }}>
+              {d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            </Text>
+          </Space>
+        );
+      },
+    },
+    {
+      title: t('companies.retentionStatus', 'Retention Window'),
+      key: 'retention',
+      render: (_, record) => {
+        if (!record.deletedAt) return '—';
+        const daysInTrash = Math.floor((Date.now() - new Date(record.deletedAt).getTime()) / (1000 * 3600 * 24));
+        const daysRemaining = Math.max(0, 30 - daysInTrash);
+        if (daysInTrash > 30) {
+          return (
+            <Tag color="error" icon={<ExclamationCircleOutlined />}>
+              Expired (&gt;30d) - Super Admin Only
+            </Tag>
+          );
+        }
+        return (
+          <Tag color="orange" icon={<ClockCircleOutlined />}>
+            {daysRemaining} day{daysRemaining === 1 ? '' : 's'} remaining
+          </Tag>
+        );
+      },
+    },
+    {
+      title: t('companies.actions', 'Actions'),
+      key: 'actions',
+      align: 'right',
+      render: (_, record) => (
+        <Space>
+          <Popconfirm
+            title={t('companies.restoreTitle', 'Restore Company?')}
+            description={`Restore "${record.name}" back to the active directory?`}
+            onConfirm={() => handleRestoreCompany(record)}
+            okText={t('common.restore', 'Restore')}
+            cancelText={t('common.cancel', 'Cancel')}
+          >
+            <Button
+              type="primary"
+              icon={<UndoOutlined />}
+              style={{ backgroundColor: '#10b981', borderColor: '#10b981' }}
+              loading={submitting}
+            >
+              {t('common.restore', 'Restore')}
+            </Button>
+          </Popconfirm>
+          <Button
+            type="text"
+            icon={<EyeOutlined />}
+            onClick={() => navigate(`/admin/companies/${record.id}`)}
+          >
+            {t('companies.viewProfile', 'View')}
+          </Button>
+          <Tooltip title={t('companies.deletePermanentlyTooltip', 'Delete Permanently from Database')}>
+            <Button
+              type="text"
+              danger
+              icon={<DeleteOutlined />}
+              onClick={() => handleOpenDeleteModal(record)}
+            />
+          </Tooltip>
+        </Space>
+      ),
+    },
+  ];
+
   return (
     <div style={{ padding: '0 4px' }}>
       {/* Page Header */}
@@ -530,17 +657,29 @@ export function CompaniesPage() {
       )}
 
       {/* Statistics Cards */}
-      <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
-        <Col xs={12} sm={6}>
-          <Card variant="outlined" size="small">
+      <Row gutter={[12, 12]} style={{ marginBottom: 20 }}>
+        <Col xs={12} sm={8} md={summary.TRASH > 0 ? undefined : 6} flex={summary.TRASH > 0 ? '1 1 180px' : undefined}>
+          <Card
+            variant="outlined"
+            size="small"
+            hoverable
+            onClick={() => {
+              setActiveTab('active');
+              setPagination((p) => ({ ...p, current: 1 }));
+            }}
+            style={{
+              cursor: 'pointer',
+              borderColor: activeTab === 'active' ? brandTokens.navy : undefined,
+            }}
+          >
             <Statistic
-              title={t('companies.totalCompanies', 'Total Companies')}
+              title={t('companies.totalCompanies', 'Total Active')}
               value={summary.ALL || 0}
               prefix={<SolutionOutlined style={{ color: brandTokens.navy }} />}
             />
           </Card>
         </Col>
-        <Col xs={12} sm={6}>
+        <Col xs={12} sm={8} md={summary.TRASH > 0 ? undefined : 6} flex={summary.TRASH > 0 ? '1 1 180px' : undefined}>
           <Card variant="outlined" size="small" style={{ borderColor: summary.IN_REVIEW > 0 ? '#38bdf8' : undefined }}>
             <Statistic
               title={t('companies.statusInReview', 'In Review')}
@@ -550,7 +689,7 @@ export function CompaniesPage() {
             />
           </Card>
         </Col>
-        <Col xs={12} sm={6}>
+        <Col xs={12} sm={8} md={summary.TRASH > 0 ? undefined : 6} flex={summary.TRASH > 0 ? '1 1 180px' : undefined}>
           <Card variant="outlined" size="small">
             <Statistic
               title={t('companies.statusActive', 'Active')}
@@ -560,7 +699,7 @@ export function CompaniesPage() {
             />
           </Card>
         </Col>
-        <Col xs={12} sm={6}>
+        <Col xs={12} sm={8} md={summary.TRASH > 0 ? undefined : 6} flex={summary.TRASH > 0 ? '1 1 180px' : undefined}>
           <Card variant="outlined" size="small">
             <Statistic
               title={t('companies.statusSuspended', 'Suspended')}
@@ -570,7 +709,75 @@ export function CompaniesPage() {
             />
           </Card>
         </Col>
+        <Col xs={12} sm={8} md={summary.TRASH > 0 ? undefined : 6} flex={summary.TRASH > 0 ? '1 1 180px' : undefined}>
+          <Card
+            variant="outlined"
+            size="small"
+            hoverable
+            onClick={() => {
+              setActiveTab('trash');
+              setPagination((p) => ({ ...p, current: 1 }));
+            }}
+            style={{
+              cursor: 'pointer',
+              borderColor: activeTab === 'trash' ? '#ef4444' : undefined,
+              backgroundColor: activeTab === 'trash' ? '#fff1f0' : undefined,
+            }}
+          >
+            <Statistic
+              title={t('companies.inTrash', 'In Trash (30d)')}
+              value={summary.TRASH || 0}
+              valueStyle={{ color: summary.TRASH > 0 ? '#ef4444' : undefined }}
+              prefix={<DeleteOutlined style={{ color: '#ef4444' }} />}
+            />
+          </Card>
+        </Col>
       </Row>
+
+      {/* Directory View Tabs: Active Companies vs Trash & Retention */}
+      <Tabs
+        activeKey={activeTab}
+        onChange={(key) => {
+          setActiveTab(key);
+          setPagination((p) => ({ ...p, current: 1 }));
+        }}
+        size="large"
+        style={{ marginBottom: 16 }}
+        items={[
+          {
+            key: 'active',
+            label: (
+              <span style={{ fontWeight: 600 }}>
+                <CheckCircleOutlined style={{ color: '#16a34a', marginRight: 6 }} />
+                {t('companies.activeCompanies', 'Active Companies')} ({summary.ALL || 0})
+              </span>
+            ),
+          },
+          {
+            key: 'trash',
+            label: (
+              <span style={{ fontWeight: 600, color: summary.TRASH > 0 ? '#ef4444' : undefined }}>
+                <DeleteOutlined style={{ color: summary.TRASH > 0 ? '#ef4444' : undefined, marginRight: 6 }} />
+                {t('companies.trashRetention', 'Trash & Retention')} ({summary.TRASH || 0})
+              </span>
+            ),
+          },
+        ]}
+      />
+
+      {/* Trash Policy Alert Banner */}
+      {activeTab === 'trash' && (
+        <Alert
+          style={{ marginBottom: 16 }}
+          type="warning"
+          showIcon
+          message={t('companies.trashBannerTitle', 'Company Trash & 30-Day Retention Policy')}
+          description={t(
+            'companies.trashBannerDesc',
+            'Soft-deleted companies are retained in Trash for 30 days before permanent deletion. During this 30-day window, administrators can restore the company at any time with its documents and user associations preserved. Restorations beyond 30 days require Super Administrator authorization.'
+          )}
+        />
+      )}
 
       {/* Filter & Action Toolbar */}
       <Card variant="outlined" style={{ marginBottom: 16 }} styles={{ body: { padding: 16 } }}>
@@ -641,7 +848,7 @@ export function CompaniesPage() {
 
       {/* Main Table */}
       <DataTable
-        columns={columns}
+        columns={activeTab === 'trash' ? trashColumns : columns}
         dataSource={companies}
         loading={loading}
         error={error}
