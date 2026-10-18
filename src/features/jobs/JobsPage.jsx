@@ -303,14 +303,25 @@ export function JobsPage() {
     {
       title: t('jobs.fields.workplaceType'),
       key: 'location',
-      render: (_, record) => (
-        <div>
-          <div>{renderWorkplaceTag(record.workplaceType)}</div>
-          <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
-            {[record.city, record.country].filter(Boolean).join(', ') || '—'}
+      render: (_, record) => {
+        const arrangements = Array.isArray(record.workArrangements) && record.workArrangements.length > 0
+          ? record.workArrangements
+          : (record.workArrangement ? [record.workArrangement] : (record.workplaceType ? (Array.isArray(record.workplaceType) ? record.workplaceType : [record.workplaceType]) : ['ON_SITE']));
+        return (
+          <div>
+            <Space wrap size={4}>
+              {arrangements.map((arr, idx) => (
+                <React.Fragment key={arr || idx}>
+                  {renderWorkplaceTag(arr)}
+                </React.Fragment>
+              ))}
+            </Space>
+            <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+              {[record.city, record.country].filter(Boolean).join(', ') || '—'}
+            </div>
           </div>
-        </div>
-      ),
+        );
+      },
     },
     {
       title: t('jobs.employmentType.title'),
@@ -492,14 +503,25 @@ export function JobsPage() {
     {
       title: t('jobs.fields.workplaceType'),
       key: 'location',
-      render: (_, record) => (
-        <div>
-          <div>{renderWorkplaceTag(record.workplaceType || record.workArrangement)}</div>
-          <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
-            {[record.city, record.country].filter(Boolean).join(', ') || '—'}
+      render: (_, record) => {
+        const arrangements = Array.isArray(record.workArrangements) && record.workArrangements.length > 0
+          ? record.workArrangements
+          : (record.workArrangement ? [record.workArrangement] : (record.workplaceType ? (Array.isArray(record.workplaceType) ? record.workplaceType : [record.workplaceType]) : ['ON_SITE']));
+        return (
+          <div>
+            <Space wrap size={4}>
+              {arrangements.map((arr, idx) => (
+                <React.Fragment key={arr || idx}>
+                  {renderWorkplaceTag(arr)}
+                </React.Fragment>
+              ))}
+            </Space>
+            <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+              {[record.city, record.country].filter(Boolean).join(', ') || '—'}
+            </div>
           </div>
-        </div>
-      ),
+        );
+      },
     },
     {
       title: t('companies.previousStatus', 'Previous Status'),

@@ -7,6 +7,7 @@ import { AdminShell } from '../components/AdminShell.jsx';
 import { LoginPage } from '../features/auth/LoginPage.jsx';
 import { ForgotPasswordPage } from '../features/auth/ForgotPasswordPage.jsx';
 import { ResetPasswordPage } from '../features/auth/ResetPasswordPage.jsx';
+import { CandidateActivationPage } from '../features/auth/CandidateActivationPage.jsx';
 import { DashboardPage } from '../features/dashboard/DashboardPage.jsx';
 import { SecuritySettingsPage } from '../features/settings/SecuritySettingsPage.jsx';
 import { PlansPage } from '../features/billing/PlansPage.jsx';
@@ -26,6 +27,8 @@ import { CompanyDetailsPage } from '../features/companies/CompanyDetailsPage.jsx
 import { JobsPage } from '../features/jobs/JobsPage.jsx';
 import { JobCreateEditPage } from '../features/jobs/JobCreateEditPage.jsx';
 import { JobDetailsPage } from '../features/jobs/JobDetailsPage.jsx';
+import { CandidatesPage } from '../features/candidates/CandidatesPage.jsx';
+import { CandidateDetailsPage } from '../features/candidates/CandidateDetailsPage.jsx';
 
 function RootRedirect() {
   const { isAuthenticated, isInitialized } = useSelector((state) => state.auth);
@@ -68,6 +71,14 @@ export function AppRoutes() {
           </AuthLayout>
         }
       />
+      <Route
+        path="/activate"
+        element={
+          <AuthLayout>
+            <CandidateActivationPage />
+          </AuthLayout>
+        }
+      />
 
       {/* Protected Admin Shell Routes */}
       <Route
@@ -98,6 +109,10 @@ export function AppRoutes() {
         <Route path="jobs/new" element={<JobCreateEditPage />} />
         <Route path="jobs/:id" element={<JobDetailsPage />} />
         <Route path="jobs/:id/edit" element={<JobCreateEditPage />} />
+
+        {/* Phase 5: Candidate Management Routes */}
+        <Route path="candidates" element={<CandidatesPage />} />
+        <Route path="candidates/:id" element={<CandidateDetailsPage />} />
 
         {/* Phase 1: Platform Configuration Routes */}
         <Route path="configuration" element={<Navigate to="/admin/configuration/industries" replace />} />

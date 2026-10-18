@@ -135,10 +135,9 @@ export function AdminShell() {
       ],
     },
     {
-      key: 'candidates-future',
+      key: '/admin/candidates',
       icon: <UsergroupAddOutlined />,
-      label: t('shell.candidates'),
-      disabled: true,
+      label: t('shell.candidates', 'Candidates'),
     },
     {
       key: 'pipeline-future',

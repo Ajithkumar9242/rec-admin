@@ -135,6 +135,40 @@ describe('RecruiTrain Phase B: Admin Jobs Module Test Suite', () => {
 
       expect(await screen.findByText('Senior Cloud Architect')).toBeInTheDocument();
     });
+
+    it('renders multiple workplace tags in directory table when job has multi-value workArrangements', async () => {
+      const multiArrangementJob = [
+        {
+          id: 'job-multi-arr',
+          title: 'Fullstack Multi-Arrangement Lead',
+          jobCode: 'ENG-300',
+          department: 'Core',
+          workplaceType: ['ON_SITE', 'HYBRID', 'REMOTE'],
+          workArrangements: ['ON_SITE', 'HYBRID', 'REMOTE'],
+          employmentType: 'FULL_TIME',
+          hiringScope: 'DOMESTIC',
+          status: 'PUBLISHED',
+          city: 'Berlin',
+          country: 'DE',
+          _count: { applications: 0 },
+          company: { id: 'comp-1', name: 'Acme Technologies', status: 'ACTIVE' },
+          createdAt: '2026-10-15T10:00:00Z',
+        },
+      ];
+      vi.spyOn(jobsApi, 'getJobs').mockResolvedValue({
+        items: multiArrangementJob,
+        counts: { ALL: 1, PUBLISHED: 1, DRAFT: 0, PENDING_APPROVAL: 0, CLOSED: 0, ARCHIVED: 0 },
+        pagination: { total: 1, page: 1, limit: 10, totalPages: 1 },
+      });
+      vi.spyOn(companiesApi, 'getCompanies').mockResolvedValue({ items: [] });
+
+      renderWithProviders(<JobsPage />, { route: '/admin/jobs' });
+
+      expect(await screen.findByText('Fullstack Multi-Arrangement Lead')).toBeInTheDocument();
+      expect(screen.getByText('On-site')).toBeInTheDocument();
+      expect(screen.getByText('Hybrid')).toBeInTheDocument();
+      expect(screen.getByText('Remote')).toBeInTheDocument();
+    });
   });
 
   describe('3. Job Creation & Edit Page (JobCreateEditPage)', () => {
@@ -378,6 +412,26 @@ describe('RecruiTrain Phase B: Admin Jobs Module Test Suite', () => {
       expect(screen.getByText('john.doe@example.com')).toBeInTheDocument();
       expect(screen.getByText('Technical Screening')).toBeInTheDocument();
       expect(screen.getByText('View Cover Letter')).toBeInTheDocument();
+    });
+
+    it('renders multiple workplace tags in 360 job details when job has multiple arrangements', async () => {
+      const multiJobDetails = {
+        ...mockJobDetails,
+        workArrangements: ['HYBRID', 'REMOTE'],
+      };
+      vi.spyOn(jobsApi, 'getJob').mockResolvedValue({ data: multiJobDetails });
+      vi.spyOn(jobsApi, 'getJobApplicants').mockResolvedValue({ items: [], pagination: { total: 0 } });
+
+      renderWithProviders(
+        <Routes>
+          <Route path="/admin/jobs/:id" element={<JobDetailsPage />} />
+        </Routes>,
+        { route: '/admin/jobs/job-100' }
+      );
+
+      expect(await screen.findByText('Staff Security Engineer')).toBeInTheDocument();
+      expect(screen.getAllByText('Hybrid').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText('Remote').length).toBeGreaterThanOrEqual(1);
     });
   });
 });

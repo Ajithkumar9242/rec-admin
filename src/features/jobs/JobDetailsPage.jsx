@@ -199,6 +199,19 @@ export function JobDetailsPage() {
     }
   };
 
+  // Workplace Tag Helper
+  const getWorkplaceTag = (type) => {
+    switch (type) {
+      case 'REMOTE':
+        return <Tag color="purple">{t('jobs.workplace.REMOTE', 'Remote')}</Tag>;
+      case 'HYBRID':
+        return <Tag color="cyan">{t('jobs.workplace.HYBRID', 'Hybrid')}</Tag>;
+      case 'ON_SITE':
+      default:
+        return <Tag color="geekblue">{t('jobs.workplace.ON_SITE', 'On-site')}</Tag>;
+    }
+  };
+
   // Applicant columns
   const applicantColumns = [
     {
@@ -346,7 +359,16 @@ export function JobDetailsPage() {
                     </Link>
                     {' • '}
                     {job.city && job.country ? `${job.city}, ${job.country} • ` : ''}
-                    {job.workArrangement || job.workplaceType || 'ON_SITE'}
+                    <Space size={4} wrap>
+                      {(Array.isArray(job.workArrangements) && job.workArrangements.length > 0
+                        ? job.workArrangements
+                        : [job.workArrangement || job.workplaceType || 'ON_SITE']
+                      ).map((arr, idx) => (
+                        <React.Fragment key={arr || idx}>
+                          {getWorkplaceTag(arr)}
+                        </React.Fragment>
+                      ))}
+                    </Space>
                   </Text>
                 </div>
               </div>
@@ -520,7 +542,16 @@ export function JobDetailsPage() {
                 <Card title="Workplace, Location & Languages" variant="outlined" style={{ marginBottom: 20 }}>
                   <Descriptions bordered column={{ xs: 1, sm: 2, md: 3 }}>
                     <Descriptions.Item label={t('jobs.fields.workplaceType')}>
-                      {job.workArrangement || job.workplaceType || 'ON_SITE'}
+                      <Space size={4} wrap>
+                        {(Array.isArray(job.workArrangements) && job.workArrangements.length > 0
+                          ? job.workArrangements
+                          : [job.workArrangement || job.workplaceType || 'ON_SITE']
+                        ).map((arr, idx) => (
+                          <React.Fragment key={arr || idx}>
+                            {getWorkplaceTag(arr)}
+                          </React.Fragment>
+                        ))}
+                      </Space>
                     </Descriptions.Item>
                     <Descriptions.Item label={t('jobs.fields.country')}>
                       {job.country || 'DE'}

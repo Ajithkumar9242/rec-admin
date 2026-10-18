@@ -158,6 +158,10 @@ export function JobCreateEditPage() {
           ? job.hiringScopes
           : (job.hiringScope ? [job.hiringScope] : ['DOMESTIC']);
 
+        const initialArrangements = Array.isArray(job.workArrangements) && job.workArrangements.length > 0
+          ? job.workArrangements
+          : (job.workArrangement ? [job.workArrangement] : (job.workplaceType ? (Array.isArray(job.workplaceType) ? job.workplaceType : [job.workplaceType]) : ['ON_SITE']));
+
         form.setFieldsValue({
           title: job.title,
           jobCode: job.jobCode,
@@ -185,7 +189,7 @@ export function JobCreateEditPage() {
           city: job.city,
           state: job.state,
           country: job.country || 'DE',
-          workplaceType: job.workArrangement || job.workplaceType || 'ON_SITE',
+          workplaceType: initialArrangements,
           germanLevel: job.germanLevel || undefined,
           englishLevel: job.englishLevel || undefined,
           otherLanguages: Array.isArray(job.otherLanguages) ? job.otherLanguages : [],
@@ -290,6 +294,11 @@ export function JobCreateEditPage() {
         ? values.hiringScopes
         : ['DOMESTIC'];
 
+      const rawArrangements = Array.isArray(values.workplaceType)
+        ? values.workplaceType
+        : (values.workplaceType ? [values.workplaceType] : ['ON_SITE']);
+      const selectedArrangements = rawArrangements.length > 0 ? rawArrangements : ['ON_SITE'];
+
       // Format payload
       const payload = {
         companyId: values.companyId,
@@ -319,7 +328,9 @@ export function JobCreateEditPage() {
         city: values.city?.trim() || null,
         state: values.state?.trim() || null,
         country: values.country || 'DE',
-        workArrangement: values.workplaceType || 'ON_SITE',
+        workArrangement: selectedArrangements[0] || 'ON_SITE',
+        workArrangements: selectedArrangements,
+        workplaceType: selectedArrangements,
         germanLevel: values.germanLevel || null,
         englishLevel: values.englishLevel || null,
         otherLanguages: Array.isArray(values.otherLanguages) ? values.otherLanguages : [],
@@ -429,7 +440,7 @@ export function JobCreateEditPage() {
           salaryNegotiable: false,
           autoCloseOnLimit: false,
           country: 'DE',
-          workplaceType: 'ON_SITE',
+          workplaceType: ['ON_SITE'],
           employmentType: 'FULL_TIME',
           hiringScopes: [],
           keywords: [],
@@ -806,9 +817,13 @@ export function JobCreateEditPage() {
               <Form.Item
                 name="workplaceType"
                 label={t('jobs.fields.workplaceType')}
-                rules={[{ required: true }]}
+                rules={[{ required: true, message: 'Please select at least one workplace arrangement' }]}
               >
-                <Select>
+                <Select
+                  mode="multiple"
+                  allowClear
+                  placeholder={t('jobs.workplace.selectPlaceholder') || 'Select workplace arrangement(s)'}
+                >
                   <Option value="ON_SITE">{t('jobs.workplace.ON_SITE')}</Option>
                   <Option value="HYBRID">{t('jobs.workplace.HYBRID')}</Option>
                   <Option value="REMOTE">{t('jobs.workplace.REMOTE')}</Option>
