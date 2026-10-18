@@ -105,6 +105,63 @@ describe('RecruiTrain Phase 3: Billing & Subscriptions Frontend Suite', () => {
         expect(screen.getAllByText(/no data/i).length).toBeGreaterThanOrEqual(1);
       });
     });
+
+    it('switches between Active Plans, Inactive Plans, and Trash & Retention views', async () => {
+      const getPlansSpy = vi.spyOn(billingApi, 'getPlans').mockImplementation((params) => {
+        if (params?.trashed === 'true') {
+          return Promise.resolve({
+            success: true,
+            data: [
+              {
+                id: 'plan-trashed',
+                name: 'Legacy Tier',
+                description: 'Archived legacy plan',
+                price: 49.00,
+                currency: 'EUR',
+                billingInterval: 'MONTHLY',
+                candidateAccessLimit: 10,
+                jobPostingLimit: 1,
+                teamMemberLimit: 1,
+                status: 'ARCHIVED',
+                deletedAt: new Date().toISOString(),
+                _count: { subscriptions: 0 },
+              },
+            ],
+          });
+        }
+        return Promise.resolve({
+          success: true,
+          data: [
+            {
+              id: 'plan-active',
+              name: 'Active Pro',
+              price: 199.00,
+              currency: 'EUR',
+              billingInterval: 'MONTHLY',
+              candidateAccessLimit: 100,
+              jobPostingLimit: 10,
+              teamMemberLimit: 5,
+              status: 'ACTIVE',
+              _count: { subscriptions: 2 },
+            },
+          ],
+        });
+      });
+
+      renderWithProviders(<PlansPage />);
+
+      expect(await screen.findByText('Active Pro')).toBeInTheDocument();
+      expect(screen.getByText('Active Plans')).toBeInTheDocument();
+      expect(screen.getByText('Inactive / Archived Plans')).toBeInTheDocument();
+      expect(screen.getByText('Trash & Retention')).toBeInTheDocument();
+
+      // Click Trash tab
+      fireEvent.click(screen.getByText('Trash & Retention'));
+
+      expect(await screen.findByText('Legacy Tier')).toBeInTheDocument();
+      expect(screen.getByText(/days remaining/i)).toBeInTheDocument();
+      expect(screen.getByTitle('Restore Plan')).toBeInTheDocument();
+    });
   });
 
   // ==========================================
@@ -144,6 +201,42 @@ describe('RecruiTrain Phase 3: Billing & Subscriptions Frontend Suite', () => {
       expect(screen.getByText('380 remaining')).toBeInTheDocument();
       // Verifies module pending tags for Jobs and Team Members
       expect(screen.getAllByText('Module Pending').length).toBeGreaterThanOrEqual(2);
+    });
+
+    it('renders integrated job and team member quotas when usage is provided', async () => {
+      vi.spyOn(billingApi, 'getSubscriptions').mockResolvedValue({
+        success: true,
+        data: [
+          {
+            id: 'sub-2',
+            company: { name: 'Acme Logistics GmbH', taxId: 'DE999888777' },
+            plan: { name: 'Enterprise Plan' },
+            status: 'ACTIVE',
+            price: 499.00,
+            currency: 'EUR',
+            billingInterval: 'MONTHLY',
+            candidateAccessLimit: 1000,
+            candidateAccessUsage: 250,
+            jobPostingLimit: 10,
+            jobPostingUsage: 3,
+            teamMemberLimit: 8,
+            teamMemberUsage: 4,
+            startDate: '2026-06-01T00:00:00Z',
+            endDate: '2026-07-01T00:00:00Z',
+          },
+        ],
+      });
+      vi.spyOn(billingApi, 'getCompanies').mockResolvedValue({ success: true, data: [] });
+      vi.spyOn(billingApi, 'getPlans').mockResolvedValue({ success: true, data: [] });
+
+      renderWithProviders(<SubscriptionsPage />);
+
+      expect(await screen.findByText('Acme Logistics GmbH')).toBeInTheDocument();
+      expect(screen.getByText('3 / 10 jobs used')).toBeInTheDocument();
+      expect(screen.getByText('7 remaining')).toBeInTheDocument();
+      expect(screen.getByText('4 / 8 seats used')).toBeInTheDocument();
+      expect(screen.getByText('4 remaining')).toBeInTheDocument();
+      expect(screen.queryByText('Module Pending')).not.toBeInTheDocument();
     });
 
     it('renders Entitlement Editing modal with confirmation checkbox', async () => {

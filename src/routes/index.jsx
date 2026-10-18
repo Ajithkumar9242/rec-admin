@@ -29,6 +29,7 @@ import { JobCreateEditPage } from '../features/jobs/JobCreateEditPage.jsx';
 import { JobDetailsPage } from '../features/jobs/JobDetailsPage.jsx';
 import { CandidatesPage } from '../features/candidates/CandidatesPage.jsx';
 import { CandidateDetailsPage } from '../features/candidates/CandidateDetailsPage.jsx';
+import { TeamsPage } from '../features/teams/TeamsPage.jsx';
 
 function RootRedirect() {
   const { isAuthenticated, isInitialized } = useSelector((state) => state.auth);
@@ -113,6 +114,9 @@ export function AppRoutes() {
         {/* Phase 5: Candidate Management Routes */}
         <Route path="candidates" element={<CandidatesPage />} />
         <Route path="candidates/:id" element={<CandidateDetailsPage />} />
+
+        {/* Phase 6: Teams & Permissions (RBAC) Routes */}
+        <Route path="teams" element={<TeamsPage />} />
 
         {/* Phase 1: Platform Configuration Routes */}
         <Route path="configuration" element={<Navigate to="/admin/configuration/industries" replace />} />

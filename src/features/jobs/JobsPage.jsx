@@ -166,8 +166,43 @@ export function JobsPage() {
       setSelectedJob(null);
       fetchJobs();
     } catch (err) {
-      const errMsg = err.response?.data?.message || err.message || 'Status update failed';
-      message.error(errMsg);
+      if (
+        err.response?.data?.code === 'QUOTA_EXCEEDED' ||
+        err.response?.data?.code === 'JOB_POSTING_QUOTA_EXCEEDED' ||
+        err.response?.data?.resourceType === 'jobPosting'
+      ) {
+        const { limit, currentUsage } = err.response.data;
+        Modal.warning({
+          title: t('jobs.quota.exceededTitle', 'Job Posting Limit Reached'),
+          content: (
+            <div>
+              <p style={{ marginTop: 8 }}>
+                {t('jobs.quota.exceededDesc', {
+                  defaultValue: `Your company has reached its subscription quota of active jobs (${currentUsage ?? limit} / ${limit}). To publish more jobs, please upgrade your subscription plan.`,
+                  usage: currentUsage ?? limit,
+                  limit,
+                })}
+              </p>
+              <Button
+                type="primary"
+                style={{ marginTop: 12, backgroundColor: brandTokens.navy, borderColor: brandTokens.navy }}
+                onClick={() => {
+                  Modal.destroyAll();
+                  navigate('/admin/billing/subscriptions');
+                }}
+              >
+                {t('jobs.quota.upgradePlan', 'Manage Subscriptions / Upgrade')}
+              </Button>
+            </div>
+          ),
+          okButtonProps: { style: { display: 'none' } },
+          closable: true,
+          maskClosable: true,
+        });
+      } else {
+        const errMsg = err.response?.data?.message || err.message || 'Status update failed';
+        message.error(errMsg);
+      }
     } finally {
       setSubmittingModeration(false);
     }
@@ -209,8 +244,43 @@ export function JobsPage() {
       message.success(res.message || `Job "${job.title}" restored successfully from Trash.`);
       fetchJobs();
     } catch (err) {
-      const errMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to restore job';
-      message.error(errMsg);
+      if (
+        err.response?.data?.code === 'QUOTA_EXCEEDED' ||
+        err.response?.data?.code === 'JOB_POSTING_QUOTA_EXCEEDED' ||
+        err.response?.data?.resourceType === 'jobPosting'
+      ) {
+        const { limit, currentUsage } = err.response.data;
+        Modal.warning({
+          title: t('jobs.quota.exceededTitle', 'Job Posting Limit Reached'),
+          content: (
+            <div>
+              <p style={{ marginTop: 8 }}>
+                {t('jobs.quota.exceededDesc', {
+                  defaultValue: `Your company has reached its subscription quota of active jobs (${currentUsage ?? limit} / ${limit}). To restore this job to active status, please upgrade your subscription plan.`,
+                  usage: currentUsage ?? limit,
+                  limit,
+                })}
+              </p>
+              <Button
+                type="primary"
+                style={{ marginTop: 12, backgroundColor: brandTokens.navy, borderColor: brandTokens.navy }}
+                onClick={() => {
+                  Modal.destroyAll();
+                  navigate('/admin/billing/subscriptions');
+                }}
+              >
+                {t('jobs.quota.upgradePlan', 'Manage Subscriptions / Upgrade')}
+              </Button>
+            </div>
+          ),
+          okButtonProps: { style: { display: 'none' } },
+          closable: true,
+          maskClosable: true,
+        });
+      } else {
+        const errMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to restore job';
+        message.error(errMsg);
+      }
     } finally {
       setLoading(false);
     }

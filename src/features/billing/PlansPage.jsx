@@ -13,6 +13,8 @@ import {
   Descriptions,
   Popconfirm,
   Badge,
+  Tabs,
+  Tooltip,
 } from 'antd';
 import {
   PlusOutlined,
@@ -21,9 +23,12 @@ import {
   DeleteOutlined,
   CheckCircleOutlined,
   StopOutlined,
+  UndoOutlined,
+  ExclamationCircleOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { DataTable } from '../../components/common/DataTable.jsx';
+import { DeleteConfirmationModal } from '../../components/common/DeleteConfirmationModal.jsx';
 import { billingApi, formatBillingError } from '../../services/billingApi.js';
 import { brandTokens } from '../../theme/tokens.js';
 
@@ -32,6 +37,7 @@ const { Option } = Select;
 
 export function PlansPage() {
   const { t } = useTranslation();
+  const [activeTab, setActiveTab] = useState('active');
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -43,6 +49,12 @@ export function PlansPage() {
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // Deletion modal state
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [selectedPlanForDelete, setSelectedPlanForDelete] = useState(null);
+  const [isPermanentOnly, setIsPermanentOnly] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
   const [createForm] = Form.useForm();
   const [editForm] = Form.useForm();
 
@@ -50,16 +62,28 @@ export function PlansPage() {
     try {
       setLoading(true);
       setError(null);
-      const res = await billingApi.getPlans({ includeArchived: 'true' });
+      let res;
+      if (activeTab === 'trash') {
+        res = await billingApi.getPlans({ trashed: 'true' });
+      } else if (activeTab === 'inactive') {
+        res = await billingApi.getPlans({ trashed: 'false', includeArchived: 'true' });
+      } else {
+        res = await billingApi.getPlans({ status: 'ACTIVE', trashed: 'false' });
+      }
+
       if (res.success) {
-        setPlans(res.data);
+        let data = res.data;
+        if (activeTab === 'inactive') {
+          data = data.filter((p) => p.status !== 'ACTIVE');
+        }
+        setPlans(data);
       }
     } catch (err) {
       setError(formatBillingError(err, t('common.networkError')));
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [activeTab, t]);
 
   useEffect(() => {
     fetchPlans();
@@ -108,13 +132,43 @@ export function PlansPage() {
     }
   };
 
-  const handleArchive = async (plan) => {
+  const handleOpenDelete = (plan, permanent = false) => {
+    setSelectedPlanForDelete(plan);
+    setIsPermanentOnly(permanent);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async (mode) => {
+    if (!selectedPlanForDelete) return;
     try {
-      await billingApi.archivePlan(plan.id);
-      message.success(t('billing.plans.archiveSuccess'));
+      setDeleteLoading(true);
+      if (mode === 'DELETE_PERMANENTLY' || isPermanentOnly) {
+        await billingApi.deletePlanPermanently(selectedPlanForDelete.id);
+        message.success(t('billing.plans.permanentDeleteSuccess', 'Plan permanently deleted.'));
+      } else {
+        await billingApi.archivePlan(selectedPlanForDelete.id);
+        message.success(t('billing.plans.archiveSuccess'));
+      }
+      setIsDeleteModalOpen(false);
+      setSelectedPlanForDelete(null);
       await fetchPlans();
     } catch (err) {
-      message.error(formatBillingError(err, 'Failed to archive plan.'));
+      message.error(formatBillingError(err, 'Failed to delete plan.'));
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
+  const handleRestore = async (plan) => {
+    try {
+      setLoading(true);
+      const res = await billingApi.restorePlan(plan.id);
+      message.success(res.message || t('billing.plans.restoreSuccess', 'Plan restored successfully as Inactive.'));
+      await fetchPlans();
+    } catch (err) {
+      message.error(formatBillingError(err, 'Failed to restore plan.'));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -140,7 +194,20 @@ export function PlansPage() {
     setIsViewModalOpen(true);
   };
 
-  const columns = [
+  const getRetentionDetails = (deletedAt) => {
+    if (!deletedAt) return null;
+    const deletedDate = new Date(deletedAt);
+    const purgeDate = new Date(deletedDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const now = new Date();
+    const daysRemaining = Math.max(0, Math.ceil((purgeDate - now) / (1000 * 60 * 60 * 24)));
+    return {
+      deletedDate: deletedDate.toLocaleDateString(),
+      daysRemaining,
+      purgeDate: purgeDate.toLocaleDateString(),
+    };
+  };
+
+  const standardColumns = [
     {
       title: t('billing.plans.name'),
       dataIndex: 'name',
@@ -243,20 +310,14 @@ export function PlansPage() {
                 onClick={() => handleToggleStatus(record)}
                 title={record.status === 'ACTIVE' ? t('billing.plans.deactivate') : t('billing.plans.activate')}
               />
-              <Popconfirm
-                title={t('billing.plans.archiveConfirm')}
-                onConfirm={() => handleArchive(record)}
-                okText={t('common.submit')}
-                cancelText={t('common.cancel')}
-              >
-                <Button
-                  type="text"
-                  size="small"
-                  danger
-                  icon={<DeleteOutlined />}
-                  title={t('billing.plans.archivePlan')}
-                />
-              </Popconfirm>
+              <Button
+                type="text"
+                size="small"
+                danger
+                icon={<DeleteOutlined />}
+                onClick={() => handleOpenDelete(record, false)}
+                title={t('billing.plans.archivePlan')}
+              />
             </>
           )}
         </Space>
@@ -264,19 +325,142 @@ export function PlansPage() {
     },
   ];
 
+  const trashColumns = [
+    {
+      title: t('billing.plans.name'),
+      dataIndex: 'name',
+      key: 'name',
+      render: (name, record) => (
+        <div>
+          <div style={{ fontWeight: 600, color: brandTokens.navy }}>{name}</div>
+          {record.description && (
+            <div style={{ fontSize: 12, color: brandTokens.muted }}>{record.description}</div>
+          )}
+        </div>
+      ),
+    },
+    {
+      title: t('billing.plans.price'),
+      dataIndex: 'price',
+      key: 'price',
+      render: (price, record) => (
+        <div>
+          <span style={{ fontWeight: 600 }}>
+            {Number(price).toFixed(2)} {record.currency}
+          </span> / {t(`billing.intervals.${record.billingInterval}`)}
+        </div>
+      ),
+    },
+    {
+      title: t('trash.deletedAt', 'Deleted Date'),
+      dataIndex: 'deletedAt',
+      key: 'deletedAt',
+      render: (d) => (d ? new Date(d).toLocaleDateString() : '-'),
+    },
+    {
+      title: t('trash.retention', 'Retention Status'),
+      key: 'retention',
+      render: (_, record) => {
+        const ret = getRetentionDetails(record.deletedAt);
+        if (!ret) return '-';
+        const isExpiringSoon = ret.daysRemaining <= 5;
+        return (
+          <Space direction="vertical" size={0}>
+            <Tag color={isExpiringSoon ? 'red' : 'gold'}>
+              {ret.daysRemaining} {t('trash.daysRemaining', 'days remaining')}
+            </Tag>
+            <span style={{ fontSize: 11, color: brandTokens.muted }}>
+              Purge: {ret.purgeDate}
+            </span>
+          </Space>
+        );
+      },
+    },
+    {
+      title: t('billing.plans.activeSubscriptions', 'Subscriptions'),
+      key: 'activeSubs',
+      render: (_, record) => record._count?.subscriptions || 0,
+    },
+    {
+      title: t('table.actions'),
+      key: 'trashActions',
+      fixed: 'right',
+      render: (_, record) => {
+        const hasSubscriptions = (record._count?.subscriptions || 0) > 0;
+        return (
+          <Space size={6}>
+            <Popconfirm
+              title={t('billing.plans.restoreConfirm', 'Restore this plan as Inactive?')}
+              onConfirm={() => handleRestore(record)}
+              okText={t('common.submit')}
+              cancelText={t('common.cancel')}
+            >
+              <Button
+                type="text"
+                size="small"
+                icon={<UndoOutlined style={{ color: brandTokens.teal }} />}
+                title={t('billing.plans.restore', 'Restore Plan')}
+              />
+            </Popconfirm>
+            {hasSubscriptions ? (
+              <Tooltip title={t('billing.plans.cannotPermanentDeleteWithSubs', 'Cannot permanently delete plan because historical or active subscriptions exist.')}>
+                <Button
+                  type="text"
+                  size="small"
+                  disabled
+                  icon={<DeleteOutlined style={{ color: '#d9d9d9' }} />}
+                />
+              </Tooltip>
+            ) : (
+              <Button
+                type="text"
+                size="small"
+                danger
+                icon={<DeleteOutlined />}
+                onClick={() => handleOpenDelete(record, true)}
+                title={t('trash.permanentDelete', 'Permanent Delete')}
+              />
+            )}
+          </Space>
+        );
+      },
+    },
+  ];
+
   return (
     <div>
+      <Tabs
+        activeKey={activeTab}
+        onChange={setActiveTab}
+        items={[
+          { key: 'active', label: t('billing.plans.activePlans', 'Active Plans') },
+          { key: 'inactive', label: t('billing.plans.inactivePlans', 'Inactive / Archived Plans') },
+          { key: 'trash', label: t('billing.plans.trashPlans', 'Trash & Retention') },
+        ]}
+        style={{ marginBottom: 16 }}
+      />
+
       <DataTable
-        title={t('billing.plans.title')}
-        subtitle={t('billing.plans.subtitle')}
-        columns={columns}
+        title={
+          activeTab === 'trash'
+            ? t('billing.plans.trashTitle', 'Plan Trash & Retention')
+            : activeTab === 'inactive'
+            ? t('billing.plans.inactiveTitle', 'Inactive Plans')
+            : t('billing.plans.title')
+        }
+        subtitle={
+          activeTab === 'trash'
+            ? t('billing.plans.trashSubtitle', 'Soft-deleted subscription plans retained for 30 days before permanent deletion.')
+            : t('billing.plans.subtitle')
+        }
+        columns={activeTab === 'trash' ? trashColumns : standardColumns}
         dataSource={plans}
         loading={loading}
         error={error}
         onRefresh={fetchPlans}
-        onCreate={() => setIsCreateModalOpen(true)}
+        onCreate={activeTab === 'active' ? () => setIsCreateModalOpen(true) : undefined}
         createButtonText={t('billing.plans.createPlan')}
-        exportFilename="billing_plans"
+        exportFilename={`billing_plans_${activeTab}`}
       />
 
       {/* CREATE PLAN MODAL */}
@@ -521,6 +705,19 @@ export function PlansPage() {
           </Descriptions>
         )}
       </Modal>
+
+      {/* SAFE DELETE / MOVE TO TRASH / PERMANENT DELETE MODAL */}
+      <DeleteConfirmationModal
+        open={isDeleteModalOpen}
+        recordTitle={selectedPlanForDelete?.name}
+        onCancel={() => {
+          setIsDeleteModalOpen(false);
+          setSelectedPlanForDelete(null);
+        }}
+        onConfirm={handleConfirmDelete}
+        loading={deleteLoading}
+        permanentOnly={isPermanentOnly}
+      />
     </div>
   );
 }

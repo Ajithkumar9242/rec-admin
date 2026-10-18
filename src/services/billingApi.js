@@ -8,6 +8,8 @@ export const billingApi = {
   updatePlan: (id, data) => api.patch(`/billing/plans/${id}`, data).then((res) => res.data),
   togglePlanStatus: (id, status) => api.patch(`/billing/plans/${id}/status`, { status }).then((res) => res.data),
   archivePlan: (id) => api.delete(`/billing/plans/${id}`).then((res) => res.data),
+  restorePlan: (id) => api.post(`/billing/plans/${id}/restore`).then((res) => res.data),
+  deletePlanPermanently: (id) => api.delete(`/billing/plans/${id}`, { params: { mode: 'DELETE_PERMANENTLY' } }).then((res) => res.data),
 
   // Subscriptions
   getSubscriptions: (params) => api.get('/billing/subscriptions', { params }).then((res) => res.data),
@@ -36,6 +38,7 @@ export const billingApi = {
   // Stripe Payment Provider
   getStripeConfig: () => api.get('/billing/stripe/config').then((res) => res.data),
   createStripeCheckoutSession: (data) => api.post('/billing/stripe/checkout-session', data).then((res) => res.data),
+  createStripePortalSession: (data) => api.post('/billing/stripe/portal-session', data).then((res) => res.data),
 };
 
 export function formatBillingError(err, fallback = 'An unexpected error occurred.') {

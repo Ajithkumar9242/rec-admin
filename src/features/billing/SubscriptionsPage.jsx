@@ -25,6 +25,7 @@ import {
   StopOutlined,
   SwapOutlined,
   HistoryOutlined,
+  CreditCardOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { DataTable } from '../../components/common/DataTable.jsx';
@@ -235,6 +236,20 @@ export function SubscriptionsPage() {
     setIsUpgradeModalOpen(true);
   };
 
+  const handleOpenPortal = async (customerId) => {
+    try {
+      const res = await billingApi.createStripePortalSession({
+        customerId,
+        returnUrl: window.location.href,
+      });
+      if (res.success && res.data?.url) {
+        window.open(res.data.url, '_blank');
+      }
+    } catch (err) {
+      message.error(formatBillingError(err, 'Failed to open Stripe Customer Portal.'));
+    }
+  };
+
   const columns = [
     {
       title: t('billing.subscriptions.selectCompany'),
@@ -289,22 +304,50 @@ export function SubscriptionsPage() {
     {
       title: t('billing.subscriptions.jobPostings'),
       key: 'jobUsage',
-      render: (_, record) => (
-        <div>
-          <div>Limit: {record.jobPostingLimit}</div>
-          <Tag color="default" style={{ fontSize: 10 }}>{t('billing.subscriptions.notIntegrated')}</Tag>
-        </div>
-      ),
+      render: (_, record) => {
+        if (record.jobPostingUsage !== undefined) {
+          const usage = record.jobPostingUsage;
+          const limit = record.jobPostingLimit;
+          return (
+            <div>
+              <span>{usage} / {limit} {t('billing.subscriptions.jobsUsed', 'jobs used')}</span>
+              <div style={{ fontSize: 11, color: brandTokens.muted }}>
+                {Math.max(0, limit - usage)} {t('billing.subscriptions.remaining', 'remaining')}
+              </div>
+            </div>
+          );
+        }
+        return (
+          <div>
+            <div>Limit: {record.jobPostingLimit}</div>
+            <Tag color="default" style={{ fontSize: 10 }}>{t('billing.subscriptions.notIntegrated')}</Tag>
+          </div>
+        );
+      },
     },
     {
       title: t('billing.subscriptions.teamMembers'),
       key: 'teamUsage',
-      render: (_, record) => (
-        <div>
-          <div>Limit: {record.teamMemberLimit}</div>
-          <Tag color="default" style={{ fontSize: 10 }}>{t('billing.subscriptions.notIntegrated')}</Tag>
-        </div>
-      ),
+      render: (_, record) => {
+        if (record.teamMemberUsage !== undefined) {
+          const usage = record.teamMemberUsage;
+          const limit = record.teamMemberLimit;
+          return (
+            <div>
+              <span>{usage} / {limit} {t('billing.subscriptions.seatsUsed', 'seats used')}</span>
+              <div style={{ fontSize: 11, color: brandTokens.muted }}>
+                {Math.max(0, limit - usage)} {t('billing.subscriptions.remaining', 'remaining')}
+              </div>
+            </div>
+          );
+        }
+        return (
+          <div>
+            <div>Limit: {record.teamMemberLimit}</div>
+            <Tag color="default" style={{ fontSize: 10 }}>{t('billing.subscriptions.notIntegrated')}</Tag>
+          </div>
+        );
+      },
     },
     {
       title: t('billing.subscriptions.startDate'),
@@ -374,6 +417,15 @@ export function SubscriptionsPage() {
                 title={t('billing.subscriptions.revoke')}
               />
             </>
+          )}
+          {record.stripeCustomerId && (
+            <Button
+              type="text"
+              size="small"
+              icon={<CreditCardOutlined style={{ color: brandTokens.navy }} />}
+              onClick={() => handleOpenPortal(record.stripeCustomerId)}
+              title={t('billing.subscriptions.stripePortal', 'Stripe Customer Portal')}
+            />
           )}
           <Button
             type="text"
@@ -741,19 +793,17 @@ export function SubscriptionsPage() {
               </Descriptions.Item>
 
               <Descriptions.Item label={t('billing.subscriptions.jobPostings')}>
-                <span>Limit: <strong>{selectedSub.jobPostingLimit}</strong> active postings</span>
-                <Tag color="default" style={{ marginLeft: 8 }}>{t('billing.subscriptions.notIntegrated')}</Tag>
-                <div style={{ fontSize: 11, color: brandTokens.muted, marginTop: 4 }}>
-                  {t('billing.subscriptions.notIntegratedHelp')}
-                </div>
+                <span>
+                  <strong>{subDetails?.usageSnapshot?.jobPostings?.currentUsage ?? selectedSub.jobPostingUsage ?? 0}</strong> of <strong>{selectedSub.jobPostingLimit}</strong> {t('billing.subscriptions.jobsUsed', 'jobs used')} ({Math.max(0, selectedSub.jobPostingLimit - (subDetails?.usageSnapshot?.jobPostings?.currentUsage ?? selectedSub.jobPostingUsage ?? 0))} remaining)
+                </span>
+                <Tag color="green" style={{ marginLeft: 8 }}>INTEGRATED</Tag>
               </Descriptions.Item>
 
               <Descriptions.Item label={t('billing.subscriptions.teamMembers')}>
-                <span>Limit: <strong>{selectedSub.teamMemberLimit}</strong> seats</span>
-                <Tag color="default" style={{ marginLeft: 8 }}>{t('billing.subscriptions.notIntegrated')}</Tag>
-                <div style={{ fontSize: 11, color: brandTokens.muted, marginTop: 4 }}>
-                  {t('billing.subscriptions.notIntegratedHelp')}
-                </div>
+                <span>
+                  <strong>{subDetails?.usageSnapshot?.teamMembers?.currentUsage ?? selectedSub.teamMemberUsage ?? 0}</strong> of <strong>{selectedSub.teamMemberLimit}</strong> {t('billing.subscriptions.seatsUsed', 'seats used')} ({Math.max(0, selectedSub.teamMemberLimit - (subDetails?.usageSnapshot?.teamMembers?.currentUsage ?? selectedSub.teamMemberUsage ?? 0))} remaining)
+                </span>
+                <Tag color="green" style={{ marginLeft: 8 }}>INTEGRATED</Tag>
               </Descriptions.Item>
             </Descriptions>
           </div>

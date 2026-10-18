@@ -25,6 +25,7 @@ import {
   UserOutlined,
   SettingOutlined,
   FileTextOutlined,
+  TeamOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -140,6 +141,11 @@ export function AdminShell() {
       label: t('shell.candidates', 'Candidates'),
     },
     {
+      key: '/admin/teams',
+      icon: <TeamOutlined />,
+      label: t('shell.teams', 'Teams & Permissions'),
+    },
+    {
       key: 'pipeline-future',
       icon: <ProjectOutlined />,
       label: t('shell.pipeline'),
@@ -216,6 +222,32 @@ export function AdminShell() {
         flexDirection: 'row',
       }}
     >
+      <style>{`
+        .ant-layout-sider-children {
+          display: flex !important;
+          flex-direction: column !important;
+          height: 100% !important;
+          min-height: 0 !important;
+          overflow: hidden !important;
+        }
+        .admin-sidebar-scroll {
+          scrollbar-width: thin;
+          scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+        }
+        .admin-sidebar-scroll::-webkit-scrollbar {
+          width: 5px;
+        }
+        .admin-sidebar-scroll::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .admin-sidebar-scroll::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.2);
+          border-radius: 4px;
+        }
+        .admin-sidebar-scroll::-webkit-scrollbar-thumb:hover {
+          background: rgba(255, 255, 255, 0.35);
+        }
+      `}</style>
       <Sider
         trigger={null}
         collapsible
@@ -274,9 +306,12 @@ export function AdminShell() {
         </div>
 
         <div
+          className="admin-sidebar-scroll"
           style={{
             flex: 1,
             minHeight: 0,
+            height: 'calc(100% - 64px)',
+            maxHeight: 'calc(100dvh - 64px)',
             overflowY: 'auto',
             overflowX: 'hidden',
           }}

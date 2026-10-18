@@ -175,7 +175,7 @@ export function BillingAnalyticsPage() {
         <>
           {/* Primary KPI Metrics */}
           <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
-            <Col xs={24} sm={12} lg={6}>
+            <Col xs={24} sm={12} md={8} lg={4} style={{ flex: '1 1 200px' }}>
               <Card variant="borderless" style={{ borderRadius: 10, background: '#f8fbfa' }}>
                 <Statistic
                   title={t('billing.analytics.activeSubscriptions')}
@@ -185,7 +185,7 @@ export function BillingAnalyticsPage() {
               </Card>
             </Col>
 
-            <Col xs={24} sm={12} lg={6}>
+            <Col xs={24} sm={12} md={8} lg={4} style={{ flex: '1 1 200px' }}>
               <Card variant="borderless" style={{ borderRadius: 10, background: '#f6f9fc' }}>
                 <Statistic
                   title={t('billing.analytics.newSubscriptions')}
@@ -195,7 +195,7 @@ export function BillingAnalyticsPage() {
               </Card>
             </Col>
 
-            <Col xs={24} sm={12} lg={6}>
+            <Col xs={24} sm={12} md={8} lg={4} style={{ flex: '1 1 200px' }}>
               <Card variant="borderless" style={{ borderRadius: 10, background: '#fcfaf6' }}>
                 <Statistic
                   title={t('billing.analytics.overdueInvoices')}
@@ -205,12 +205,23 @@ export function BillingAnalyticsPage() {
               </Card>
             </Col>
 
-            <Col xs={24} sm={12} lg={6}>
+            <Col xs={24} sm={12} md={8} lg={4} style={{ flex: '1 1 200px' }}>
               <Card variant="borderless" style={{ borderRadius: 10, background: '#fcf6f6' }}>
                 <Statistic
                   title={t('billing.analytics.failedPayments')}
                   value={kpis.failedPayments ?? 0}
                   prefix={<WarningOutlined style={{ color: brandTokens.error }} />}
+                />
+              </Card>
+            </Col>
+
+            <Col xs={24} sm={12} md={8} lg={4} style={{ flex: '1 1 200px' }}>
+              <Card variant="borderless" style={{ borderRadius: 10, background: '#f9f6fc' }}>
+                <Statistic
+                  title={t('billing.analytics.churnRate', 'Subscription Churn')}
+                  value={kpis.churnRate ?? 0}
+                  suffix="%"
+                  prefix={<PieChartOutlined style={{ color: brandTokens.purple || '#722ed1' }} />}
                 />
               </Card>
             </Col>
