@@ -32,11 +32,12 @@ import {
 } from '@ant-design/icons';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useSelector } from 'react-redux';
 import dayjs from 'dayjs';
 import { jobsApi } from '../../services/jobsApi.js';
 import { companiesApi } from '../../services/companiesApi.js';
 import { configurationApi } from '../../services/configurationApi.js';
-import { brandTokens } from '../../theme/tokens.js';
+import { brandTokens, lightSemanticTokens, darkSemanticTokens } from '../../theme/tokens.js';
 
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
@@ -48,6 +49,8 @@ export function JobCreateEditPage() {
   const { id } = useParams();
   const isEditMode = Boolean(id);
   const { message, modal } = App.useApp();
+  const isDarkMode = useSelector((state) => state.theme?.isDarkMode);
+  const semantic = isDarkMode ? darkSemanticTokens : lightSemanticTokens;
 
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
@@ -419,14 +422,28 @@ export function JobCreateEditPage() {
     );
   }
 
+  const cardStyle = {
+    marginBottom: 20,
+    borderRadius: 12,
+    border: `1px solid ${semantic.borderDefault}`,
+    backgroundColor: semantic.bgCard,
+  };
+
+  const cardHeaderStyle = {
+    backgroundColor: isDarkMode ? 'rgba(79, 168, 192, 0.08)' : '#f8fafc',
+    borderBottom: `1px solid ${semantic.borderDefault}`,
+    fontWeight: 600,
+    color: semantic.textPrimary,
+  };
+
   return (
-    <div style={{ maxWidth: 1100, margin: '0 auto', padding: '0 4px 60px 4px' }}>
+    <div className="rt-fade-in" style={{ maxWidth: 1100, margin: '0 auto', padding: '0 4px 60px 4px' }}>
       {/* Top Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
         <Space align="center" size={12}>
           <Button icon={<ArrowLeftOutlined />} onClick={handleCancel} />
           <div>
-            <Title level={4} style={{ margin: 0, color: brandTokens.navy }}>
+            <Title level={4} style={{ margin: 0, color: isDarkMode ? semantic.textPrimary : brandTokens.navy }}>
               {isEditMode ? t('jobs.editJob') : t('jobs.createJob')}
             </Title>
             <Text type="secondary">
@@ -438,7 +455,7 @@ export function JobCreateEditPage() {
         </Space>
 
         {/* Action Buttons Header */}
-        <Space>
+        <Space wrap>
           <Button icon={<CloseOutlined />} onClick={handleCancel}>
             {t('jobs.actions.cancel')}
           </Button>
@@ -486,8 +503,8 @@ export function JobCreateEditPage() {
         <Card
           title={t('jobs.sections.basic')}
           variant="outlined"
-          style={{ marginBottom: 20 }}
-          styles={{ header: { backgroundColor: '#f8fafc', fontWeight: 600 } }}
+          style={cardStyle}
+          styles={{ header: cardHeaderStyle }}
         >
           <Row gutter={16}>
             <Col xs={24} md={16}>
@@ -539,8 +556,8 @@ export function JobCreateEditPage() {
         <Card
           title={t('jobs.sections.organization')}
           variant="outlined"
-          style={{ marginBottom: 20 }}
-          styles={{ header: { backgroundColor: '#f8fafc', fontWeight: 600 } }}
+          style={cardStyle}
+          styles={{ header: cardHeaderStyle }}
         >
           <Row gutter={16}>
             <Col xs={24} md={12}>
@@ -710,8 +727,8 @@ export function JobCreateEditPage() {
         <Card
           title={t('jobs.sections.compensation')}
           variant="outlined"
-          style={{ marginBottom: 20 }}
-          styles={{ header: { backgroundColor: '#f8fafc', fontWeight: 600 } }}
+          style={cardStyle}
+          styles={{ header: cardHeaderStyle }}
         >
           <Row gutter={16}>
             <Col xs={24} md={6}>
@@ -842,8 +859,8 @@ export function JobCreateEditPage() {
         <Card
           title={t('jobs.sections.location')}
           variant="outlined"
-          style={{ marginBottom: 20 }}
-          styles={{ header: { backgroundColor: '#f8fafc', fontWeight: 600 } }}
+          style={cardStyle}
+          styles={{ header: cardHeaderStyle }}
         >
           <Row gutter={16}>
             <Col xs={24} md={8}>
@@ -903,8 +920,8 @@ export function JobCreateEditPage() {
         <Card
           title={t('jobs.sections.languages')}
           variant="outlined"
-          style={{ marginBottom: 20 }}
-          styles={{ header: { backgroundColor: '#f8fafc', fontWeight: 600 } }}
+          style={cardStyle}
+          styles={{ header: cardHeaderStyle }}
         >
           <Row gutter={16}>
             <Col xs={24} md={8}>
@@ -970,8 +987,8 @@ export function JobCreateEditPage() {
             </div>
           }
           variant="outlined"
-          style={{ marginBottom: 20 }}
-          styles={{ header: { backgroundColor: '#f8fafc', fontWeight: 600 } }}
+          style={cardStyle}
+          styles={{ header: cardHeaderStyle }}
         >
           <Form.Item
             name="description"
@@ -1001,7 +1018,19 @@ export function JobCreateEditPage() {
         </Card>
 
         {/* Bottom Actions Sticky/Bar */}
-        <Card variant="outlined" styles={{ body: { padding: '16px 24px' } }}>
+        <Card
+          variant="outlined"
+          style={{
+            borderRadius: 12,
+            border: `1px solid ${semantic.borderDefault}`,
+            backgroundColor: semantic.bgCard,
+            position: 'sticky',
+            bottom: 16,
+            zIndex: 10,
+            boxShadow: isDarkMode ? '0 4px 20px rgba(0,0,0,0.5)' : '0 4px 20px rgba(0,0,0,0.06)',
+          }}
+          styles={{ body: { padding: '16px 24px' } }}
+        >
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
             <Button icon={<CloseOutlined />} onClick={handleCancel}>
               {t('jobs.actions.cancel')}

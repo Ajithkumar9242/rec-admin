@@ -50,10 +50,11 @@ import {
 } from '@ant-design/icons';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useSelector } from 'react-redux';
 import { DeleteConfirmationModal } from '../../components/common/DeleteConfirmationModal.jsx';
 import { companiesApi } from '../../services/companiesApi.js';
 import { configurationApi } from '../../services/configurationApi.js';
-import { brandTokens } from '../../theme/tokens.js';
+import { brandTokens, lightSemanticTokens, darkSemanticTokens } from '../../theme/tokens.js';
 
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
@@ -64,6 +65,8 @@ export function CompanyDetailsPage() {
   const navigate = useNavigate();
   const { t } = useTranslation();
   const { message } = App.useApp();
+  const isDarkMode = useSelector((state) => state.theme?.isDarkMode);
+  const semantic = isDarkMode ? darkSemanticTokens : lightSemanticTokens;
 
   const [company, setCompany] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -962,44 +965,95 @@ export function CompanyDetailsPage() {
   ];
 
   return (
-    <div style={{ padding: '0 4px' }}>
+    <div className="rt-page-container" style={{ padding: '0 4px' }}>
       {/* Top Navigation & Action Header */}
       <div style={{ marginBottom: 16 }}>
         <Button
           type="text"
           icon={<ArrowLeftOutlined />}
           onClick={() => navigate('/admin/companies')}
-          style={{ marginBottom: 8, paddingLeft: 0 }}
+          style={{ marginBottom: 8, paddingLeft: 0, color: semantic.textSecondary, borderRadius: 6 }}
         >
           {t('common.back', 'Back to Companies')}
         </Button>
 
-        <Card variant="outlined" styles={{ body: { padding: '20px 24px' } }}>
+        <Card
+          variant="outlined"
+          style={{
+            borderRadius: 12,
+            border: `1px solid ${semantic.borderDefault}`,
+            background: semantic.bgCard,
+            boxShadow: isDarkMode ? 'none' : '0 2px 8px rgba(22,49,63,0.04)',
+          }}
+          styles={{ body: { padding: '20px 24px' } }}
+        >
           <Row justify="space-between" align="middle" gutter={[16, 16]}>
             <Col>
-              <Space align="center" size={12}>
-                <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: brandTokens.navy }}>
-                  {company.name}
-                </h1>
-                {company.companyCode && (
-                  <Tag style={{ fontSize: 13, fontWeight: 600 }}>{company.companyCode}</Tag>
-                )}
-                {renderStatusTag(company.status)}
-                {company.deletedAt && (
-                  <Tag color="volcano" style={{ fontSize: 12, padding: '2px 8px' }}>
-                    In Trash ({new Date(company.deletedAt).toLocaleDateString()})
-                  </Tag>
-                )}
+              <Space align="center" size={14}>
+                <div
+                  style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: 10,
+                    background: isDarkMode ? 'rgba(79, 168, 192, 0.15)' : 'rgba(22, 49, 63, 0.06)',
+                    color: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                    fontWeight: 700,
+                    fontSize: 20,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    border: `1px solid ${semantic.borderSubtle}`,
+                  }}
+                >
+                  {company.logoUrl ? (
+                    <img
+                      src={company.logoUrl}
+                      alt={company.name}
+                      style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: 8, padding: 4 }}
+                    />
+                  ) : (
+                    (company.name || 'C').charAt(0).toUpperCase()
+                  )}
+                </div>
+
+                <div>
+                  <Space align="center" size={10} wrap>
+                    <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, color: semantic.textPrimary, letterSpacing: '-0.01em' }}>
+                      {company.name}
+                    </h1>
+                    {company.companyCode && (
+                      <Tag
+                        style={{
+                          fontSize: 12,
+                          fontWeight: 600,
+                          borderRadius: 4,
+                          background: isDarkMode ? 'rgba(255, 255, 255, 0.06)' : '#f1f5f9',
+                          border: `1px solid ${semantic.borderSubtle}`,
+                          color: semantic.textSecondary,
+                        }}
+                      >
+                        {company.companyCode}
+                      </Tag>
+                    )}
+                    {renderStatusTag(company.status)}
+                    {company.deletedAt && (
+                      <Tag color="volcano" style={{ fontSize: 12, padding: '2px 8px', borderRadius: 4, fontWeight: 500 }}>
+                        In Trash ({new Date(company.deletedAt).toLocaleDateString()})
+                      </Tag>
+                    )}
+                  </Space>
+                  {company.legalName && (
+                    <Text style={{ display: 'block', marginTop: 4, fontSize: 13, color: semantic.textSecondary }}>
+                      {company.legalName}
+                    </Text>
+                  )}
+                </div>
               </Space>
-              {company.legalName && (
-                <Text type="secondary" style={{ display: 'block', marginTop: 4 }}>
-                  {company.legalName}
-                </Text>
-              )}
             </Col>
 
             <Col>
-              <Space wrap>
+              <Space wrap size={8}>
                 {company.deletedAt ? (
                   <Popconfirm
                     title="Restore company from trash?"
@@ -1012,7 +1066,7 @@ export function CompanyDetailsPage() {
                       type="primary"
                       icon={<UndoOutlined />}
                       loading={submitting}
-                      style={{ backgroundColor: '#10b981', borderColor: '#10b981' }}
+                      style={{ backgroundColor: '#10b981', borderColor: '#10b981', borderRadius: 8, fontWeight: 500 }}
                     >
                       Restore from Trash
                     </Button>
@@ -1027,7 +1081,7 @@ export function CompanyDetailsPage() {
                           reviewForm.setFieldsValue({ decision: 'APPROVE', notes: '' });
                           setReviewModalOpen(true);
                         }}
-                        style={{ backgroundColor: '#0284c7', borderColor: '#0284c7' }}
+                        style={{ backgroundColor: '#0284c7', borderColor: '#0284c7', borderRadius: 8, fontWeight: 500 }}
                       >
                         {t('companies.reviewApplication', 'Review Application')}
                       </Button>
@@ -1038,12 +1092,14 @@ export function CompanyDetailsPage() {
                         statusForm.setFieldsValue({ status: company.status, reason: '' });
                         setStatusModalOpen(true);
                       }}
+                      style={{ borderRadius: 8 }}
                     >
                       {t('companies.changeStatus', 'Change Status')}
                     </Button>
                     <Button
                       icon={<EditOutlined />}
                       onClick={handleOpenEditModal}
+                      style={{ borderRadius: 8 }}
                     >
                       {t('common.edit', 'Edit')}
                     </Button>
@@ -1051,6 +1107,7 @@ export function CompanyDetailsPage() {
                       danger
                       icon={<DeleteOutlined />}
                       onClick={() => setDeleteModalOpen(true)}
+                      style={{ borderRadius: 8 }}
                     >
                       {t('common.delete', 'Delete')}
                     </Button>
@@ -1063,7 +1120,16 @@ export function CompanyDetailsPage() {
       </div>
 
       {/* Tabs */}
-      <Card variant="outlined" styles={{ body: { padding: '16px 24px' } }}>
+      <Card
+        variant="outlined"
+        style={{
+          borderRadius: 12,
+          border: `1px solid ${semantic.borderDefault}`,
+          background: semantic.bgCard,
+          boxShadow: isDarkMode ? 'none' : '0 1px 3px rgba(0,0,0,0.02)',
+        }}
+        styles={{ body: { padding: '16px 22px' } }}
+      >
         <Tabs defaultActiveKey="profile" items={tabItems} />
       </Card>
 

@@ -26,17 +26,23 @@ import {
   SwapOutlined,
   HistoryOutlined,
   CreditCardOutlined,
+  SyncOutlined,
+  ExclamationCircleOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
+import { useSelector } from 'react-redux';
 import { DataTable } from '../../components/common/DataTable.jsx';
 import { billingApi, formatBillingError } from '../../services/billingApi.js';
-import { brandTokens } from '../../theme/tokens.js';
+import { brandTokens, lightSemanticTokens, darkSemanticTokens } from '../../theme/tokens.js';
 
 const { Text, Title, Paragraph } = Typography;
 const { Option } = Select;
 
 export function SubscriptionsPage() {
   const { t } = useTranslation();
+  const isDarkMode = useSelector((state) => state.theme?.isDarkMode);
+  const semantic = isDarkMode ? darkSemanticTokens : lightSemanticTokens;
+
   const [subscriptions, setSubscriptions] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [plans, setPlans] = useState([]);
@@ -250,33 +256,66 @@ export function SubscriptionsPage() {
     }
   };
 
+  const handleApplyPlanQuotas = async (sub, confirmBelowUsage = false) => {
+    if (!sub) return;
+    try {
+      setSubmitting(true);
+      const res = await billingApi.applyPlanQuotas(sub.id, { confirmBelowUsage });
+      message.success(res.message || 'Plan quotas applied successfully.');
+      await fetchSubscriptions();
+      if (selectedSub && selectedSub.id === sub.id) {
+        const refreshed = await billingApi.getSubscription(sub.id);
+        if (refreshed.success) {
+          setSelectedSub(refreshed.data);
+          setSubDetails(refreshed.data);
+        }
+      }
+    } catch (err) {
+      const errData = err.response?.data;
+      if (errData?.code === 'CONFIRMATION_REQUIRED_BELOW_USAGE') {
+        Modal.confirm({
+          title: t('billing.subscriptions.confirmQuotaReduction', 'Confirm Quota Reduction Below Usage'),
+          icon: <ExclamationCircleOutlined style={{ color: '#faad14' }} />,
+          content: (
+            <div>
+              <p>{errData.error}</p>
+              <div style={{ fontSize: 12, color: semantic.textSecondary }}>
+                Existing jobs and team members will be preserved. No existing records will be deleted, unpublished, or deactivated. However, new quota-consuming actions will be blocked until usage complies with the new limit.
+              </div>
+            </div>
+          ),
+          okText: t('common.confirmApply', 'Apply Anyway'),
+          okType: 'danger',
+          cancelText: t('common.cancel', 'Cancel'),
+          onOk: () => handleApplyPlanQuotas(sub, true),
+        });
+      } else {
+        message.error(formatBillingError(err, 'Failed to apply plan quotas.'));
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const columns = [
     {
-      title: t('billing.subscriptions.selectCompany'),
+      title: t('billing.subscriptions.employer', 'Employer'),
       key: 'company',
       render: (_, record) => (
-        <div>
-          <div style={{ fontWeight: 600, color: brandTokens.navy }}>{record.company?.name}</div>
-          {record.company?.taxId && (
-            <div style={{ fontSize: 11, color: brandTokens.muted }}>Tax ID: {record.company.taxId}</div>
-          )}
-        </div>
+        <span style={{ fontWeight: 600, fontSize: 13.5, color: semantic.textPrimary }}>
+          {record.company?.name || '—'}
+        </span>
       ),
     },
     {
-      title: t('billing.plans.name'),
+      title: t('billing.plans.name', 'Plan Name'),
       key: 'plan',
       render: (_, record) => (
-        <div>
-          <span style={{ fontWeight: 500 }}>{record.plan?.name}</span>
-          <div style={{ fontSize: 12, color: brandTokens.muted }}>
-            {Number(record.price).toFixed(2)} {record.currency} / {t(`billing.intervals.${record.billingInterval}`)}
-          </div>
-        </div>
+        <span style={{ fontWeight: 500, color: semantic.textPrimary }}>{record.plan?.name || '—'}</span>
       ),
     },
     {
-      title: t('billing.subscriptions.status'),
+      title: t('billing.subscriptions.status', 'Subscription Status'),
       dataIndex: 'status',
       key: 'status',
       render: (status) => {
@@ -286,23 +325,41 @@ export function SubscriptionsPage() {
         if (status === 'EXPIRED') color = 'volcano';
         if (status === 'REVOKED') color = 'red';
         if (status === 'PAST_DUE') color = 'gold';
-        return <Tag color={color}>{t(`billing.statuses.${status}`)}</Tag>;
+        return (
+          <Tag color={color} style={{ borderRadius: 4, fontWeight: 500 }}>
+            {t(`billing.statuses.${status}`) || status}
+          </Tag>
+        );
       },
     },
     {
-      title: t('billing.subscriptions.candidateAccess'),
+      title: t('billing.subscriptions.price', 'Subscription Price'),
+      key: 'price',
+      render: (_, record) => (
+        <div>
+          <span style={{ fontWeight: 600, fontSize: 13, color: semantic.textPrimary }}>
+            {Number(record.price).toFixed(2)} {record.currency}
+          </span>
+          <span style={{ fontSize: 11.5, color: semantic.textSecondary, marginLeft: 4 }}>
+            / {t(`billing.intervals.${record.billingInterval}`) || record.billingInterval}
+          </span>
+        </div>
+      ),
+    },
+    {
+      title: t('billing.subscriptions.candidateAccess', 'Candidate Access'),
       key: 'candidateUsage',
       render: (_, record) => (
         <div>
-          <span>{record.candidateAccessUsage} / {record.candidateAccessLimit}</span>
-          <div style={{ fontSize: 11, color: brandTokens.muted }}>
-            {Math.max(0, record.candidateAccessLimit - record.candidateAccessUsage)} remaining
+          <span style={{ fontWeight: 500, color: semantic.textPrimary }}>{record.candidateAccessUsage ?? 0} / {record.candidateAccessLimit}</span>
+          <div style={{ fontSize: 11, color: semantic.textSecondary }}>
+            {Math.max(0, record.candidateAccessLimit - (record.candidateAccessUsage ?? 0))} remaining
           </div>
         </div>
       ),
     },
     {
-      title: t('billing.subscriptions.jobPostings'),
+      title: t('billing.subscriptions.jobPostings', 'Job Postings'),
       key: 'jobUsage',
       render: (_, record) => {
         if (record.jobPostingUsage !== undefined) {
@@ -310,8 +367,8 @@ export function SubscriptionsPage() {
           const limit = record.jobPostingLimit;
           return (
             <div>
-              <span>{usage} / {limit} {t('billing.subscriptions.jobsUsed', 'jobs used')}</span>
-              <div style={{ fontSize: 11, color: brandTokens.muted }}>
+              <span style={{ fontWeight: 500, color: semantic.textPrimary }}>{usage} / {limit} {t('billing.subscriptions.jobsUsed', 'jobs used')}</span>
+              <div style={{ fontSize: 11, color: semantic.textSecondary }}>
                 {Math.max(0, limit - usage)} {t('billing.subscriptions.remaining', 'remaining')}
               </div>
             </div>
@@ -319,14 +376,14 @@ export function SubscriptionsPage() {
         }
         return (
           <div>
-            <div>Limit: {record.jobPostingLimit}</div>
-            <Tag color="default" style={{ fontSize: 10 }}>{t('billing.subscriptions.notIntegrated')}</Tag>
+            <div style={{ fontSize: 12, color: semantic.textPrimary }}>Limit: {record.jobPostingLimit}</div>
+            <Tag color="default" style={{ fontSize: 10.5, borderRadius: 4, marginTop: 2 }}>{t('billing.subscriptions.notIntegrated', 'Module Pending')}</Tag>
           </div>
         );
       },
     },
     {
-      title: t('billing.subscriptions.teamMembers'),
+      title: t('billing.subscriptions.teamMembers', 'Team Members'),
       key: 'teamUsage',
       render: (_, record) => {
         if (record.teamMemberUsage !== undefined) {
@@ -334,8 +391,8 @@ export function SubscriptionsPage() {
           const limit = record.teamMemberLimit;
           return (
             <div>
-              <span>{usage} / {limit} {t('billing.subscriptions.seatsUsed', 'seats used')}</span>
-              <div style={{ fontSize: 11, color: brandTokens.muted }}>
+              <span style={{ fontWeight: 500, color: semantic.textPrimary }}>{usage} / {limit} {t('billing.subscriptions.seatsUsed', 'seats used')}</span>
+              <div style={{ fontSize: 11, color: semantic.textSecondary }}>
                 {Math.max(0, limit - usage)} {t('billing.subscriptions.remaining', 'remaining')}
               </div>
             </div>
@@ -343,27 +400,46 @@ export function SubscriptionsPage() {
         }
         return (
           <div>
-            <div>Limit: {record.teamMemberLimit}</div>
-            <Tag color="default" style={{ fontSize: 10 }}>{t('billing.subscriptions.notIntegrated')}</Tag>
+            <div style={{ fontSize: 12, color: semantic.textPrimary }}>Limit: {record.teamMemberLimit}</div>
+            <Tag color="default" style={{ fontSize: 10.5, borderRadius: 4, marginTop: 2 }}>{t('billing.subscriptions.notIntegrated', 'Module Pending')}</Tag>
           </div>
         );
       },
     },
     {
-      title: t('billing.subscriptions.startDate'),
+      title: t('billing.subscriptions.startDate', 'Start Date'),
       dataIndex: 'startDate',
       key: 'startDate',
-      render: (d) => (d ? new Date(d).toLocaleDateString() : '-'),
+      render: (d) => (
+        <span style={{ fontSize: 12.5, color: semantic.textSecondary }}>
+          {d ? new Date(d).toLocaleDateString() : '—'}
+        </span>
+      ),
     },
     {
-      title: t('billing.subscriptions.endDate'),
-      dataIndex: 'endDate',
-      key: 'endDate',
-      render: (d, record) => {
+      title: t('billing.subscriptions.endDateOrRenewal', 'End Date / Renewal Date'),
+      key: 'endDateOrRenewal',
+      render: (_, record) => {
         if (record.billingInterval === 'ONE_TIME') {
-          return <Tag color="blue">One Time / Lifetime</Tag>;
+          return <Tag color="blue" style={{ borderRadius: 4 }}>One Time / Lifetime</Tag>;
         }
-        return d ? new Date(d).toLocaleDateString() : '-';
+        if (record.status === 'ACTIVE' && record.nextBillingDate) {
+          return (
+            <div>
+              <span style={{ fontSize: 11, color: brandTokens.teal, fontWeight: 500 }}>Renews: </span>
+              <span style={{ fontSize: 12.5, color: semantic.textPrimary }}>{new Date(record.nextBillingDate).toLocaleDateString()}</span>
+            </div>
+          );
+        }
+        if (record.endDate) {
+          return (
+            <div>
+              <span style={{ fontSize: 11, color: semantic.textSecondary }}>Ends: </span>
+              <span style={{ fontSize: 12.5, color: semantic.textPrimary }}>{new Date(record.endDate).toLocaleDateString()}</span>
+            </div>
+          );
+        }
+        return '—';
       },
     },
     {
@@ -375,9 +451,10 @@ export function SubscriptionsPage() {
           <Button
             type="text"
             size="small"
-            icon={<EyeOutlined style={{ color: brandTokens.navy }} />}
+            icon={<EyeOutlined style={{ color: isDarkMode ? brandTokens.teal : brandTokens.navy }} />}
             onClick={() => openViewModal(record)}
             title={t('billing.subscriptions.viewDetails')}
+            style={{ borderRadius: 6 }}
           />
           {record.status === 'ACTIVE' && (
             <>
@@ -387,13 +464,23 @@ export function SubscriptionsPage() {
                 icon={<EditOutlined style={{ color: brandTokens.teal }} />}
                 onClick={() => openEntitlementsModal(record)}
                 title={t('billing.subscriptions.editEntitlements')}
+                style={{ borderRadius: 6 }}
               />
               <Button
                 type="text"
                 size="small"
-                icon={<SwapOutlined style={{ color: brandTokens.navySoft }} />}
+                icon={<SyncOutlined style={{ color: isDarkMode ? brandTokens.teal : brandTokens.navySoft }} />}
+                onClick={() => handleApplyPlanQuotas(record)}
+                title={t('billing.subscriptions.applyPlanQuotas', 'Apply Current Plan Quotas')}
+                style={{ borderRadius: 6 }}
+              />
+              <Button
+                type="text"
+                size="small"
+                icon={<SwapOutlined style={{ color: isDarkMode ? brandTokens.teal : brandTokens.navySoft }} />}
                 onClick={() => openUpgradeModal(record)}
                 title={t('billing.subscriptions.upgradeDowngrade')}
+                style={{ borderRadius: 6 }}
               />
               <Button
                 type="text"
@@ -404,6 +491,7 @@ export function SubscriptionsPage() {
                   setIsCancelModalOpen(true);
                 }}
                 title={t('billing.subscriptions.cancel')}
+                style={{ borderRadius: 6 }}
               />
               <Button
                 type="text"
@@ -415,6 +503,7 @@ export function SubscriptionsPage() {
                   setIsRevokeModalOpen(true);
                 }}
                 title={t('billing.subscriptions.revoke')}
+                style={{ borderRadius: 6 }}
               />
             </>
           )}
@@ -422,17 +511,19 @@ export function SubscriptionsPage() {
             <Button
               type="text"
               size="small"
-              icon={<CreditCardOutlined style={{ color: brandTokens.navy }} />}
+              icon={<CreditCardOutlined style={{ color: brandTokens.teal }} />}
               onClick={() => handleOpenPortal(record.stripeCustomerId)}
               title={t('billing.subscriptions.stripePortal', 'Stripe Customer Portal')}
+              style={{ borderRadius: 6 }}
             />
           )}
           <Button
             type="text"
             size="small"
-            icon={<HistoryOutlined style={{ color: brandTokens.muted }} />}
+            icon={<HistoryOutlined style={{ color: semantic.textSecondary }} />}
             onClick={() => openHistoryModal(record)}
             title={t('billing.subscriptions.history')}
+            style={{ borderRadius: 6 }}
           />
         </Space>
       ),
@@ -440,7 +531,7 @@ export function SubscriptionsPage() {
   ];
 
   return (
-    <div>
+    <div className="rt-page-container" style={{ maxWidth: 1400, margin: '0 auto' }}>
       <DataTable
         title={t('billing.subscriptions.title')}
         subtitle={t('billing.subscriptions.subtitle')}
@@ -467,12 +558,14 @@ export function SubscriptionsPage() {
         }}
         footer={null}
         destroyOnHidden
+        centered
         width={600}
       >
         <Form
           form={createForm}
           layout="vertical"
           onFinish={handleCreate}
+          style={{ marginTop: 12 }}
           initialValues={{
             startDate: new Date().toISOString().split('T')[0],
           }}
@@ -521,11 +614,12 @@ export function SubscriptionsPage() {
               size="small"
               style={{
                 marginBottom: 16,
-                backgroundColor: brandTokens.tealBg,
-                borderColor: brandTokens.border,
+                backgroundColor: isDarkMode ? 'rgba(79, 168, 192, 0.08)' : brandTokens.tealBg,
+                borderColor: isDarkMode ? 'rgba(79, 168, 192, 0.25)' : brandTokens.border,
+                borderRadius: 8,
               }}
             >
-              <Title level={5} style={{ margin: '0 0 8px 0', color: brandTokens.navy }}>
+              <Title level={5} style={{ margin: '0 0 8px 0', fontSize: 14, color: semantic.textPrimary }}>
                 {selectedPlanForCreate.name} — {t('billing.subscriptions.planSummary')}
               </Title>
               <Descriptions column={2} size="small">
@@ -533,7 +627,7 @@ export function SubscriptionsPage() {
                   <strong>{Number(selectedPlanForCreate.offerPrice ?? selectedPlanForCreate.price).toFixed(2)} {selectedPlanForCreate.currency}</strong>
                 </Descriptions.Item>
                 <Descriptions.Item label={t('billing.plans.billingInterval')}>
-                  <Tag color="cyan">{t(`billing.intervals.${selectedPlanForCreate.billingInterval}`)}</Tag>
+                  <Tag color="cyan" style={{ borderRadius: 4 }}>{t(`billing.intervals.${selectedPlanForCreate.billingInterval}`)}</Tag>
                 </Descriptions.Item>
                 <Descriptions.Item label={t('billing.plans.candidateAccess')}>
                   {selectedPlanForCreate.candidateAccessLimit} / {t(`billing.intervals.${selectedPlanForCreate.billingInterval}`)}
@@ -556,10 +650,19 @@ export function SubscriptionsPage() {
             <Input type="date" />
           </Form.Item>
 
-          <Form.Item style={{ marginTop: 24, textAlign: 'right' }}>
+          <Form.Item style={{ marginTop: 24, textAlign: 'right', marginBottom: 0 }}>
             <Space>
               <Button onClick={() => setIsCreateModalOpen(false)}>{t('common.cancel')}</Button>
-              <Button type="primary" htmlType="submit" loading={submitting} style={{ background: brandTokens.navy }}>
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={submitting}
+                style={{
+                  backgroundColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                  borderColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                  fontWeight: 600,
+                }}
+              >
                 {t('common.submit')}
               </Button>
             </Space>
@@ -574,15 +677,16 @@ export function SubscriptionsPage() {
         onCancel={() => setIsEditEntitlementsOpen(false)}
         footer={null}
         destroyOnHidden
+        centered
         width={550}
       >
         {selectedSub && (
-          <Form form={entitlementsForm} layout="vertical" onFinish={handleUpdateEntitlements}>
+          <Form form={entitlementsForm} layout="vertical" onFinish={handleUpdateEntitlements} style={{ marginTop: 12 }}>
             <Alert
               message={`Current Candidate Usage: ${selectedSub.candidateAccessUsage} / ${selectedSub.candidateAccessLimit}`}
               type="info"
               showIcon
-              style={{ marginBottom: 16 }}
+              style={{ marginBottom: 16, borderRadius: 8 }}
             />
 
             <Form.Item
@@ -615,10 +719,19 @@ export function SubscriptionsPage() {
               </Checkbox>
             </Form.Item>
 
-            <Form.Item style={{ marginTop: 20, textAlign: 'right' }}>
+            <Form.Item style={{ marginTop: 20, textAlign: 'right', marginBottom: 0 }}>
               <Space>
                 <Button onClick={() => setIsEditEntitlementsOpen(false)}>{t('common.cancel')}</Button>
-                <Button type="primary" htmlType="submit" loading={submitting} style={{ background: brandTokens.navy }}>
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  loading={submitting}
+                  style={{
+                    backgroundColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                    borderColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                    fontWeight: 600,
+                  }}
+                >
                   {t('common.save')}
                 </Button>
               </Space>
@@ -634,13 +747,15 @@ export function SubscriptionsPage() {
         onCancel={() => setIsUpgradeModalOpen(false)}
         footer={null}
         destroyOnHidden
+        centered
         width={500}
       >
         {selectedSub && (
-          <Form form={upgradeForm} layout="vertical" onFinish={handleUpgrade}>
+          <Form form={upgradeForm} layout="vertical" onFinish={handleUpgrade} style={{ marginTop: 12 }}>
             <div style={{ marginBottom: 16 }}>
-              <Text type="secondary">Current Plan: </Text>
-              <strong>{selectedSub.plan?.name}</strong> ({Number(selectedSub.price).toFixed(2)} {selectedSub.currency})
+              <Text style={{ color: semantic.textSecondary }}>Current Plan: </Text>
+              <strong style={{ color: semantic.textPrimary }}>{selectedSub.plan?.name}</strong>{' '}
+              <span style={{ color: semantic.textSecondary }}>({Number(selectedSub.price).toFixed(2)} {selectedSub.currency})</span>
             </div>
 
             <Form.Item
@@ -656,10 +771,19 @@ export function SubscriptionsPage() {
               />
             </Form.Item>
 
-            <Form.Item style={{ marginTop: 24, textAlign: 'right' }}>
+            <Form.Item style={{ marginTop: 24, textAlign: 'right', marginBottom: 0 }}>
               <Space>
                 <Button onClick={() => setIsUpgradeModalOpen(false)}>{t('common.cancel')}</Button>
-                <Button type="primary" htmlType="submit" loading={submitting} style={{ background: brandTokens.navy }}>
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  loading={submitting}
+                  style={{
+                    backgroundColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                    borderColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                    fontWeight: 600,
+                  }}
+                >
                   Confirm Plan Change
                 </Button>
               </Space>
@@ -675,15 +799,16 @@ export function SubscriptionsPage() {
         onCancel={() => setIsCancelModalOpen(false)}
         footer={null}
         destroyOnHidden
+        centered
         width={450}
       >
-        <Form form={cancelForm} layout="vertical" onFinish={handleCancel}>
-          <Paragraph>{t('billing.subscriptions.cancelConfirm')}</Paragraph>
+        <Form form={cancelForm} layout="vertical" onFinish={handleCancel} style={{ marginTop: 12 }}>
+          <Paragraph style={{ color: semantic.textSecondary }}>{t('billing.subscriptions.cancelConfirm')}</Paragraph>
           <Form.Item name="reason" label={t('billing.subscriptions.cancelReason')}>
             <Input.TextArea rows={3} placeholder="Customer requested cancellation, etc." />
           </Form.Item>
 
-          <Form.Item style={{ textAlign: 'right' }}>
+          <Form.Item style={{ textAlign: 'right', marginTop: 20, marginBottom: 0 }}>
             <Space>
               <Button onClick={() => setIsCancelModalOpen(false)}>{t('common.cancel')}</Button>
               <Button danger type="primary" htmlType="submit" loading={submitting}>
@@ -701,14 +826,15 @@ export function SubscriptionsPage() {
         onCancel={() => setIsRevokeModalOpen(false)}
         footer={null}
         destroyOnHidden
+        centered
         width={480}
       >
-        <Form form={revokeForm} layout="vertical" onFinish={handleRevoke}>
+        <Form form={revokeForm} layout="vertical" onFinish={handleRevoke} style={{ marginTop: 12 }}>
           <Alert
             message={t('billing.subscriptions.revokeConfirm')}
             type="error"
             showIcon
-            style={{ marginBottom: 16 }}
+            style={{ marginBottom: 16, borderRadius: 8 }}
           />
           <Form.Item
             name="reason"
@@ -718,7 +844,7 @@ export function SubscriptionsPage() {
             <Input.TextArea rows={3} placeholder="Non-payment, terms violation, administrative termination..." />
           </Form.Item>
 
-          <Form.Item style={{ textAlign: 'right' }}>
+          <Form.Item style={{ textAlign: 'right', marginTop: 20, marginBottom: 0 }}>
             <Space>
               <Button onClick={() => setIsRevokeModalOpen(false)}>{t('common.cancel')}</Button>
               <Button danger type="primary" htmlType="submit" loading={submitting}>
@@ -737,30 +863,36 @@ export function SubscriptionsPage() {
           setIsViewModalOpen(false);
           setSubDetails(null);
         }}
+        centered
         footer={[
           <Button key="close" onClick={() => setIsViewModalOpen(false)}>
             {t('common.back')}
           </Button>,
         ]}
-        width={650}
+        width={680}
       >
         {selectedSub && (
-          <div>
-            <Descriptions bordered size="small" column={2} style={{ marginBottom: 16 }}>
-              <Descriptions.Item label={t('billing.subscriptions.selectCompany')} span={2}>
+          <div style={{ marginTop: 12 }}>
+            <Descriptions bordered size="small" column={2} style={{ marginBottom: 18 }}>
+              <Descriptions.Item label={t('billing.subscriptions.selectCompany')} span={1}>
                 <strong>{selectedSub.company?.name}</strong>
+              </Descriptions.Item>
+              <Descriptions.Item label={t('billing.invoices.taxId', 'Tax ID / VAT')} span={1}>
+                <span>{selectedSub.company?.taxId || 'N/A'}</span>
               </Descriptions.Item>
               <Descriptions.Item label={t('billing.plans.name')}>{selectedSub.plan?.name}</Descriptions.Item>
               <Descriptions.Item label={t('billing.subscriptions.status')}>
-                <Tag color={selectedSub.status === 'ACTIVE' ? 'success' : 'default'}>
-                  {t(`billing.statuses.${selectedSub.status}`)}
+                <Tag color={selectedSub.status === 'ACTIVE' ? 'success' : 'default'} style={{ borderRadius: 4 }}>
+                  {t(`billing.statuses.${selectedSub.status}`) || selectedSub.status}
                 </Tag>
               </Descriptions.Item>
               <Descriptions.Item label={t('billing.plans.price')}>
                 {Number(selectedSub.price).toFixed(2)} {selectedSub.currency}
               </Descriptions.Item>
               <Descriptions.Item label={t('billing.plans.billingInterval')}>
-                <Tag color="cyan">{t(`billing.intervals.${selectedSub.billingInterval}`)}</Tag>
+                <Tag color="cyan" style={{ borderRadius: 4 }}>
+                  {t(`billing.intervals.${selectedSub.billingInterval}`) || selectedSub.billingInterval}
+                </Tag>
               </Descriptions.Item>
               <Descriptions.Item label={t('billing.subscriptions.startDate')}>
                 {new Date(selectedSub.startDate).toLocaleDateString()}
@@ -780,32 +912,95 @@ export function SubscriptionsPage() {
               )}
             </Descriptions>
 
-            <Title level={5} style={{ color: brandTokens.navy, marginBottom: 8 }}>
-              {t('billing.subscriptions.entitlements')}
-            </Title>
+            <div style={{ marginTop: 16 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <Title level={5} style={{ color: semantic.textPrimary, margin: 0, fontSize: 14 }}>
+                  {t('billing.subscriptions.entitlements', 'Entitlements & Quotas')}
+                </Title>
+                {selectedSub.status === 'ACTIVE' && selectedSub.plan && (
+                  <Button
+                    size="small"
+                    type="primary"
+                    icon={<SyncOutlined />}
+                    loading={submitting}
+                    style={{
+                      backgroundColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                      borderColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                      borderRadius: 6,
+                    }}
+                    onClick={() => handleApplyPlanQuotas(selectedSub)}
+                  >
+                    {t('billing.subscriptions.applyPlanQuotas', 'Apply Current Plan Quotas')}
+                  </Button>
+                )}
+              </div>
 
-            <Descriptions bordered size="small" column={1}>
-              <Descriptions.Item label={t('billing.subscriptions.candidateAccess')}>
-                <span>
-                  <strong>{selectedSub.candidateAccessUsage}</strong> of <strong>{selectedSub.candidateAccessLimit}</strong> used ({Math.max(0, selectedSub.candidateAccessLimit - selectedSub.candidateAccessUsage)} remaining)
-                </span>
-                <Tag color="green" style={{ marginLeft: 8 }}>INTEGRATED</Tag>
-              </Descriptions.Item>
+              {selectedSub.plan && (
+                Boolean(
+                  selectedSub.candidateAccessLimit !== selectedSub.plan.candidateAccessLimit ||
+                  selectedSub.jobPostingLimit !== selectedSub.plan.jobPostingLimit ||
+                  selectedSub.teamMemberLimit !== selectedSub.plan.teamMemberLimit
+                ) ? (
+                  <Alert
+                    message={t('billing.subscriptions.quotaMismatchNotice', 'Plan Quota Discrepancy')}
+                    description={t(
+                      'billing.subscriptions.quotaMismatchDesc',
+                      'The plan configuration has been updated since this subscription was created. This subscription retains its snapshot quotas until current plan quotas are explicitly applied.'
+                    )}
+                    type="info"
+                    showIcon
+                    style={{ marginBottom: 12, borderRadius: 8 }}
+                  />
+                ) : null
+              )}
 
-              <Descriptions.Item label={t('billing.subscriptions.jobPostings')}>
-                <span>
-                  <strong>{subDetails?.usageSnapshot?.jobPostings?.currentUsage ?? selectedSub.jobPostingUsage ?? 0}</strong> of <strong>{selectedSub.jobPostingLimit}</strong> {t('billing.subscriptions.jobsUsed', 'jobs used')} ({Math.max(0, selectedSub.jobPostingLimit - (subDetails?.usageSnapshot?.jobPostings?.currentUsage ?? selectedSub.jobPostingUsage ?? 0))} remaining)
-                </span>
-                <Tag color="green" style={{ marginLeft: 8 }}>INTEGRATED</Tag>
-              </Descriptions.Item>
-
-              <Descriptions.Item label={t('billing.subscriptions.teamMembers')}>
-                <span>
-                  <strong>{subDetails?.usageSnapshot?.teamMembers?.currentUsage ?? selectedSub.teamMemberUsage ?? 0}</strong> of <strong>{selectedSub.teamMemberLimit}</strong> {t('billing.subscriptions.seatsUsed', 'seats used')} ({Math.max(0, selectedSub.teamMemberLimit - (subDetails?.usageSnapshot?.teamMembers?.currentUsage ?? selectedSub.teamMemberUsage ?? 0))} remaining)
-                </span>
-                <Tag color="green" style={{ marginLeft: 8 }}>INTEGRATED</Tag>
-              </Descriptions.Item>
-            </Descriptions>
+              <div className="rt-permission-matrix-container" style={{ background: semantic.bgCard }}>
+                <table className="rt-matrix-table">
+                  <thead>
+                    <tr>
+                      <th className="rt-matrix-th" style={{ textAlign: 'left' }}>Resource</th>
+                      <th className="rt-matrix-th" style={{ textAlign: 'center' }}>Effective Limit (Snapshot)</th>
+                      <th className="rt-matrix-th" style={{ textAlign: 'center' }}>Current Plan Limit</th>
+                      <th className="rt-matrix-th" style={{ textAlign: 'center' }}>Current Usage</th>
+                      <th className="rt-matrix-th" style={{ textAlign: 'center' }}>Remaining</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="rt-matrix-tr">
+                      <td className="rt-matrix-td" style={{ fontWeight: 600, color: semantic.textPrimary }}>Candidate Access</td>
+                      <td className="rt-matrix-td" style={{ textAlign: 'center' }}>{selectedSub.candidateAccessLimit}</td>
+                      <td className="rt-matrix-td" style={{ textAlign: 'center' }}>{selectedSub.plan?.candidateAccessLimit ?? selectedSub.candidateAccessLimit}</td>
+                      <td className="rt-matrix-td" style={{ textAlign: 'center', fontWeight: 600 }}>{selectedSub.candidateAccessUsage ?? 0}</td>
+                      <td className="rt-matrix-td" style={{ textAlign: 'center', color: brandTokens.success, fontWeight: 600 }}>
+                        {Math.max(0, selectedSub.candidateAccessLimit - (selectedSub.candidateAccessUsage ?? 0))}
+                      </td>
+                    </tr>
+                    <tr className="rt-matrix-tr">
+                      <td className="rt-matrix-td" style={{ fontWeight: 600, color: semantic.textPrimary }}>Job Postings</td>
+                      <td className="rt-matrix-td" style={{ textAlign: 'center' }}>{selectedSub.jobPostingLimit}</td>
+                      <td className="rt-matrix-td" style={{ textAlign: 'center' }}>{selectedSub.plan?.jobPostingLimit ?? selectedSub.jobPostingLimit}</td>
+                      <td className="rt-matrix-td" style={{ textAlign: 'center', fontWeight: 600 }}>
+                        {subDetails?.usageSnapshot?.jobPostings?.currentUsage ?? selectedSub.jobPostingUsage ?? 0}
+                      </td>
+                      <td className="rt-matrix-td" style={{ textAlign: 'center', color: brandTokens.success, fontWeight: 600 }}>
+                        {Math.max(0, selectedSub.jobPostingLimit - (subDetails?.usageSnapshot?.jobPostings?.currentUsage ?? selectedSub.jobPostingUsage ?? 0))}
+                      </td>
+                    </tr>
+                    <tr className="rt-matrix-tr">
+                      <td className="rt-matrix-td" style={{ fontWeight: 600, color: semantic.textPrimary }}>Team Members</td>
+                      <td className="rt-matrix-td" style={{ textAlign: 'center' }}>{selectedSub.teamMemberLimit}</td>
+                      <td className="rt-matrix-td" style={{ textAlign: 'center' }}>{selectedSub.plan?.teamMemberLimit ?? selectedSub.teamMemberLimit}</td>
+                      <td className="rt-matrix-td" style={{ textAlign: 'center', fontWeight: 600 }}>
+                        {subDetails?.usageSnapshot?.teamMembers?.currentUsage ?? selectedSub.teamMemberUsage ?? 0}
+                      </td>
+                      <td className="rt-matrix-td" style={{ textAlign: 'center', color: brandTokens.success, fontWeight: 600 }}>
+                        {Math.max(0, selectedSub.teamMemberLimit - (subDetails?.usageSnapshot?.teamMembers?.currentUsage ?? selectedSub.teamMemberUsage ?? 0))}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         )}
       </Modal>
@@ -815,6 +1010,7 @@ export function SubscriptionsPage() {
         title={t('billing.subscriptions.history')}
         open={isHistoryModalOpen}
         onCancel={() => setIsHistoryModalOpen(false)}
+        centered
         footer={[
           <Button key="close" onClick={() => setIsHistoryModalOpen(false)}>
             {t('common.back')}
@@ -823,22 +1019,42 @@ export function SubscriptionsPage() {
         width={650}
       >
         {historyLogs.length === 0 ? (
-          <Text type="secondary">No historical audit records found for this subscription.</Text>
+          <Text style={{ color: semantic.textSecondary }}>No historical audit records found for this subscription.</Text>
         ) : (
-          <div style={{ maxHeight: 400, overflowY: 'auto' }}>
+          <div style={{ maxHeight: 420, overflowY: 'auto' }}>
             {historyLogs.map((log) => (
-              <Card size="small" key={log.id} style={{ marginBottom: 8 }}>
+              <Card
+                size="small"
+                key={log.id}
+                style={{
+                  marginBottom: 8,
+                  borderRadius: 8,
+                  borderColor: semantic.borderDefault,
+                  background: semantic.bgCard,
+                }}
+              >
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                  <Tag color="blue">{log.action}</Tag>
-                  <Text type="secondary" style={{ fontSize: 12 }}>
+                  <Tag color="blue" style={{ borderRadius: 4 }}>{log.action}</Tag>
+                  <Text style={{ fontSize: 12, color: semantic.textSecondary }}>
                     {new Date(log.createdAt).toLocaleString()}
                   </Text>
                 </div>
-                <div style={{ fontSize: 12 }}>
+                <div style={{ fontSize: 12, color: semantic.textPrimary }}>
                   <Text strong>Actor: </Text>{log.actor}
                 </div>
                 {log.details && (
-                  <pre style={{ fontSize: 11, background: '#f5f5f5', padding: 6, borderRadius: 4, marginTop: 6, overflowX: 'auto' }}>
+                  <pre
+                    style={{
+                      fontSize: 11,
+                      background: isDarkMode ? 'rgba(0,0,0,0.2)' : '#f8fafc',
+                      border: `1px solid ${semantic.borderSubtle}`,
+                      color: semantic.textPrimary,
+                      padding: 8,
+                      borderRadius: 6,
+                      marginTop: 6,
+                      overflowX: 'auto',
+                    }}
+                  >
                     {JSON.stringify(log.details, null, 2)}
                   </pre>
                 )}
@@ -850,3 +1066,5 @@ export function SubscriptionsPage() {
     </div>
   );
 }
+
+export default SubscriptionsPage;

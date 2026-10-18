@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useContext, useEffect } from 'react';
 import {
   Table,
   Input,
@@ -21,10 +21,29 @@ import {
   ReloadOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
-import { brandTokens } from '../../theme/tokens.js';
+import { ReactReduxContext } from 'react-redux';
+import { brandTokens, lightSemanticTokens, darkSemanticTokens } from '../../theme/tokens.js';
 import { exportToCsv } from '../../utils/exportUtils.js';
 
 const { Text } = Typography;
+
+function useSafeDarkMode() {
+  const reduxContext = useContext(ReactReduxContext);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    return reduxContext?.store ? Boolean(reduxContext.store.getState()?.theme?.isDarkMode) : false;
+  });
+
+  useEffect(() => {
+    if (!reduxContext?.store) return;
+    const unsubscribe = reduxContext.store.subscribe(() => {
+      const current = Boolean(reduxContext.store.getState()?.theme?.isDarkMode);
+      setIsDarkMode(current);
+    });
+    return unsubscribe;
+  }, [reduxContext]);
+
+  return isDarkMode;
+}
 
 /**
  * Standard Status Tag Badge for Active/Inactive and boolean flags
@@ -72,6 +91,8 @@ export function DataTable({
   rowSelection = null,
 }) {
   const { t } = useTranslation();
+  const isDarkMode = useSafeDarkMode();
+  const semantic = isDarkMode ? darkSemanticTokens : lightSemanticTokens;
   const [searchText, setSearchText] = useState('');
 
   // Client-side quick search filtering across all string fields
@@ -124,7 +145,7 @@ export function DataTable({
                 <Button
                   type="text"
                   size="small"
-                  icon={<EyeOutlined style={{ color: brandTokens.navy }} />}
+                  icon={<EyeOutlined style={{ color: isDarkMode ? brandTokens.teal : brandTokens.navy }} />}
                   onClick={() => onView(record)}
                 />
               </Tooltip>
@@ -156,7 +177,7 @@ export function DataTable({
     }
 
     return list;
-  }, [columns, onView, onEdit, onDelete, t]);
+  }, [columns, onView, onEdit, onDelete, t, isDarkMode]);
 
   const handleExport = () => {
     const exportableCols = columns.map((col) => ({
@@ -169,7 +190,12 @@ export function DataTable({
 
   return (
     <Card
-      style={{ borderRadius: 12, border: '1px solid #dce9ed' }}
+      variant="outlined"
+      style={{
+        borderRadius: 12,
+        border: `1px solid ${semantic.borderDefault}`,
+        background: semantic.bgCard,
+      }}
       styles={{ body: { padding: 20 } }}
     >
       {(title || subtitle || searchable || exportable || onCreate) && (
@@ -185,12 +211,12 @@ export function DataTable({
         >
           <div>
             {title && (
-              <div style={{ fontSize: 18, fontWeight: 600, color: brandTokens.navy }}>
+              <div style={{ fontSize: 18, fontWeight: 600, color: semantic.textPrimary }}>
                 {title}
               </div>
             )}
             {subtitle && (
-              <div style={{ fontSize: 13, color: '#5c7480', marginTop: 2 }}>
+              <div style={{ fontSize: 13, color: semantic.textSecondary, marginTop: 2 }}>
                 {subtitle}
               </div>
             )}
@@ -199,7 +225,7 @@ export function DataTable({
           <Space wrap size={12}>
             {searchable && (
               <Input
-                prefix={<SearchOutlined style={{ color: '#8fa9b5' }} />}
+                prefix={<SearchOutlined style={{ color: semantic.textDisabled }} />}
                 placeholder={searchPlaceholder || t('table.search')}
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
@@ -232,7 +258,11 @@ export function DataTable({
               <Button
                 type="primary"
                 icon={<PlusOutlined />}
-                style={{ backgroundColor: brandTokens.navy, borderColor: brandTokens.navy }}
+                style={{
+                  backgroundColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                  borderColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                  fontWeight: 600,
+                }}
                 onClick={onCreate}
               >
                 {createButtonText || t('common.submit')}

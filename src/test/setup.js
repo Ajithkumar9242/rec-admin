@@ -29,3 +29,16 @@ global.requestAnimationFrame = (callback) => setTimeout(callback, 0);
 global.cancelAnimationFrame = (id) => clearTimeout(id);
 window.requestAnimationFrame = global.requestAnimationFrame;
 window.cancelAnimationFrame = global.cancelAnimationFrame;
+
+// Handle pseudo-element queries in jsdom for Ant Design modals/scrollbar measurement
+const originalGetComputedStyle = window.getComputedStyle;
+window.getComputedStyle = function (elt, pseudoElt) {
+  if (pseudoElt) {
+    return {
+      getPropertyValue: () => '',
+      width: '0px',
+      height: '0px',
+    };
+  }
+  return originalGetComputedStyle.call(this, elt);
+};

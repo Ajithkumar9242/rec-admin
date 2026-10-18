@@ -42,11 +42,12 @@ import {
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useSelector } from 'react-redux';
 import { DataTable } from '../../components/common/DataTable.jsx';
 import { DeleteConfirmationModal } from '../../components/common/DeleteConfirmationModal.jsx';
 import { companiesApi } from '../../services/companiesApi.js';
 import { configurationApi } from '../../services/configurationApi.js';
-import { brandTokens } from '../../theme/tokens.js';
+import { brandTokens, lightSemanticTokens, darkSemanticTokens } from '../../theme/tokens.js';
 
 const { Text, Paragraph, Title } = Typography;
 const { Option } = Select;
@@ -56,6 +57,8 @@ export function CompaniesPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { message } = App.useApp();
+  const isDarkMode = useSelector((state) => state.theme?.isDarkMode);
+  const semantic = isDarkMode ? darkSemanticTokens : lightSemanticTokens;
 
   // State
   const [activeTab, setActiveTab] = useState('active'); // 'active' | 'trash'
@@ -345,30 +348,79 @@ export function CompaniesPage() {
     {
       title: t('companies.colName', 'Company / Code'),
       key: 'name',
-      render: (_, record) => (
-        <Space orientation="vertical" size={2}>
-          <Space>
-            <Text strong style={{ fontSize: 14 }}>{record.name}</Text>
-            {record.companyCode && (
-              <Tag style={{ fontSize: 11, fontWeight: 600 }}>{record.companyCode}</Tag>
-            )}
+      render: (_, record) => {
+        const initial = (record.name || 'C').charAt(0).toUpperCase();
+        return (
+          <Space size={12} align="center">
+            <div
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 8,
+                background: isDarkMode ? 'rgba(79, 168, 192, 0.15)' : 'rgba(22, 49, 63, 0.06)',
+                color: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                fontWeight: 700,
+                fontSize: 15,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                border: `1px solid ${semantic.borderSubtle}`,
+              }}
+            >
+              {initial}
+            </div>
+            <Space direction="vertical" size={2}>
+              <Space size={6} wrap>
+                <Text strong style={{ fontSize: 13.5, color: semantic.textPrimary }}>
+                  {record.name}
+                </Text>
+                {record.companyCode && (
+                  <Tag
+                    style={{
+                      fontSize: 11,
+                      fontWeight: 600,
+                      borderRadius: 4,
+                      background: isDarkMode ? 'rgba(255, 255, 255, 0.06)' : '#f1f5f9',
+                      border: `1px solid ${semantic.borderSubtle}`,
+                      color: semantic.textSecondary,
+                      padding: '0 5px',
+                    }}
+                  >
+                    {record.companyCode}
+                  </Tag>
+                )}
+              </Space>
+              {record.legalName && (
+                <Text style={{ fontSize: 12, color: semantic.textSecondary }}>
+                  {record.legalName}
+                </Text>
+              )}
+            </Space>
           </Space>
-          {record.legalName && (
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              {record.legalName}
-            </Text>
-          )}
-        </Space>
-      ),
+        );
+      },
     },
     {
       title: t('companies.colIndustry', 'Industry & Size'),
       key: 'industry',
       render: (_, record) => (
-        <Space orientation="vertical" size={2}>
-          <Text>{record.industry?.name || '—'}</Text>
+        <Space direction="vertical" size={3}>
+          <Text style={{ fontSize: 13, color: semantic.textPrimary }}>{record.industry?.name || '—'}</Text>
           {record.companySize && (
-            <Tag color="cyan" style={{ fontSize: 11 }}>{record.companySize} employees</Tag>
+            <Tag
+              color="cyan"
+              style={{
+                fontSize: 11,
+                borderRadius: 4,
+                padding: '0 6px',
+                border: 'none',
+                background: isDarkMode ? 'rgba(79, 168, 192, 0.15)' : '#e0f2fe',
+                color: isDarkMode ? '#7dd3fc' : '#0369a1',
+              }}
+            >
+              {record.companySize} employees
+            </Tag>
           )}
         </Space>
       ),
@@ -377,11 +429,11 @@ export function CompaniesPage() {
       title: t('companies.colContact', 'Contact & Country'),
       key: 'contact',
       render: (_, record) => (
-        <Space orientation="vertical" size={2}>
-          <Text style={{ fontSize: 12 }}>{record.email || '—'}</Text>
+        <Space direction="vertical" size={2}>
+          <Text style={{ fontSize: 12, color: semantic.textSecondary }}>{record.email || '—'}</Text>
           <Space size={4}>
-            <Tag style={{ fontSize: 11 }}>{record.country || 'DE'}</Tag>
-            {record.city && <Text type="secondary" style={{ fontSize: 11 }}>{record.city}</Text>}
+            <Tag style={{ fontSize: 11, borderRadius: 4, padding: '0 4px' }}>{record.country || 'DE'}</Tag>
+            {record.city && <Text style={{ fontSize: 11, color: semantic.textDisabled }}>{record.city}</Text>}
           </Space>
         </Space>
       ),
@@ -396,7 +448,7 @@ export function CompaniesPage() {
       title: t('companies.colCreated', 'Registered'),
       dataIndex: 'createdAt',
       key: 'createdAt',
-      render: (val) => (val ? new Date(val).toLocaleDateString() : '—'),
+      render: (val) => (val ? <span style={{ fontSize: 12.5, color: semantic.textSecondary }}>{new Date(val).toLocaleDateString()}</span> : '—'),
     },
     {
       title: t('companies.actions', 'Actions'),
@@ -463,23 +515,27 @@ export function CompaniesPage() {
         ];
 
         return (
-          <Space>
+          <Space size={4}>
             <Button
               type="text"
+              size="small"
               icon={<EyeOutlined />}
               onClick={() => navigate(`/admin/companies/${record.id}`)}
+              style={{ color: semantic.textSecondary, borderRadius: 6 }}
             >
               {t('companies.viewProfile', 'View')}
             </Button>
             <Button
               type="text"
+              size="small"
               icon={<EditOutlined />}
               onClick={() => handleOpenEditModal(record)}
+              style={{ color: isDarkMode ? brandTokens.teal : brandTokens.navy, borderRadius: 6, fontWeight: 500 }}
             >
               {t('common.edit', 'Edit')}
             </Button>
-            <Dropdown menu={{ items: actionMenuItems }} trigger={['click']}>
-              <Button type="text" icon={<MoreOutlined />} />
+            <Dropdown menu={{ items: actionMenuItems }} trigger={['click']} placement="bottomRight">
+              <Button type="text" size="small" icon={<MoreOutlined style={{ color: semantic.textSecondary }} />} style={{ borderRadius: 6 }} />
             </Dropdown>
           </Space>
         );
@@ -492,31 +548,54 @@ export function CompaniesPage() {
     {
       title: t('companies.colName', 'Company / Code'),
       key: 'name',
-      render: (_, record) => (
-        <Space direction="vertical" size={2}>
-          <Space>
-            <Text strong style={{ fontSize: 14 }}>{record.name}</Text>
-            {record.companyCode && (
-              <Tag style={{ fontSize: 11, fontWeight: 600 }}>{record.companyCode}</Tag>
-            )}
+      render: (_, record) => {
+        const initial = (record.name || 'C').charAt(0).toUpperCase();
+        return (
+          <Space size={12} align="center">
+            <div
+              style={{
+                width: 38,
+                height: 38,
+                borderRadius: 8,
+                background: isDarkMode ? 'rgba(239, 68, 68, 0.15)' : '#fee2e2',
+                color: isDarkMode ? '#f87171' : '#dc2626',
+                fontWeight: 700,
+                fontSize: 15,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                border: `1px solid ${isDarkMode ? 'rgba(239, 68, 68, 0.3)' : '#fca5a5'}`,
+              }}
+            >
+              {initial}
+            </div>
+            <Space direction="vertical" size={2}>
+              <Space size={6} wrap>
+                <Text strong style={{ fontSize: 13.5, color: semantic.textPrimary }}>{record.name}</Text>
+                {record.companyCode && (
+                  <Tag style={{ fontSize: 11, fontWeight: 600, borderRadius: 4, padding: '0 5px' }}>{record.companyCode}</Tag>
+                )}
+              </Space>
+              {record.legalName && (
+                <Text style={{ fontSize: 12, color: semantic.textSecondary }}>
+                  {record.legalName}
+                </Text>
+              )}
+            </Space>
           </Space>
-          {record.legalName && (
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              {record.legalName}
-            </Text>
-          )}
-        </Space>
-      ),
+        );
+      },
     },
     {
       title: t('companies.colIndustry', 'Industry & Contact'),
       key: 'industry',
       render: (_, record) => (
         <Space direction="vertical" size={2}>
-          <Text>{record.industry?.name || '—'}</Text>
+          <Text style={{ fontSize: 13, color: semantic.textPrimary }}>{record.industry?.name || '—'}</Text>
           <Space size={4}>
-            <Tag style={{ fontSize: 11 }}>{record.country || 'DE'}</Tag>
-            <Text type="secondary" style={{ fontSize: 12 }}>{record.email || '—'}</Text>
+            <Tag style={{ fontSize: 11, borderRadius: 4 }}>{record.country || 'DE'}</Tag>
+            <Text style={{ fontSize: 12, color: semantic.textSecondary }}>{record.email || '—'}</Text>
           </Space>
         </Space>
       ),
@@ -536,8 +615,8 @@ export function CompaniesPage() {
         const d = new Date(val);
         return (
           <Space direction="vertical" size={0}>
-            <Text style={{ fontSize: 13 }}>{d.toLocaleDateString()}</Text>
-            <Text type="secondary" style={{ fontSize: 11 }}>
+            <Text style={{ fontSize: 13, color: semantic.textPrimary }}>{d.toLocaleDateString()}</Text>
+            <Text style={{ fontSize: 11, color: semantic.textSecondary }}>
               {d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </Text>
           </Space>
@@ -553,13 +632,13 @@ export function CompaniesPage() {
         const daysRemaining = Math.max(0, 30 - daysInTrash);
         if (daysInTrash > 30) {
           return (
-            <Tag color="error" icon={<ExclamationCircleOutlined />}>
+            <Tag color="error" icon={<ExclamationCircleOutlined />} style={{ borderRadius: 4 }}>
               Expired (&gt;30d) - Super Admin Only
             </Tag>
           );
         }
         return (
-          <Tag color="orange" icon={<ClockCircleOutlined />}>
+          <Tag color="orange" icon={<ClockCircleOutlined />} style={{ borderRadius: 4, fontWeight: 500 }}>
             {daysRemaining} day{daysRemaining === 1 ? '' : 's'} remaining
           </Tag>
         );
@@ -570,7 +649,7 @@ export function CompaniesPage() {
       key: 'actions',
       align: 'right',
       render: (_, record) => (
-        <Space>
+        <Space size={6}>
           <Popconfirm
             title={t('companies.restoreTitle', 'Restore Company?')}
             description={`Restore "${record.name}" back to the active directory?`}
@@ -580,8 +659,9 @@ export function CompaniesPage() {
           >
             <Button
               type="primary"
+              size="small"
               icon={<UndoOutlined />}
-              style={{ backgroundColor: '#10b981', borderColor: '#10b981' }}
+              style={{ backgroundColor: '#10b981', borderColor: '#10b981', borderRadius: 6, fontWeight: 500 }}
               loading={submitting}
             >
               {t('common.restore', 'Restore')}
@@ -589,17 +669,21 @@ export function CompaniesPage() {
           </Popconfirm>
           <Button
             type="text"
+            size="small"
             icon={<EyeOutlined />}
             onClick={() => navigate(`/admin/companies/${record.id}`)}
+            style={{ borderRadius: 6, color: semantic.textSecondary }}
           >
             {t('companies.viewProfile', 'View')}
           </Button>
           <Tooltip title={t('companies.deletePermanentlyTooltip', 'Delete Permanently from Database')}>
             <Button
               type="text"
+              size="small"
               danger
               icon={<DeleteOutlined />}
               onClick={() => handleOpenDeleteModal(record, true)}
+              style={{ borderRadius: 6 }}
             />
           </Tooltip>
         </Space>
@@ -607,49 +691,160 @@ export function CompaniesPage() {
     },
   ];
 
+  // Modern Minimalist KPI Card Renderer
+  const renderKpiCard = ({ title, value, icon, color, active = false, onClick = null, badge = null }) => (
+    <Card
+      className="rt-card-hover"
+      variant="outlined"
+      onClick={onClick}
+      style={{
+        borderRadius: 12,
+        border: `1px solid ${active ? (isDarkMode ? brandTokens.teal : brandTokens.navy) : semantic.borderDefault}`,
+        background: semantic.bgCard,
+        boxShadow: active
+          ? (isDarkMode ? '0 0 0 1px rgba(79,168,192,0.3)' : '0 2px 10px rgba(22,49,63,0.06)')
+          : (isDarkMode ? 'none' : '0 1px 3px rgba(0,0,0,0.02)'),
+        height: '100%',
+        cursor: onClick ? 'pointer' : 'default',
+        transition: 'all 0.18s ease',
+      }}
+      styles={{
+        body: {
+          padding: '16px 18px',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          height: '100%',
+        },
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 8,
+              background: isDarkMode ? 'rgba(79, 168, 192, 0.12)' : 'rgba(22, 49, 63, 0.05)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 17,
+              color: color || (isDarkMode ? brandTokens.teal : brandTokens.navy),
+            }}
+          >
+            {icon}
+          </div>
+          <span
+            style={{
+              fontSize: 13,
+              fontWeight: 500,
+              color: semantic.textSecondary,
+              lineHeight: 1.3,
+            }}
+          >
+            {title}
+          </span>
+        </div>
+        {badge}
+      </div>
+
+      <div
+        style={{
+          fontSize: 25,
+          fontWeight: 700,
+          letterSpacing: '-0.02em',
+          color: color && active ? color : semantic.textPrimary,
+          lineHeight: 1.1,
+        }}
+      >
+        {value}
+      </div>
+    </Card>
+  );
+
   return (
-    <div style={{ padding: '0 4px' }}>
+    <div className="rt-page-container" style={{ padding: '0 4px' }}>
       {/* Page Header */}
-      <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700, margin: '0 0 6px 0', color: brandTokens.navy }}>
-          {t('companies.title', 'Company & Employer Management')}
-        </h1>
-        <Text type="secondary">
-          {t(
-            'companies.subtitle',
-            'Manage registered enterprise companies, verify onboarding submissions, inspect compliance documents, and configure hiring policies.'
-          )}
-        </Text>
+      <div
+        style={{
+          marginBottom: 20,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          flexWrap: 'wrap',
+          gap: 12,
+        }}
+      >
+        <div>
+          <h1
+            style={{
+              fontSize: 22,
+              fontWeight: 700,
+              margin: '0 0 4px 0',
+              color: semantic.textPrimary,
+              letterSpacing: '-0.01em',
+            }}
+          >
+            {t('companies.title', 'Company & Employer Management')}
+          </h1>
+          <Text style={{ fontSize: 13, color: semantic.textSecondary }}>
+            {t(
+              'companies.subtitle',
+              'Manage registered enterprise companies, verify onboarding submissions, inspect compliance documents, and configure hiring policies.'
+            )}
+          </Text>
+        </div>
+
+        <Button
+          type="primary"
+          icon={<PlusOutlined />}
+          onClick={() => navigate('/admin/companies/new')}
+          style={{
+            backgroundColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+            borderColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+            borderRadius: 8,
+            fontWeight: 600,
+            height: 38,
+          }}
+        >
+          {t('companies.onboardingWizard', 'Onboard New Company')}
+        </Button>
       </div>
 
       {/* Integrations Banner (if unconfigured) */}
       {integrations && (!integrations.cloudinary?.configured || !integrations.mail?.configured) && (
         <Alert
-          style={{ marginBottom: 20 }}
+          style={{
+            marginBottom: 20,
+            borderRadius: 10,
+            border: `1px solid ${semantic.borderDefault}`,
+            background: isDarkMode ? 'rgba(79, 168, 192, 0.08)' : '#f0f9ff',
+          }}
           type="info"
           showIcon
           message={
             <Space size={16} wrap>
-              <Text strong>Integration Readiness:</Text>
+              <Text strong style={{ color: semantic.textPrimary }}>Integration Readiness:</Text>
               <Space>
-                <CloudServerOutlined />
+                <CloudServerOutlined style={{ color: isDarkMode ? brandTokens.teal : brandTokens.navy }} />
                 <span>
                   Cloudinary:{' '}
                   {integrations.cloudinary?.configured ? (
-                    <Tag color="success">Connected</Tag>
+                    <Tag color="success" style={{ borderRadius: 4 }}>Connected</Tag>
                   ) : (
-                    <Tag color="warning">Simulated / Fallback Mode</Tag>
+                    <Tag color="warning" style={{ borderRadius: 4 }}>Simulated / Fallback Mode</Tag>
                   )}
                 </span>
               </Space>
               <Space>
-                <MailOutlined />
+                <MailOutlined style={{ color: isDarkMode ? brandTokens.teal : brandTokens.navy }} />
                 <span>
                   SMTP Service:{' '}
                   {integrations.mail?.configured ? (
-                    <Tag color="success">Connected</Tag>
+                    <Tag color="success" style={{ borderRadius: 4 }}>Connected</Tag>
                   ) : (
-                    <Tag color="warning">Logged / Fallback Links</Tag>
+                    <Tag color="warning" style={{ borderRadius: 4 }}>Logged / Fallback Links</Tag>
                   )}
                 </span>
               </Space>
@@ -661,78 +856,74 @@ export function CompaniesPage() {
       {/* Statistics Cards */}
       <Row gutter={[12, 12]} style={{ marginBottom: 20 }}>
         <Col xs={12} sm={8} md={summary.TRASH > 0 ? undefined : 6} flex={summary.TRASH > 0 ? '1 1 180px' : undefined}>
-          <Card
-            variant="outlined"
-            size="small"
-            hoverable
-            onClick={() => {
+          {renderKpiCard({
+            title: t('companies.totalCompanies', 'Total Active'),
+            value: summary.ALL || 0,
+            icon: <SolutionOutlined />,
+            color: isDarkMode ? brandTokens.teal : brandTokens.navy,
+            active: activeTab === 'active' && !statusFilter,
+            onClick: () => {
               setActiveTab('active');
+              setStatusFilter('');
               setPagination((p) => ({ ...p, current: 1 }));
-            }}
-            style={{
-              cursor: 'pointer',
-              borderColor: activeTab === 'active' ? brandTokens.navy : undefined,
-            }}
-          >
-            <Statistic
-              title={t('companies.totalCompanies', 'Total Active')}
-              value={summary.ALL || 0}
-              prefix={<SolutionOutlined style={{ color: brandTokens.navy }} />}
-            />
-          </Card>
+            },
+          })}
         </Col>
         <Col xs={12} sm={8} md={summary.TRASH > 0 ? undefined : 6} flex={summary.TRASH > 0 ? '1 1 180px' : undefined}>
-          <Card variant="outlined" size="small" style={{ borderColor: summary.IN_REVIEW > 0 ? '#38bdf8' : undefined }}>
-            <Statistic
-              title={t('companies.statusInReview', 'In Review')}
-              value={summary.IN_REVIEW || 0}
-              valueStyle={{ color: summary.IN_REVIEW > 0 ? '#0284c7' : undefined }}
-              prefix={<Badge status={summary.IN_REVIEW > 0 ? 'processing' : 'default'} />}
-            />
-          </Card>
+          {renderKpiCard({
+            title: t('companies.statusInReview', 'In Review'),
+            value: summary.IN_REVIEW || 0,
+            icon: <CheckCircleOutlined />,
+            color: '#0284c7',
+            active: activeTab === 'active' && statusFilter === 'IN_REVIEW',
+            onClick: () => {
+              setActiveTab('active');
+              setStatusFilter('IN_REVIEW');
+              setPagination((p) => ({ ...p, current: 1 }));
+            },
+            badge: <Badge status={summary.IN_REVIEW > 0 ? 'processing' : 'default'} />,
+          })}
         </Col>
         <Col xs={12} sm={8} md={summary.TRASH > 0 ? undefined : 6} flex={summary.TRASH > 0 ? '1 1 180px' : undefined}>
-          <Card variant="outlined" size="small">
-            <Statistic
-              title={t('companies.statusActive', 'Active')}
-              value={summary.ACTIVE || 0}
-              valueStyle={{ color: '#16a34a' }}
-              prefix={<CheckCircleOutlined style={{ color: '#16a34a' }} />}
-            />
-          </Card>
+          {renderKpiCard({
+            title: t('companies.statusActive', 'Active'),
+            value: summary.ACTIVE || 0,
+            icon: <CheckCircleOutlined />,
+            color: '#16a34a',
+            active: activeTab === 'active' && statusFilter === 'ACTIVE',
+            onClick: () => {
+              setActiveTab('active');
+              setStatusFilter('ACTIVE');
+              setPagination((p) => ({ ...p, current: 1 }));
+            },
+          })}
         </Col>
         <Col xs={12} sm={8} md={summary.TRASH > 0 ? undefined : 6} flex={summary.TRASH > 0 ? '1 1 180px' : undefined}>
-          <Card variant="outlined" size="small">
-            <Statistic
-              title={t('companies.statusSuspended', 'Suspended')}
-              value={summary.SUSPENDED || 0}
-              valueStyle={{ color: summary.SUSPENDED > 0 ? '#dc2626' : undefined }}
-              prefix={<StopOutlined style={{ color: summary.SUSPENDED > 0 ? '#dc2626' : undefined }} />}
-            />
-          </Card>
+          {renderKpiCard({
+            title: t('companies.statusSuspended', 'Suspended'),
+            value: summary.SUSPENDED || 0,
+            icon: <StopOutlined />,
+            color: summary.SUSPENDED > 0 ? '#dc2626' : undefined,
+            active: activeTab === 'active' && statusFilter === 'SUSPENDED',
+            onClick: () => {
+              setActiveTab('active');
+              setStatusFilter('SUSPENDED');
+              setPagination((p) => ({ ...p, current: 1 }));
+            },
+          })}
         </Col>
         <Col xs={12} sm={8} md={summary.TRASH > 0 ? undefined : 6} flex={summary.TRASH > 0 ? '1 1 180px' : undefined}>
-          <Card
-            variant="outlined"
-            size="small"
-            hoverable
-            onClick={() => {
+          {renderKpiCard({
+            title: t('companies.inTrash', 'In Trash (30d)'),
+            value: summary.TRASH || 0,
+            icon: <DeleteOutlined />,
+            color: summary.TRASH > 0 ? '#ef4444' : undefined,
+            active: activeTab === 'trash',
+            onClick: () => {
               setActiveTab('trash');
               setPagination((p) => ({ ...p, current: 1 }));
-            }}
-            style={{
-              cursor: 'pointer',
-              borderColor: activeTab === 'trash' ? '#ef4444' : undefined,
-              backgroundColor: activeTab === 'trash' ? '#fff1f0' : undefined,
-            }}
-          >
-            <Statistic
-              title={t('companies.inTrash', 'In Trash (30d)')}
-              value={summary.TRASH || 0}
-              valueStyle={{ color: summary.TRASH > 0 ? '#ef4444' : undefined }}
-              prefix={<DeleteOutlined style={{ color: '#ef4444' }} />}
-            />
-          </Card>
+            },
+          })}
         </Col>
       </Row>
 
@@ -749,7 +940,7 @@ export function CompaniesPage() {
           {
             key: 'active',
             label: (
-              <span style={{ fontWeight: 600 }}>
+              <span style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center' }}>
                 <CheckCircleOutlined style={{ color: '#16a34a', marginRight: 6 }} />
                 {t('companies.activeCompanies', 'Active Companies')} ({summary.ALL || 0})
               </span>
@@ -758,7 +949,7 @@ export function CompaniesPage() {
           {
             key: 'trash',
             label: (
-              <span style={{ fontWeight: 600, color: summary.TRASH > 0 ? '#ef4444' : undefined }}>
+              <span style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', color: summary.TRASH > 0 ? '#ef4444' : undefined }}>
                 <DeleteOutlined style={{ color: summary.TRASH > 0 ? '#ef4444' : undefined, marginRight: 6 }} />
                 {t('companies.trashRetention', 'Trash & Retention')} ({summary.TRASH || 0})
               </span>
@@ -770,7 +961,12 @@ export function CompaniesPage() {
       {/* Trash Policy Alert Banner */}
       {activeTab === 'trash' && (
         <Alert
-          style={{ marginBottom: 16 }}
+          style={{
+            marginBottom: 16,
+            borderRadius: 10,
+            border: `1px solid ${isDarkMode ? 'rgba(234, 179, 8, 0.3)' : '#fef08a'}`,
+            background: isDarkMode ? 'rgba(234, 179, 8, 0.08)' : '#fffbeb',
+          }}
           type="warning"
           showIcon
           message={t('companies.trashBannerTitle', 'Company Trash & 30-Day Retention Policy')}
@@ -782,20 +978,29 @@ export function CompaniesPage() {
       )}
 
       {/* Filter & Action Toolbar */}
-      <Card variant="outlined" style={{ marginBottom: 16 }} styles={{ body: { padding: 16 } }}>
+      <Card
+        variant="outlined"
+        style={{
+          marginBottom: 16,
+          borderRadius: 12,
+          border: `1px solid ${semantic.borderDefault}`,
+          background: semantic.bgCard,
+        }}
+        styles={{ body: { padding: '14px 18px' } }}
+      >
         <Row gutter={[12, 12]} justify="space-between" align="middle">
-          <Col xs={24} md={16}>
+          <Col xs={24} md={18}>
             <Space wrap size={10} style={{ width: '100%' }}>
               <Input
                 placeholder={t('companies.searchPlaceholder', 'Search by name, legal name, code, email...')}
-                prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
+                prefix={<SearchOutlined style={{ color: semantic.textDisabled }} />}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 onPressEnter={() => {
                   setPagination((p) => ({ ...p, current: 1 }));
                   fetchCompanies();
                 }}
-                style={{ width: 280 }}
+                style={{ width: 280, borderRadius: 8 }}
                 allowClear
               />
               <Select
@@ -805,7 +1010,7 @@ export function CompaniesPage() {
                   setStatusFilter(val);
                   setPagination((p) => ({ ...p, current: 1 }));
                 }}
-                style={{ width: 140 }}
+                style={{ width: 140, borderRadius: 8 }}
                 allowClear
               >
                 <Option value="">{t('companies.allStatuses', 'All Statuses')}</Option>
@@ -822,7 +1027,7 @@ export function CompaniesPage() {
                   setIndustryFilter(val);
                   setPagination((p) => ({ ...p, current: 1 }));
                 }}
-                style={{ width: 180 }}
+                style={{ width: 180, borderRadius: 8 }}
                 allowClear
               >
                 <Option value="">{t('companies.allIndustries', 'All Industries')}</Option>
@@ -830,20 +1035,15 @@ export function CompaniesPage() {
                   <Option key={ind.id} value={ind.id}>{ind.name}</Option>
                 ))}
               </Select>
-              <Button icon={<ReloadOutlined />} onClick={fetchCompanies}>
+              <Button icon={<ReloadOutlined />} onClick={fetchCompanies} style={{ borderRadius: 8 }}>
                 {t('common.retry', 'Refresh')}
               </Button>
             </Space>
           </Col>
-          <Col xs={24} md={8} style={{ textAlign: 'right' }}>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={() => navigate('/admin/companies/new')}
-              style={{ backgroundColor: brandTokens.navy, borderColor: brandTokens.navy }}
-            >
-              {t('companies.onboardingWizard', 'Onboard New Company')}
-            </Button>
+          <Col xs={24} md={6} style={{ textAlign: 'right' }}>
+            <Text style={{ fontSize: 13, color: semantic.textSecondary }}>
+              {t('table.totalRecords', { total: pagination.total })}
+            </Text>
           </Col>
         </Row>
       </Card>

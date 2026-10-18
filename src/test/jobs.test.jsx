@@ -117,7 +117,7 @@ describe('RecruiTrain Phase B: Admin Jobs Module Test Suite', () => {
 
       // Title & metrics
       expect(await screen.findByRole('heading', { name: /Job Postings/i })).toBeInTheDocument();
-      expect(screen.getByText('Senior Cloud Architect')).toBeInTheDocument();
+      expect(await screen.findByText('Senior Cloud Architect')).toBeInTheDocument();
       expect(screen.getByText('Junior Frontend Dev')).toBeInTheDocument();
       expect(screen.getByText('Acme Technologies')).toBeInTheDocument();
     });

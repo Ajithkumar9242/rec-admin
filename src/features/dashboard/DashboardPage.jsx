@@ -11,7 +11,6 @@ import {
   Select,
   Tag,
   Alert,
-  Spin,
   Tabs,
   Badge,
   Tooltip,
@@ -26,16 +25,23 @@ import {
   SolutionOutlined,
   UsergroupAddOutlined,
   ReloadOutlined,
-  CalendarOutlined,
   InfoCircleOutlined,
   DownloadOutlined,
   BellOutlined,
+  FileTextOutlined,
+  FileDoneOutlined,
+  LockOutlined,
+  DatabaseOutlined,
+  ApiOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import api from '../../services/api.js';
-import { brandTokens } from '../../theme/tokens.js';
+import { jobsApi } from '../../services/jobsApi.js';
+import { companiesApi } from '../../services/companiesApi.js';
+import { candidateApi } from '../../services/candidateApi.js';
+import { brandTokens, lightSemanticTokens, darkSemanticTokens } from '../../theme/tokens.js';
 import { AnalyticsChart } from './components/AnalyticsChart.jsx';
 import { DataTable } from '../../components/common/DataTable.jsx';
 
@@ -45,6 +51,7 @@ const { RangePicker } = DatePicker;
 export function DashboardPage() {
   const { user } = useSelector((state) => state.auth);
   const isDarkMode = useSelector((state) => state.theme.isDarkMode);
+  const semantic = isDarkMode ? darkSemanticTokens : lightSemanticTokens;
   const { t } = useTranslation();
 
   // Filter States
@@ -60,6 +67,11 @@ export function DashboardPage() {
   const [dashboardData, setDashboardData] = useState(null);
   const [fetchError, setFetchError] = useState(null);
   const [exporting, setExporting] = useState(false);
+
+  // Module Live KPI states
+  const [jobStats, setJobStats] = useState({ loading: true, error: null, active: null, inactive: null, connected: false });
+  const [companyStats, setCompanyStats] = useState({ loading: true, error: null, total: null, connected: false });
+  const [candidateStats, setCandidateStats] = useState({ loading: true, error: null, total: null, connected: false });
 
   const fetchDashboard = useCallback(async (customRange = dateRange, customGroup = groupBy) => {
     // Validate range
@@ -83,8 +95,48 @@ export function DashboardPage() {
         params.groupBy = customGroup;
       }
 
-      const res = await api.get('/admin/dashboard', { params });
-      setDashboardData(res.data);
+      // Concurrently query dashboard endpoint and module data sources
+      const [dashRes, jobsRes, compRes, candRes] = await Promise.allSettled([
+        api.get('/admin/dashboard', { params }),
+        jobsApi.getJobs({ limit: 1 }),
+        companiesApi.getStatusSummary(),
+        candidateApi.getCandidates({ limit: 1 }),
+      ]);
+
+      if (dashRes.status === 'fulfilled') {
+        setDashboardData(dashRes.value.data);
+      } else {
+        setFetchError(dashRes.reason?.response?.data?.error || 'Failed to load dashboard data.');
+      }
+
+      // 1 & 2: Process Jobs stats (PUBLISHED = active, non-published non-trashed = inactive)
+      if (jobsRes.status === 'fulfilled' && jobsRes.value?.counts) {
+        const counts = jobsRes.value.counts;
+        const active = typeof counts.PUBLISHED === 'number' ? counts.PUBLISHED : 0;
+        const inactive = (counts.DRAFT || 0) + (counts.PENDING_APPROVAL || 0) + (counts.CLOSED || 0) + (counts.ARCHIVED || 0);
+        setJobStats({ loading: false, error: null, active, inactive, connected: true });
+      } else {
+        const err = jobsRes.status === 'rejected' ? (jobsRes.reason?.response?.data?.error || jobsRes.reason?.message) : null;
+        setJobStats({ loading: false, error: err, active: null, inactive: null, connected: false });
+      }
+
+      // 3: Process Employers stats (ALL non-trashed companies)
+      if (compRes.status === 'fulfilled' && compRes.value?.success && compRes.value?.data) {
+        const total = typeof compRes.value.data.ALL === 'number' ? compRes.value.data.ALL : 0;
+        setCompanyStats({ loading: false, error: null, total, connected: true });
+      } else {
+        const err = compRes.status === 'rejected' ? (compRes.reason?.response?.data?.error || compRes.reason?.message) : null;
+        setCompanyStats({ loading: false, error: err, total: null, connected: false });
+      }
+
+      // 4: Process Candidates stats (canonical non-trashed candidate records)
+      if (candRes.status === 'fulfilled' && candRes.value?.pagination && typeof candRes.value.pagination.total === 'number') {
+        const total = candRes.value.pagination.total;
+        setCandidateStats({ loading: false, error: null, total, connected: true });
+      } else {
+        const err = candRes.status === 'rejected' ? (candRes.reason?.response?.data?.error || candRes.reason?.message) : null;
+        setCandidateStats({ loading: false, error: err, total: null, connected: false });
+      }
     } catch (err) {
       setFetchError(err.response?.data?.error || 'Failed to load dashboard data.');
     } finally {
@@ -98,7 +150,6 @@ export function DashboardPage() {
 
   const handleDateChange = (dates) => {
     if (!dates || !dates[0] || !dates[1]) {
-      // Clear filter
       const defaultRange = [dayjs().subtract(30, 'day'), dayjs()];
       setDateRange(defaultRange);
       return;
@@ -199,51 +250,139 @@ export function DashboardPage() {
   const kpis = dashboardData?.kpis;
   const charts = dashboardData?.charts;
 
+  // Modern Minimalist KPI Card Renderer
+  const renderKpiCard = ({ title, value, icon, badge, isConnected = true, tooltipText = null }) => (
+    <Card
+      style={{
+        borderRadius: 12,
+        border: `1px solid ${semantic.borderDefault}`,
+        background: semantic.bgCard,
+        boxShadow: isDarkMode ? 'none' : '0 1px 3px rgba(0,0,0,0.02)',
+        height: '100%',
+      }}
+      styles={{
+        body: {
+          padding: '18px 20px',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          height: '100%',
+        },
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 8,
+              background: isDarkMode ? 'rgba(79, 168, 192, 0.12)' : 'rgba(22, 49, 63, 0.05)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 18,
+            }}
+          >
+            {icon}
+          </div>
+          <span
+            style={{
+              fontSize: 13,
+              fontWeight: 500,
+              color: semantic.textSecondary,
+              lineHeight: 1.3,
+            }}
+          >
+            {title}
+          </span>
+        </div>
+
+        {badge}
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+        <div
+          style={{
+            fontSize: 26,
+            fontWeight: 700,
+            letterSpacing: '-0.02em',
+            color: isConnected ? semantic.textPrimary : semantic.textDisabled,
+            lineHeight: 1.1,
+          }}
+        >
+          {value}
+        </div>
+
+        {!isConnected && tooltipText && (
+          <Tooltip title={tooltipText}>
+            <InfoCircleOutlined style={{ fontSize: 13, color: semantic.textDisabled, cursor: 'help' }} />
+          </Tooltip>
+        )}
+      </div>
+    </Card>
+  );
+
   return (
-    <div style={{ maxWidth: 1280, margin: '0 auto', paddingBottom: 32 }}>
+    <div style={{ maxWidth: 1400, margin: '0 auto', paddingBottom: 32 }}>
       {/* Breadcrumb Navigation */}
       <Breadcrumb
-        style={{ marginBottom: 16 }}
+        style={{ marginBottom: 16, fontSize: 13 }}
         items={[
-          { title: <span style={{ color: '#5c7480' }}>Home</span> },
-          { title: <strong>{t('dashboard.breadcrumb')}</strong> },
+          { title: <span style={{ color: semantic.textSecondary }}>Home</span> },
+          { title: <strong style={{ color: semantic.textPrimary }}>{t('dashboard.breadcrumb')}</strong> },
         ]}
       />
 
-      {/* Header and Filter Toolbar */}
+      {/* Modern Header and Filter Toolbar */}
       <div
         style={{
           display: 'flex',
           flexWrap: 'wrap',
           justifyContent: 'space-between',
-          alignItems: 'flex-start',
+          alignItems: 'center',
           gap: 16,
           marginBottom: 24,
         }}
       >
         <div>
-          <Title level={2} style={{ margin: 0, fontSize: 24, color: brandTokens.navy }}>
+          <Title
+            level={2}
+            style={{
+              margin: 0,
+              fontSize: 22,
+              fontWeight: 700,
+              letterSpacing: '-0.02em',
+              color: semantic.textPrimary,
+            }}
+          >
             {t('dashboard.title')}
           </Title>
-          <Paragraph type="secondary" style={{ margin: '4px 0 0 0' }}>
+          <Paragraph
+            style={{
+              margin: '3px 0 0 0',
+              fontSize: 13,
+              color: semantic.textSecondary,
+            }}
+          >
             {t('dashboard.subtitle')}
           </Paragraph>
         </div>
 
         {/* Global Toolbar */}
-        <Space wrap size={12} align="center">
+        <Space wrap size={10} align="center">
           <RangePicker
             value={dateRange}
             onChange={handleDateChange}
             allowClear={false}
             placeholder={[t('dashboard.from'), t('dashboard.to')]}
-            style={{ borderRadius: 6 }}
+            style={{ borderRadius: 8, height: 38 }}
           />
 
           <Space size={6} align="center">
             <label
               htmlFor="dashboard-group-by-select"
-              style={{ fontSize: 13, fontWeight: 500, color: '#5c7480', cursor: 'pointer' }}
+              style={{ fontSize: 13, fontWeight: 500, color: semantic.textSecondary, cursor: 'pointer' }}
             >
               {t('dashboard.groupBy')}:
             </label>
@@ -252,7 +391,7 @@ export function DashboardPage() {
               aria-label={t('dashboard.groupBy')}
               value={groupBy}
               onChange={(val) => setGroupBy(val)}
-              style={{ width: 110 }}
+              style={{ width: 110, height: 38 }}
               options={[
                 { value: 'day', label: t('dashboard.day') },
                 { value: 'month', label: t('dashboard.month') },
@@ -261,7 +400,7 @@ export function DashboardPage() {
             />
           </Space>
 
-          <Button onClick={handleResetFilters}>
+          <Button onClick={handleResetFilters} style={{ height: 38, borderRadius: 8 }}>
             {t('dashboard.resetFilter')}
           </Button>
 
@@ -269,6 +408,7 @@ export function DashboardPage() {
             icon={<ReloadOutlined />}
             onClick={() => fetchDashboard(dateRange, groupBy)}
             loading={loading}
+            style={{ height: 38, borderRadius: 8 }}
           >
             {t('dashboard.refresh')}
           </Button>
@@ -298,182 +438,207 @@ export function DashboardPage() {
         />
       )}
 
-      {/* Summary Metrics (Compact KPI Summaries) */}
+      {/* 8 KPI Cards Grid */}
       <div style={{ marginBottom: 24 }}>
         <Row gutter={[16, 16]}>
-          {/* Active Jobs */}
+          {/* 1. Active Jobs */}
           <Col xs={24} sm={12} lg={6}>
-            <Card
-              variant="outlined"
-              style={{ borderRadius: 12, border: '1px solid #dce9ed' }}
-              styles={{ body: { padding: 18 } }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <Statistic
-                  title={t('dashboard.activeJobs')}
-                  value={kpis?.activeJobs?.count ?? '—'}
-                  valueStyle={{ fontSize: 24, fontWeight: 700, color: brandTokens.navy }}
-                />
-                <Tooltip title={t('dashboard.pendingDescription')}>
-                  <Tag color="orange" style={{ margin: 0, fontSize: 11 }}>
-                    {t('dashboard.modulePending')}
+            {(() => {
+              const isConnected = jobStats.connected || Boolean(kpis?.activeJobs?.connected);
+              const val = isConnected
+                ? (jobStats.connected ? jobStats.active : kpis?.activeJobs?.count)
+                : (jobStats.loading || loading ? '...' : '—');
+              return renderKpiCard({
+                title: t('dashboard.activeJobs'),
+                value: val,
+                icon: <FileTextOutlined style={{ color: brandTokens.teal }} />,
+                badge: isConnected ? (
+                  <Tag color="success" style={{ margin: 0, fontSize: 11, borderRadius: 4 }}>
+                    Live Data
                   </Tag>
-                </Tooltip>
-              </div>
-            </Card>
+                ) : (
+                  <Tag
+                    style={{
+                      margin: 0,
+                      fontSize: 11,
+                      borderRadius: 4,
+                      background: isDarkMode ? 'rgba(255,255,255,0.06)' : '#f1f5f9',
+                      borderColor: semantic.borderDefault,
+                      color: semantic.textSecondary,
+                    }}
+                  >
+                    {jobStats.error ? 'Unavailable' : 'Not connected'}
+                  </Tag>
+                ),
+                isConnected,
+                tooltipText: isConnected ? null : (jobStats.error || 'Jobs database integration scheduled for Phase 3'),
+              });
+            })()}
           </Col>
 
-          {/* Inactive Jobs */}
+          {/* 2. Inactive Jobs */}
           <Col xs={24} sm={12} lg={6}>
-            <Card
-              variant="outlined"
-              style={{ borderRadius: 12, border: '1px solid #dce9ed' }}
-              styles={{ body: { padding: 18 } }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <Statistic
-                  title={t('dashboard.inactiveJobs')}
-                  value={kpis?.inactiveJobs?.count ?? '—'}
-                  valueStyle={{ fontSize: 24, fontWeight: 700, color: '#5c7480' }}
-                />
-                <Tooltip title={t('dashboard.pendingDescription')}>
-                  <Tag color="orange" style={{ margin: 0, fontSize: 11 }}>
-                    {t('dashboard.modulePending')}
+            {(() => {
+              const isConnected = jobStats.connected || Boolean(kpis?.inactiveJobs?.connected);
+              const val = isConnected
+                ? (jobStats.connected ? jobStats.inactive : kpis?.inactiveJobs?.count)
+                : (jobStats.loading || loading ? '...' : '—');
+              return renderKpiCard({
+                title: t('dashboard.inactiveJobs'),
+                value: val,
+                icon: <FileDoneOutlined style={{ color: '#8fa9b5' }} />,
+                badge: isConnected ? (
+                  <Tag color="default" style={{ margin: 0, fontSize: 11, borderRadius: 4 }}>
+                    Live Data
                   </Tag>
-                </Tooltip>
-              </div>
-            </Card>
+                ) : (
+                  <Tag
+                    style={{
+                      margin: 0,
+                      fontSize: 11,
+                      borderRadius: 4,
+                      background: isDarkMode ? 'rgba(255,255,255,0.06)' : '#f1f5f9',
+                      borderColor: semantic.borderDefault,
+                      color: semantic.textSecondary,
+                    }}
+                  >
+                    {jobStats.error ? 'Unavailable' : 'Not connected'}
+                  </Tag>
+                ),
+                isConnected,
+                tooltipText: isConnected ? null : (jobStats.error || 'Jobs database integration scheduled for Phase 3'),
+              });
+            })()}
           </Col>
 
-          {/* Total Companies / Employers */}
+          {/* 3. Total Employers */}
           <Col xs={24} sm={12} lg={6}>
-            <Card
-              variant="outlined"
-              style={{ borderRadius: 12, border: '1px solid #dce9ed' }}
-              styles={{ body: { padding: 18 } }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <Statistic
-                  title={t('dashboard.totalCompanies')}
-                  value={kpis?.totalCompanies?.count ?? '—'}
-                  valueStyle={{ fontSize: 24, fontWeight: 700, color: brandTokens.navy }}
-                  prefix={<SolutionOutlined style={{ color: brandTokens.teal, marginRight: 8, fontSize: 18 }} />}
-                />
-                <Tooltip title={t('dashboard.pendingDescription')}>
-                  <Tag color="orange" style={{ margin: 0, fontSize: 11 }}>
-                    {t('dashboard.modulePending')}
+            {(() => {
+              const isConnected = companyStats.connected || Boolean(kpis?.totalCompanies?.connected);
+              const val = isConnected
+                ? (companyStats.connected ? companyStats.total : kpis?.totalCompanies?.count)
+                : (companyStats.loading || loading ? '...' : '—');
+              return renderKpiCard({
+                title: t('dashboard.totalCompanies'),
+                value: val,
+                icon: <SolutionOutlined style={{ color: brandTokens.navySoft }} />,
+                badge: isConnected ? (
+                  <Tag color="blue" style={{ margin: 0, fontSize: 11, borderRadius: 4 }}>
+                    Live Data
                   </Tag>
-                </Tooltip>
-              </div>
-            </Card>
+                ) : (
+                  <Tag
+                    style={{
+                      margin: 0,
+                      fontSize: 11,
+                      borderRadius: 4,
+                      background: isDarkMode ? 'rgba(255,255,255,0.06)' : '#f1f5f9',
+                      borderColor: semantic.borderDefault,
+                      color: semantic.textSecondary,
+                    }}
+                  >
+                    {companyStats.error ? 'Unavailable' : 'Not connected'}
+                  </Tag>
+                ),
+                isConnected,
+                tooltipText: isConnected ? null : (companyStats.error || 'Employers database integration scheduled for Phase 3'),
+              });
+            })()}
           </Col>
 
-          {/* Total Candidates */}
+          {/* 4. Total Candidates */}
           <Col xs={24} sm={12} lg={6}>
-            <Card
-              variant="outlined"
-              style={{ borderRadius: 12, border: '1px solid #dce9ed' }}
-              styles={{ body: { padding: 18 } }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <Statistic
-                  title={t('dashboard.totalCandidates')}
-                  value={kpis?.totalCandidates?.count ?? '—'}
-                  valueStyle={{ fontSize: 24, fontWeight: 700, color: brandTokens.navy }}
-                  prefix={<UsergroupAddOutlined style={{ color: brandTokens.amber, marginRight: 8, fontSize: 18 }} />}
-                />
-                <Tooltip title={t('dashboard.pendingDescription')}>
-                  <Tag color="orange" style={{ margin: 0, fontSize: 11 }}>
-                    {t('dashboard.modulePending')}
+            {(() => {
+              const isConnected = candidateStats.connected || Boolean(kpis?.totalCandidates?.connected);
+              const val = isConnected
+                ? (candidateStats.connected ? candidateStats.total : kpis?.totalCandidates?.count)
+                : (candidateStats.loading || loading ? '...' : '—');
+              return renderKpiCard({
+                title: t('dashboard.totalCandidates'),
+                value: val,
+                icon: <UsergroupAddOutlined style={{ color: brandTokens.amber }} />,
+                badge: isConnected ? (
+                  <Tag color="purple" style={{ margin: 0, fontSize: 11, borderRadius: 4 }}>
+                    Live Data
                   </Tag>
-                </Tooltip>
-              </div>
-            </Card>
+                ) : (
+                  <Tag
+                    style={{
+                      margin: 0,
+                      fontSize: 11,
+                      borderRadius: 4,
+                      background: isDarkMode ? 'rgba(255,255,255,0.06)' : '#f1f5f9',
+                      borderColor: semantic.borderDefault,
+                      color: semantic.textSecondary,
+                    }}
+                  >
+                    {candidateStats.error ? 'Unavailable' : 'Not connected'}
+                  </Tag>
+                ),
+                isConnected,
+                tooltipText: isConnected ? null : (candidateStats.error || 'Candidates database integration scheduled for Phase 3'),
+              });
+            })()}
           </Col>
 
-          {/* Connected Real Metrics: Active Administrators */}
+          {/* 5. Active Accounts */}
           <Col xs={24} sm={12} lg={6}>
-            <Card
-              variant="outlined"
-              style={{ borderRadius: 12, border: '1px solid #dce9ed' }}
-              styles={{ body: { padding: 18 } }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <Statistic
-                  title={t('dashboard.activeAdmins')}
-                  value={kpis?.activeAdmins?.count ?? (loading ? '...' : (fetchError ? '—' : 1))}
-                  valueStyle={{ fontSize: 24, fontWeight: 700, color: brandTokens.teal }}
-                  prefix={<CheckCircleOutlined style={{ color: brandTokens.teal, marginRight: 8, fontSize: 18 }} />}
-                />
-                <Tag color="green" style={{ margin: 0, fontSize: 11 }}>
+            {renderKpiCard({
+              title: t('dashboard.activeAdmins'),
+              value: kpis?.activeAdmins?.count ?? (loading ? '...' : (fetchError ? '—' : 1)),
+              icon: <CheckCircleOutlined style={{ color: brandTokens.teal }} />,
+              badge: (
+                <Tag color="success" style={{ margin: 0, fontSize: 11, borderRadius: 4 }}>
                   Live Data
                 </Tag>
-              </div>
-            </Card>
+              ),
+              isConnected: true,
+            })}
           </Col>
 
-          {/* Connected Real Metrics: Total Administrators */}
+          {/* 6. Total Administrators */}
           <Col xs={24} sm={12} lg={6}>
-            <Card
-              variant="outlined"
-              style={{ borderRadius: 12, border: '1px solid #dce9ed' }}
-              styles={{ body: { padding: 18 } }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <Statistic
-                  title={t('dashboard.totalAdmins')}
-                  value={kpis?.totalAdmins?.count ?? (loading ? '...' : (fetchError ? '—' : 1))}
-                  valueStyle={{ fontSize: 24, fontWeight: 700, color: brandTokens.navy }}
-                  prefix={<TeamOutlined style={{ color: brandTokens.navy, marginRight: 8, fontSize: 18 }} />}
-                />
-                <Tag color="green" style={{ margin: 0, fontSize: 11 }}>
+            {renderKpiCard({
+              title: t('dashboard.totalAdmins'),
+              value: kpis?.totalAdmins?.count ?? (loading ? '...' : (fetchError ? '—' : 1)),
+              icon: <TeamOutlined style={{ color: brandTokens.navy }} />,
+              badge: (
+                <Tag color="blue" style={{ margin: 0, fontSize: 11, borderRadius: 4 }}>
                   Live Data
                 </Tag>
-              </div>
-            </Card>
+              ),
+              isConnected: true,
+            })}
           </Col>
 
-          {/* Connected Real Metrics: Security Events */}
+          {/* 7. Security Audit Events */}
           <Col xs={24} sm={12} lg={6}>
-            <Card
-              variant="outlined"
-              style={{ borderRadius: 12, border: '1px solid #dce9ed' }}
-              styles={{ body: { padding: 18 } }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <Statistic
-                  title={t('dashboard.securityEvents')}
-                  value={kpis?.totalAuditEvents?.count ?? (loading ? '...' : (fetchError ? '—' : 0))}
-                  valueStyle={{ fontSize: 24, fontWeight: 700, color: brandTokens.amber }}
-                  prefix={<AuditOutlined style={{ color: brandTokens.amber, marginRight: 8, fontSize: 18 }} />}
-                />
-                <Tag color="green" style={{ margin: 0, fontSize: 11 }}>
+            {renderKpiCard({
+              title: t('dashboard.securityEvents'),
+              value: kpis?.totalAuditEvents?.count ?? (loading ? '...' : (fetchError ? '—' : 0)),
+              icon: <AuditOutlined style={{ color: brandTokens.amber }} />,
+              badge: (
+                <Tag color="warning" style={{ margin: 0, fontSize: 11, borderRadius: 4 }}>
                   In Range
                 </Tag>
-              </div>
-            </Card>
+              ),
+              isConnected: true,
+            })}
           </Col>
 
-          {/* Connected Real Metrics: MFA Adoption */}
+          {/* 8. MFA Adoption Rate */}
           <Col xs={24} sm={12} lg={6}>
-            <Card
-              variant="outlined"
-              style={{ borderRadius: 12, border: '1px solid #dce9ed' }}
-              styles={{ body: { padding: 18 } }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <Statistic
-                  title={t('dashboard.mfaAdoption')}
-                  value={kpis?.mfaAdoption?.percentage ?? (loading ? '...' : (fetchError ? '—' : 100))}
-                  suffix="%"
-                  valueStyle={{ fontSize: 24, fontWeight: 700, color: brandTokens.success }}
-                  prefix={<SafetyCertificateOutlined style={{ color: brandTokens.success, marginRight: 8, fontSize: 18 }} />}
-                />
-                <Tag color="green" style={{ margin: 0, fontSize: 11 }}>
+            {renderKpiCard({
+              title: t('dashboard.mfaAdoption'),
+              value: `${kpis?.mfaAdoption?.percentage ?? (loading ? '...' : (fetchError ? '—' : 100))}%`,
+              icon: <SafetyCertificateOutlined style={{ color: brandTokens.success }} />,
+              badge: (
+                <Tag color="success" style={{ margin: 0, fontSize: 11, borderRadius: 4 }}>
                   Enforced
                 </Tag>
-              </div>
-            </Card>
+              ),
+              isConnected: true,
+            })}
           </Col>
         </Row>
       </div>
@@ -481,111 +646,171 @@ export function DashboardPage() {
       {/* Analytics Charts & Notifications Row */}
       <Row gutter={[20, 20]} style={{ marginBottom: 24 }}>
         <Col xs={24} lg={16}>
-          <Tabs
-            defaultActiveKey="audit"
-            type="card"
-            items={[
-              {
-                key: 'audit',
-                label: t('dashboard.chartAudit'),
-                children: (
-                  <AnalyticsChart
-                    title={t('dashboard.chartAudit')}
-                    data={charts?.auditActivity?.series || []}
-                    connected={true}
-                    groupBy={groupBy}
-                    color={brandTokens.teal}
-                  />
-                ),
-              },
-              {
-                key: 'jobs',
-                label: t('dashboard.chartJobs'),
-                children: (
-                  <AnalyticsChart
-                    title={t('dashboard.chartJobs')}
-                    connected={false}
-                    pendingMessage={t('dashboard.pendingDescription')}
-                  />
-                ),
-              },
-              {
-                key: 'candidates',
-                label: t('dashboard.chartCandidates'),
-                children: (
-                  <AnalyticsChart
-                    title={t('dashboard.chartCandidates')}
-                    connected={false}
-                    pendingMessage={t('dashboard.pendingDescription')}
-                  />
-                ),
-              },
-              {
-                key: 'employers',
-                label: t('dashboard.chartEmployers'),
-                children: (
-                  <AnalyticsChart
-                    title={t('dashboard.chartEmployers')}
-                    connected={false}
-                    pendingMessage={t('dashboard.pendingDescription')}
-                  />
-                ),
-              },
-            ]}
-          />
+          <div
+            style={{
+              background: semantic.bgCard,
+              border: `1px solid ${semantic.borderDefault}`,
+              borderRadius: 12,
+              padding: '16px 20px',
+            }}
+          >
+            <Tabs
+              defaultActiveKey="audit"
+              items={[
+                {
+                  key: 'audit',
+                  label: t('dashboard.chartAudit'),
+                  children: (
+                    <AnalyticsChart
+                      title={t('dashboard.chartAudit')}
+                      data={charts?.auditActivity?.series || []}
+                      connected={true}
+                      groupBy={groupBy}
+                      color={brandTokens.teal}
+                    />
+                  ),
+                },
+                {
+                  key: 'jobs',
+                  label: t('dashboard.chartJobs'),
+                  children: (
+                    <AnalyticsChart
+                      title={t('dashboard.chartJobs')}
+                      connected={false}
+                      pendingMessage="Job Postings analytics will display here when connected."
+                    />
+                  ),
+                },
+                {
+                  key: 'candidates',
+                  label: t('dashboard.chartCandidates'),
+                  children: (
+                    <AnalyticsChart
+                      title={t('dashboard.chartCandidates')}
+                      connected={false}
+                      pendingMessage="Candidate Registrations analytics will display here when connected."
+                    />
+                  ),
+                },
+                {
+                  key: 'employers',
+                  label: t('dashboard.chartEmployers'),
+                  children: (
+                    <AnalyticsChart
+                      title={t('dashboard.chartEmployers')}
+                      connected={false}
+                      pendingMessage="Employer Registrations analytics will display here when connected."
+                    />
+                  ),
+                },
+              ]}
+            />
+          </div>
         </Col>
 
         {/* Notifications & System Health */}
         <Col xs={24} lg={8}>
           <Card
             title={
-              <Space>
-                <BellOutlined style={{ color: brandTokens.teal }} />
-                <span>{t('dashboard.recentNotifications')}</span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Space size={8}>
+                  <BellOutlined style={{ color: brandTokens.teal }} />
+                  <span style={{ fontSize: 14, fontWeight: 600, color: semantic.textPrimary }}>
+                    {t('dashboard.recentNotifications')}
+                  </span>
+                </Space>
                 <Badge count={0} style={{ backgroundColor: '#8fa9b5' }} />
-              </Space>
+              </div>
             }
-            style={{ borderRadius: 12, border: '1px solid #dce9ed', minHeight: 330 }}
-            styles={{ body: { padding: 20 } }}
+            style={{
+              borderRadius: 12,
+              border: `1px solid ${semantic.borderDefault}`,
+              background: semantic.bgCard,
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+            styles={{ body: { padding: 20, flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' } }}
           >
             <div
               style={{
                 textAlign: 'center',
-                padding: '30px 10px',
-                color: '#5c7480',
+                padding: '24px 10px',
+                color: semantic.textSecondary,
               }}
             >
-              <InfoCircleOutlined style={{ fontSize: 32, color: brandTokens.teal, marginBottom: 12 }} />
-              <div style={{ fontWeight: 600, color: brandTokens.navy, marginBottom: 6 }}>
+              <div
+                style={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: '50%',
+                  background: isDarkMode ? 'rgba(79, 168, 192, 0.1)' : '#f0f9fb',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto 12px auto',
+                }}
+              >
+                <BellOutlined style={{ fontSize: 20, color: brandTokens.teal }} />
+              </div>
+              <div style={{ fontWeight: 600, fontSize: 13, color: semantic.textPrimary, marginBottom: 4 }}>
                 0 Unread Notifications
               </div>
-              <div style={{ fontSize: 13 }}>
-                {t('dashboard.noNotifications')}
+              <div style={{ fontSize: 12, color: semantic.textSecondary, maxWidth: 260, margin: '0 auto' }}>
+                Notifications are not connected yet.
               </div>
             </div>
 
             <div
               style={{
-                borderTop: '1px solid #e4edf0',
+                borderTop: `1px solid ${semantic.borderSubtle}`,
                 paddingTop: 16,
                 marginTop: 16,
               }}
             >
-              <div style={{ fontSize: 12, fontWeight: 600, color: '#5c7480', marginBottom: 8, textTransform: 'uppercase' }}>
-                System Telemetry
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: semantic.textSecondary,
+                  marginBottom: 10,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                <ApiOutlined style={{ color: brandTokens.teal }} />
+                <span>System Telemetry</span>
               </div>
-              <Space direction="vertical" style={{ width: '100%', fontSize: 13 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Text type="secondary">Security Posture</Text>
-                  <Tag color="success">AES-256-GCM / Argon2id</Tag>
+              <Space direction="vertical" style={{ width: '100%', fontSize: 12 }} size={8}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Space size={6}>
+                    <LockOutlined style={{ fontSize: 12, color: semantic.textSecondary }} />
+                    <Text type="secondary" style={{ fontSize: 12 }}>Security Posture</Text>
+                  </Space>
+                  <Tag color="success" style={{ margin: 0, fontSize: 11, borderRadius: 4 }}>
+                    AES-256-GCM / Argon2id
+                  </Tag>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Text type="secondary">Session Authority</Text>
-                  <Tag color="cyan">Redis Session Store</Tag>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Space size={6}>
+                    <DatabaseOutlined style={{ fontSize: 12, color: semantic.textSecondary }} />
+                    <Text type="secondary" style={{ fontSize: 12 }}>Session Authority</Text>
+                  </Space>
+                  <Tag color="cyan" style={{ margin: 0, fontSize: 11, borderRadius: 4 }}>
+                    Redis Session Store
+                  </Tag>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <Text type="secondary">Database Target</Text>
-                  <Tag color="blue">PostgreSQL (Isolated)</Tag>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Space size={6}>
+                    <ServerOutlinedIcon style={{ fontSize: 12, color: semantic.textSecondary }} />
+                    <Text type="secondary" style={{ fontSize: 12 }}>Database Target</Text>
+                  </Space>
+                  <Tag color="blue" style={{ margin: 0, fontSize: 11, borderRadius: 4 }}>
+                    PostgreSQL (Isolated)
+                  </Tag>
                 </div>
               </Space>
             </div>
@@ -607,7 +832,7 @@ export function DashboardPage() {
             icon={<DownloadOutlined />}
             onClick={handleServerExport}
             loading={exporting}
-            style={{ borderColor: brandTokens.teal, color: brandTokens.navy }}
+            style={{ borderRadius: 6, fontWeight: 500 }}
           >
             {t('dashboard.exportCsv')}
           </Button>
@@ -616,3 +841,10 @@ export function DashboardPage() {
     </div>
   );
 }
+
+// Compact helper icon for database server
+function ServerOutlinedIcon({ style }) {
+  return <DatabaseOutlined style={style} />;
+}
+
+export default DashboardPage;

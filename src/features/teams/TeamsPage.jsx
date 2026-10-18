@@ -18,7 +18,6 @@ import {
   Row,
   Col,
   message,
-  Statistic,
   Empty,
   Divider,
   Dropdown,
@@ -44,6 +43,7 @@ import { useTranslation } from 'react-i18next';
 import { useSelector } from 'react-redux';
 import { teamsApi } from '../../services/teamsApi.js';
 import { companiesApi } from '../../services/companiesApi.js';
+import { brandTokens, lightSemanticTokens, darkSemanticTokens } from '../../theme/tokens.js';
 
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
@@ -51,6 +51,8 @@ const { Option } = Select;
 export function TeamsPage() {
   const { t } = useTranslation();
   const { user } = useSelector((state) => state.auth);
+  const isDarkMode = useSelector((state) => state.theme?.isDarkMode);
+  const semantic = isDarkMode ? darkSemanticTokens : lightSemanticTokens;
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
 
   const [activeTab, setActiveTab] = useState('teams');
@@ -293,13 +295,10 @@ export function TeamsPage() {
       const values = await memberRoleForm.validateFields();
       const roleIdOrCode = values.roleId;
 
-      // Find if selected item is a custom role ID or system role code
       const selectedRoleObj = roles.find((r) => r.id === roleIdOrCode || r.code === roleIdOrCode);
 
-      // If member has a team membership, update primary team member role or direct user role
       if (targetMember?.teams?.[0]?.teamId) {
         const teamId = targetMember.teams[0].teamId;
-        // Find team member id
         const teamObj = teams.find((t) => t.id === teamId);
         const tm = teamObj?.members?.find((m) => m.companyUser?.id === targetMember.id || m.admin?.id === targetMember.id);
         if (tm) {
@@ -327,7 +326,6 @@ export function TeamsPage() {
   const handleOpenCreateRole = () => {
     setEditingRole(null);
     roleForm.resetFields();
-    // Default matrix all false
     const initialMatrix = {};
     (permissionSchema.modules || []).forEach((m) => {
       initialMatrix[m.key] = {};
@@ -350,7 +348,7 @@ export function TeamsPage() {
   };
 
   const handlePermissionToggle = (moduleKey, actionKey, checked) => {
-    if (editingRole?.code === 'SUPER_ADMIN') return; // Cannot alter super admin permissions
+    if (editingRole?.code === 'SUPER_ADMIN') return;
     setRolePermissions((prev) => ({
       ...prev,
       [moduleKey]: {
@@ -393,7 +391,6 @@ export function TeamsPage() {
       const values = await roleForm.validateFields();
       setSavingRole(true);
 
-      // Convert rolePermissions object to array: [{ module, action, allowed }]
       const permArray = [];
       Object.entries(rolePermissions).forEach(([mod, actions]) => {
         Object.entries(actions).forEach(([act, allowed]) => {
@@ -459,8 +456,10 @@ export function TeamsPage() {
       key: 'name',
       render: (text, record) => (
         <Space direction="vertical" size={2}>
-          <Text strong>{text}</Text>
-          {record.description && <Text type="secondary" style={{ fontSize: 12 }}>{record.description}</Text>}
+          <Text strong style={{ fontSize: 13.5, color: semantic.textPrimary }}>{text}</Text>
+          {record.description && (
+            <Text style={{ fontSize: 12, color: semantic.textSecondary }}>{record.description}</Text>
+          )}
         </Space>
       ),
     },
@@ -468,7 +467,25 @@ export function TeamsPage() {
       title: t('teams.company', 'Company'),
       dataIndex: ['company', 'name'],
       key: 'company',
-      render: (companyName) => (companyName ? <Tag color="blue">{companyName}</Tag> : <Tag>Platform</Tag>),
+      render: (companyName) => (
+        companyName ? (
+          <Tag
+            style={{
+              fontSize: 11.5,
+              fontWeight: 500,
+              borderRadius: 4,
+              background: isDarkMode ? 'rgba(79, 168, 192, 0.15)' : '#e0f2fe',
+              color: isDarkMode ? '#7dd3fc' : '#0369a1',
+              border: 'none',
+              padding: '2px 8px',
+            }}
+          >
+            {companyName}
+          </Tag>
+        ) : (
+          <Tag style={{ fontSize: 11.5, borderRadius: 4, border: 'none' }}>Platform</Tag>
+        )
+      ),
     },
     {
       title: t('teams.membersCount', 'Members'),
@@ -478,7 +495,11 @@ export function TeamsPage() {
         <Badge
           count={count?.members || 0}
           overflowCount={999}
-          style={{ backgroundColor: '#0284c7' }}
+          style={{
+            backgroundColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+            fontWeight: 600,
+            borderRadius: 6,
+          }}
         />
       ),
     },
@@ -486,17 +507,22 @@ export function TeamsPage() {
       title: t('teams.created', 'Created'),
       dataIndex: 'createdAt',
       key: 'createdAt',
-      render: (d) => new Date(d).toLocaleDateString(),
+      render: (d) => (
+        <Text style={{ fontSize: 12.5, color: semantic.textSecondary }}>
+          {new Date(d).toLocaleDateString()}
+        </Text>
+      ),
     },
     {
       title: t('common.actions', 'Actions'),
       key: 'actions',
       render: (_, record) => (
-        <Space size="middle">
+        <Space size={8}>
           <Button
             size="small"
-            icon={<EditOutlined />}
+            icon={<EditOutlined style={{ color: isDarkMode ? brandTokens.teal : brandTokens.navySoft }} />}
             onClick={() => handleOpenEditTeam(record)}
+            style={{ borderRadius: 6, fontSize: 12 }}
           >
             {t('common.edit', 'Edit')}
           </Button>
@@ -507,7 +533,7 @@ export function TeamsPage() {
             okText={t('common.yes', 'Yes')}
             cancelText={t('common.no', 'No')}
           >
-            <Button size="small" danger icon={<DeleteOutlined />}>
+            <Button size="small" danger icon={<DeleteOutlined />} style={{ borderRadius: 6, fontSize: 12 }}>
               {t('common.delete', 'Delete')}
             </Button>
           </Popconfirm>
@@ -522,8 +548,8 @@ export function TeamsPage() {
       key: 'member',
       render: (_, record) => (
         <Space direction="vertical" size={2}>
-          <Text strong>{record.name}</Text>
-          <Text type="secondary" style={{ fontSize: 12 }}>{record.email}</Text>
+          <Text strong style={{ fontSize: 13.5, color: semantic.textPrimary }}>{record.name}</Text>
+          <Text style={{ fontSize: 12, color: semantic.textSecondary }}>{record.email}</Text>
         </Space>
       ),
     },
@@ -534,8 +560,16 @@ export function TeamsPage() {
         const roleName = record.effectiveRoleName || record.role;
         const isSys = ['SUPER_ADMIN', 'COMPANY_ADMIN', 'RECRUITER', 'HIRING_MANAGER'].includes(roleName);
         return (
-          <Space>
-            <Tag color={isSys ? 'geekblue' : 'purple'}>
+          <Space size={8}>
+            <Tag
+              color={isSys ? 'geekblue' : 'purple'}
+              style={{
+                borderRadius: 4,
+                fontWeight: 500,
+                fontSize: 11.5,
+                padding: '2px 8px',
+              }}
+            >
               {isSys ? <CrownOutlined style={{ marginRight: 4 }} /> : null}
               {roleName}
             </Tag>
@@ -543,7 +577,7 @@ export function TeamsPage() {
               type="link"
               size="small"
               onClick={() => handleOpenChangeRole(record)}
-              style={{ padding: 0 }}
+              style={{ padding: 0, fontSize: 12 }}
             >
               {t('teams.change', 'Change')}
             </Button>
@@ -559,11 +593,24 @@ export function TeamsPage() {
         memberTeams && memberTeams.length > 0 ? (
           <Space wrap size={[0, 4]}>
             {memberTeams.map((t) => (
-              <Tag key={t.teamId}>{t.teamName}</Tag>
+              <Tag
+                key={t.teamId}
+                style={{
+                  borderRadius: 4,
+                  fontSize: 11,
+                  background: isDarkMode ? 'rgba(255,255,255,0.06)' : '#f1f5f9',
+                  border: `1px solid ${semantic.borderSubtle}`,
+                  color: semantic.textPrimary,
+                }}
+              >
+                {t.teamName}
+              </Tag>
             ))}
           </Space>
         ) : (
-          <Text type="secondary" italic>{t('teams.noTeam', 'No team')}</Text>
+          <Text italic style={{ fontSize: 12, color: semantic.textSecondary }}>
+            {t('teams.noTeam', 'No team')}
+          </Text>
         ),
     },
     {
@@ -579,7 +626,9 @@ export function TeamsPage() {
         };
         return (
           <Space direction="vertical" size={2}>
-            <Tag color={colorMap[s] || 'default'}>{s}</Tag>
+            <Tag color={colorMap[s] || 'default'} style={{ borderRadius: 4, fontWeight: 500, fontSize: 11.5 }}>
+              {s}
+            </Tag>
             {s === 'INVITED' && record.pendingInvitation && (
               <Button
                 type="link"
@@ -632,7 +681,7 @@ export function TeamsPage() {
           }}
           trigger={['click']}
         >
-          <Button size="small" icon={<MoreOutlined />}>
+          <Button size="small" icon={<MoreOutlined />} style={{ borderRadius: 6, fontSize: 12 }}>
             {t('common.manage', 'Manage')}
           </Button>
         </Dropdown>
@@ -640,16 +689,64 @@ export function TeamsPage() {
     },
   ];
 
+  // Modern Minimalist KPI Card Renderer
+  const renderKpiCard = ({ title, value, icon, color }) => (
+    <Card
+      className="rt-card-hover"
+      variant="outlined"
+      style={{
+        borderRadius: 12,
+        border: `1px solid ${semantic.borderDefault}`,
+        background: semantic.bgCard,
+        boxShadow: isDarkMode ? 'none' : '0 1px 3px rgba(0,0,0,0.02)',
+        height: '100%',
+      }}
+      styles={{
+        body: {
+          padding: '16px 18px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 14,
+        },
+      }}
+    >
+      <div
+        style={{
+          width: 38,
+          height: 38,
+          borderRadius: 8,
+          background: isDarkMode ? 'rgba(79, 168, 192, 0.12)' : 'rgba(22, 49, 63, 0.05)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: 18,
+          color: color || (isDarkMode ? brandTokens.teal : brandTokens.navy),
+          flexShrink: 0,
+        }}
+      >
+        {icon}
+      </div>
+      <div>
+        <div style={{ fontSize: 12.5, fontWeight: 500, color: semantic.textSecondary, lineHeight: 1.3 }}>
+          {title}
+        </div>
+        <div style={{ fontSize: 22, fontWeight: 700, color: semantic.textPrimary, lineHeight: 1.2, marginTop: 2 }}>
+          {value}
+        </div>
+      </div>
+    </Card>
+  );
+
   return (
-    <div style={{ padding: '24px', maxWidth: 1400, margin: '0 auto' }}>
+    <div className="rt-page-container" style={{ maxWidth: 1400, margin: '0 auto' }}>
       {/* Page Header */}
-      <div style={{ marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
+      <div style={{ marginBottom: 20, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16 }}>
         <div>
-          <Title level={2} style={{ margin: 0 }}>
-            <TeamOutlined style={{ marginRight: 8, color: '#0284c7' }} />
+          <Title level={2} style={{ margin: 0, fontSize: 22, fontWeight: 700, color: semantic.textPrimary }}>
+            <TeamOutlined style={{ marginRight: 8, color: isDarkMode ? brandTokens.teal : brandTokens.navy }} />
             {t('teams.pageTitle', 'Teams & Permission Management (RBAC)')}
           </Title>
-          <Paragraph type="secondary" style={{ marginTop: 4, marginBottom: 0 }}>
+          <Paragraph style={{ marginTop: 4, marginBottom: 0, fontSize: 13, color: semantic.textSecondary }}>
             {t(
               'teams.pageSubtitle',
               'Organize recruitment teams, invite members with secure token-based activation, and configure granular role-based permissions.'
@@ -657,18 +754,24 @@ export function TeamsPage() {
           </Paragraph>
         </div>
 
-        <Space>
+        <Space size={10}>
           <Button
             type="primary"
             icon={<UserAddOutlined />}
             onClick={handleOpenInviteModal}
-            style={{ backgroundColor: '#0284c7' }}
+            style={{
+              backgroundColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+              borderColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+              fontWeight: 600,
+              borderRadius: 8,
+            }}
           >
             {t('teams.inviteMember', 'Invite Member')}
           </Button>
           <Button
             icon={<PlusOutlined />}
             onClick={handleOpenCreateTeam}
+            style={{ borderRadius: 8, fontWeight: 500 }}
           >
             {t('teams.createTeam', 'Create Team')}
           </Button>
@@ -676,38 +779,43 @@ export function TeamsPage() {
       </div>
 
       {/* Top Quick Stats */}
-      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+      <Row gutter={[16, 16]} style={{ marginBottom: 20 }}>
         <Col xs={24} sm={8}>
-          <Card bordered={false} style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-            <Statistic
-              title={t('teams.totalTeams', 'Active Teams')}
-              value={teams.length}
-              prefix={<TeamOutlined style={{ color: '#0284c7' }} />}
-            />
-          </Card>
+          {renderKpiCard({
+            title: t('teams.totalTeams', 'Active Teams'),
+            value: teams.length,
+            icon: <TeamOutlined />,
+            color: isDarkMode ? brandTokens.teal : brandTokens.navy,
+          })}
         </Col>
         <Col xs={24} sm={8}>
-          <Card bordered={false} style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-            <Statistic
-              title={t('teams.totalMembers', 'Team Members')}
-              value={members.length}
-              prefix={<UserAddOutlined style={{ color: '#10b981' }} />}
-            />
-          </Card>
+          {renderKpiCard({
+            title: t('teams.totalMembers', 'Team Members'),
+            value: members.length,
+            icon: <UserAddOutlined />,
+            color: brandTokens.success,
+          })}
         </Col>
         <Col xs={24} sm={8}>
-          <Card bordered={false} style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
-            <Statistic
-              title={t('roles.totalRoles', 'Defined Roles')}
-              value={roles.length}
-              prefix={<SafetyCertificateOutlined style={{ color: '#8b5cf6' }} />}
-            />
-          </Card>
+          {renderKpiCard({
+            title: t('roles.totalRoles', 'Defined Roles'),
+            value: roles.length,
+            icon: <SafetyCertificateOutlined />,
+            color: '#8b5cf6',
+          })}
         </Col>
       </Row>
 
       {/* Main Tabs Container */}
-      <Card bordered={false} style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+      <Card
+        variant="outlined"
+        style={{
+          borderRadius: 12,
+          border: `1px solid ${semantic.borderDefault}`,
+          background: semantic.bgCard,
+        }}
+        styles={{ body: { padding: '16px 20px 20px 20px' } }}
+      >
         <Tabs
           activeKey={activeTab}
           onChange={setActiveTab}
@@ -724,51 +832,53 @@ export function TeamsPage() {
                 <div>
                   {/* Teams Directory Section */}
                   <div style={{ marginBottom: 24 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                      <Title level={4} style={{ margin: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                      <Title level={4} style={{ margin: 0, fontSize: 16, color: semantic.textPrimary }}>
                         {t('teams.teamsList', 'Teams Directory')}
                       </Title>
-                      <Space>
+                      <Space size={8}>
                         <Input
                           placeholder={t('teams.searchTeams', 'Search teams...')}
-                          prefix={<SearchOutlined />}
+                          prefix={<SearchOutlined style={{ color: semantic.textDisabled }} />}
                           value={teamsSearch}
                           onChange={(e) => setTeamsSearch(e.target.value)}
                           onPressEnter={fetchTeams}
                           allowClear
-                          style={{ width: 220 }}
+                          style={{ width: 220, borderRadius: 6 }}
                         />
-                        <Button icon={<ReloadOutlined />} onClick={fetchTeams} />
+                        <Button icon={<ReloadOutlined />} onClick={fetchTeams} style={{ borderRadius: 6 }} />
                       </Space>
                     </div>
 
-                    <Table
-                      dataSource={teams}
-                      columns={teamColumns}
-                      rowKey="id"
-                      loading={teamsLoading}
-                      pagination={{ pageSize: 5 }}
-                      locale={{ emptyText: <Empty description={t('teams.noTeamsFound', 'No teams created yet')} /> }}
-                    />
+                    <div className="rt-table-wrapper">
+                      <Table
+                        dataSource={teams}
+                        columns={teamColumns}
+                        rowKey="id"
+                        loading={teamsLoading}
+                        pagination={{ pageSize: 5 }}
+                        locale={{ emptyText: <Empty description={t('teams.noTeamsFound', 'No teams created yet')} /> }}
+                      />
+                    </div>
                   </div>
 
-                  <Divider />
+                  <Divider style={{ borderColor: semantic.borderSubtle, margin: '20px 0' }} />
 
                   {/* Members Directory Section */}
                   <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
-                      <Title level={4} style={{ margin: 0 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14, flexWrap: 'wrap', gap: 12 }}>
+                      <Title level={4} style={{ margin: 0, fontSize: 16, color: semantic.textPrimary }}>
                         {t('teams.membersDirectory', 'Members Directory')}
                       </Title>
-                      <Space wrap>
+                      <Space wrap size={8}>
                         <Input
                           placeholder={t('teams.searchMembers', 'Search by name or email...')}
-                          prefix={<SearchOutlined />}
+                          prefix={<SearchOutlined style={{ color: semantic.textDisabled }} />}
                           value={membersSearch}
                           onChange={(e) => setMembersSearch(e.target.value)}
                           onPressEnter={fetchMembers}
                           allowClear
-                          style={{ width: 220 }}
+                          style={{ width: 220, borderRadius: 6 }}
                         />
                         <Select
                           placeholder={t('teams.filterRole', 'Filter by Role')}
@@ -795,18 +905,20 @@ export function TeamsPage() {
                           <Option value="SUSPENDED">SUSPENDED</Option>
                           <Option value="DEACTIVATED">DEACTIVATED</Option>
                         </Select>
-                        <Button icon={<ReloadOutlined />} onClick={fetchMembers} />
+                        <Button icon={<ReloadOutlined />} onClick={fetchMembers} style={{ borderRadius: 6 }} />
                       </Space>
                     </div>
 
-                    <Table
-                      dataSource={members}
-                      columns={memberColumns}
-                      rowKey="id"
-                      loading={membersLoading}
-                      pagination={{ pageSize: 10 }}
-                      locale={{ emptyText: <Empty description={t('teams.noMembersFound', 'No members found')} /> }}
-                    />
+                    <div className="rt-table-wrapper">
+                      <Table
+                        dataSource={members}
+                        columns={memberColumns}
+                        rowKey="id"
+                        loading={membersLoading}
+                        pagination={{ pageSize: 10 }}
+                        locale={{ emptyText: <Empty description={t('teams.noMembersFound', 'No members found')} /> }}
+                      />
+                    </div>
                   </div>
                 </div>
               ),
@@ -821,25 +933,30 @@ export function TeamsPage() {
               ),
               children: (
                 <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 18, flexWrap: 'wrap', gap: 12 }}>
                     <div>
-                      <Title level={4} style={{ margin: 0 }}>
+                      <Title level={4} style={{ margin: 0, fontSize: 16, color: semantic.textPrimary }}>
                         {t('roles.rolesDirectory', 'Role-Based Access Control (RBAC)')}
                       </Title>
-                      <Text type="secondary">
+                      <Text style={{ fontSize: 13, color: semantic.textSecondary }}>
                         {t('roles.rolesDescription', 'Configure reusable roles and matrix permissions across modules and actions.')}
                       </Text>
                     </div>
-                    <Space>
+                    <Space size={8}>
                       <Button
                         type="primary"
                         icon={<PlusOutlined />}
                         onClick={handleOpenCreateRole}
-                        style={{ backgroundColor: '#0284c7' }}
+                        style={{
+                          backgroundColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                          borderColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                          fontWeight: 600,
+                          borderRadius: 8,
+                        }}
                       >
                         {t('roles.createCustomRole', 'Create Custom Role')}
                       </Button>
-                      <Button icon={<ReloadOutlined />} onClick={fetchRoles} />
+                      <Button icon={<ReloadOutlined />} onClick={fetchRoles} style={{ borderRadius: 6 }} />
                     </Space>
                   </div>
 
@@ -848,46 +965,59 @@ export function TeamsPage() {
                     {roles.map((role) => (
                       <Col xs={24} md={12} lg={8} key={role.id}>
                         <Card
-                          hoverable
-                          bordered
+                          className="rt-card-hover"
+                          variant="outlined"
                           style={{
                             height: '100%',
                             display: 'flex',
                             flexDirection: 'column',
                             justifyContent: 'space-between',
-                            borderColor: role.isSystem ? '#bae6fd' : '#e2e8f0',
-                            backgroundColor: role.isSystem ? '#f8fafc' : '#ffffff',
+                            borderRadius: 12,
+                            borderColor: role.isSystem
+                              ? (isDarkMode ? 'rgba(79, 168, 192, 0.3)' : '#bae6fd')
+                              : semantic.borderDefault,
+                            backgroundColor: role.isSystem
+                              ? (isDarkMode ? 'rgba(79, 168, 192, 0.05)' : '#f8fafc')
+                              : semantic.bgCard,
                           }}
+                          styles={{ body: { padding: '16px 18px', display: 'flex', flexDirection: 'column', height: '100%' } }}
                         >
-                          <div>
+                          <div style={{ flex: 1 }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                              <Text strong style={{ fontSize: 16 }}>
+                              <Text strong style={{ fontSize: 15, color: semantic.textPrimary }}>
                                 {role.name}
                               </Text>
                               {role.isSystem ? (
-                                <Tag color="blue">{t('roles.systemRole', 'System')}</Tag>
+                                <Tag color="blue" style={{ borderRadius: 4, fontWeight: 500, fontSize: 11 }}>
+                                  {t('roles.systemRole', 'System')}
+                                </Tag>
                               ) : (
-                                <Tag color="purple">{t('roles.customRole', 'Custom')}</Tag>
+                                <Tag color="purple" style={{ borderRadius: 4, fontWeight: 500, fontSize: 11 }}>
+                                  {t('roles.customRole', 'Custom')}
+                                </Tag>
                               )}
                             </div>
 
-                            <Text type="secondary" style={{ fontSize: 13, display: 'block', minHeight: 40, marginBottom: 12 }}>
+                            <Text style={{ fontSize: 12.5, color: semantic.textSecondary, display: 'block', minHeight: 38, marginBottom: 12, lineHeight: 1.4 }}>
                               {role.description || t('roles.noDescription', 'No description provided')}
                             </Text>
 
-                            <Space direction="vertical" size={4} style={{ width: '100%', marginBottom: 12 }}>
-                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12 }}>
-                                <Text type="secondary">{t('roles.assignedMembers', 'Assigned Members')}:</Text>
-                                <Badge count={role.assignedCount || 0} overflowCount={999} style={{ backgroundColor: '#64748b' }} />
-                              </div>
-                            </Space>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, marginBottom: 14 }}>
+                              <Text style={{ color: semantic.textSecondary }}>{t('roles.assignedMembers', 'Assigned Members')}:</Text>
+                              <Badge
+                                count={role.assignedCount || 0}
+                                overflowCount={999}
+                                style={{ backgroundColor: '#64748b', fontWeight: 600, borderRadius: 6 }}
+                              />
+                            </div>
                           </div>
 
-                          <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: 12, display: 'flex', justifyContent: 'space-between' }}>
+                          <div style={{ borderTop: `1px solid ${semantic.borderSubtle}`, paddingTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <Button
                               size="small"
-                              icon={<KeyOutlined />}
+                              icon={<KeyOutlined style={{ color: isDarkMode ? brandTokens.teal : brandTokens.navySoft }} />}
                               onClick={() => handleOpenEditRole(role)}
+                              style={{ borderRadius: 6, fontSize: 12 }}
                             >
                               {role.isSystem ? t('roles.viewPermissions', 'View Permissions') : t('roles.editPermissions', 'Configure Matrix')}
                             </Button>
@@ -906,6 +1036,7 @@ export function TeamsPage() {
                                   danger
                                   icon={<DeleteOutlined />}
                                   disabled={role.assignedCount > 0}
+                                  style={{ borderRadius: 6 }}
                                 />
                               </Popconfirm>
                             )}
@@ -931,8 +1062,10 @@ export function TeamsPage() {
         onCancel={() => setIsTeamModalOpen(false)}
         okText={t('common.save', 'Save')}
         cancelText={t('common.cancel', 'Cancel')}
+        centered
+        destroyOnHidden
       >
-        <Form form={teamForm} layout="vertical">
+        <Form form={teamForm} layout="vertical" style={{ marginTop: 12 }}>
           <Form.Item
             name="name"
             label={t('teams.teamName', 'Team Name')}
@@ -977,8 +1110,10 @@ export function TeamsPage() {
         confirmLoading={inviting}
         okText={t('teams.sendInvite', 'Send Invitation')}
         cancelText={t('common.cancel', 'Cancel')}
+        centered
+        destroyOnHidden
       >
-        <Paragraph type="secondary" style={{ fontSize: 13, marginBottom: 16 }}>
+        <Paragraph style={{ fontSize: 13, color: semantic.textSecondary, marginBottom: 16, lineHeight: 1.4 }}>
           {t(
             'teams.inviteInfo',
             'An invitation email with a single-use secure link will be sent to the recipient. They will configure their confidential credentials upon accepting. No permanent or default passwords are used.'
@@ -1066,10 +1201,12 @@ export function TeamsPage() {
         onCancel={() => setIsMemberRoleModalOpen(false)}
         okText={t('common.save', 'Save')}
         cancelText={t('common.cancel', 'Cancel')}
+        centered
+        destroyOnHidden
       >
-        <Form form={memberRoleForm} layout="vertical">
-          <Paragraph>
-            <Text strong>{targetMember?.name}</Text> ({targetMember?.email})
+        <Form form={memberRoleForm} layout="vertical" style={{ marginTop: 12 }}>
+          <Paragraph style={{ color: semantic.textPrimary, marginBottom: 16 }}>
+            <Text strong>{targetMember?.name}</Text> <span style={{ color: semantic.textSecondary }}>({targetMember?.email})</span>
           </Paragraph>
 
           <Form.Item
@@ -1094,7 +1231,7 @@ export function TeamsPage() {
       <Modal
         title={
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <KeyOutlined style={{ color: '#0284c7' }} />
+            <KeyOutlined style={{ color: isDarkMode ? brandTokens.teal : brandTokens.navy }} />
             <span>
               {editingRole
                 ? `${t('roles.configureMatrix', 'Permission Matrix')}: ${editingRole.name}`
@@ -1105,12 +1242,14 @@ export function TeamsPage() {
         open={isRoleModalOpen}
         onOk={handleSaveRole}
         onCancel={() => setIsRoleModalOpen(false)}
-        width={900}
+        width={920}
         confirmLoading={savingRole}
         okText={t('common.save', 'Save Matrix')}
         cancelText={t('common.cancel', 'Cancel')}
+        centered
+        destroyOnHidden
       >
-        <Form form={roleForm} layout="vertical">
+        <Form form={roleForm} layout="vertical" style={{ marginTop: 12 }}>
           <Row gutter={16}>
             <Col span={12}>
               <Form.Item
@@ -1136,8 +1275,16 @@ export function TeamsPage() {
         </Form>
 
         {editingRole?.isSystem && (
-          <div style={{ backgroundColor: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 6, padding: '8px 12px', marginBottom: 16 }}>
-            <Text type="secondary" style={{ fontSize: 13 }}>
+          <div
+            style={{
+              backgroundColor: isDarkMode ? 'rgba(79, 168, 192, 0.1)' : '#f0f9ff',
+              border: `1px solid ${isDarkMode ? 'rgba(79, 168, 192, 0.25)' : '#bae6fd'}`,
+              borderRadius: 6,
+              padding: '10px 14px',
+              marginBottom: 16,
+            }}
+          >
+            <Text style={{ fontSize: 13, color: semantic.textSecondary }}>
               {t(
                 'roles.systemRoleNotice',
                 'System roles are defined by platform policy. Super Admin possesses comprehensive unconditional access across all actions.'
@@ -1149,32 +1296,32 @@ export function TeamsPage() {
         {/* Matrix Quick Actions */}
         {!editingRole?.isSystem && (
           <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-            <Button size="small" onClick={() => handleToggleAllAction('READ', true)}>
+            <Button size="small" onClick={() => handleToggleAllAction('READ', true)} style={{ borderRadius: 6, fontSize: 12 }}>
               {t('roles.grantAllRead', 'Grant All Read')}
             </Button>
-            <Button size="small" onClick={() => handleToggleAllAction('READ', false)}>
+            <Button size="small" onClick={() => handleToggleAllAction('READ', false)} style={{ borderRadius: 6, fontSize: 12 }}>
               {t('roles.clearAllRead', 'Clear All Read')}
             </Button>
           </div>
         )}
 
         {/* The Permission Matrix Table */}
-        <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: 6 }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+        <div className="rt-permission-matrix-container" style={{ background: semantic.bgCard }}>
+          <table className="rt-matrix-table">
             <thead>
-              <tr style={{ backgroundColor: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                <th style={{ padding: '12px 16px', textAlign: 'left', minWidth: 200 }}>
+              <tr>
+                <th className="rt-matrix-th" style={{ textAlign: 'left', minWidth: 200 }}>
                   {t('roles.module', 'Module / Resource')}
                 </th>
                 {(permissionSchema.actions || []).map((act) => (
-                  <th key={act.key} style={{ padding: '12px 16px', textAlign: 'center', minWidth: 90 }}>
+                  <th key={act.key} className="rt-matrix-th" style={{ textAlign: 'center', minWidth: 90 }}>
                     <Tooltip title={act.description}>
                       <span>{act.label}</span>
                     </Tooltip>
                   </th>
                 ))}
                 {!editingRole?.isSystem && (
-                  <th style={{ padding: '12px 16px', textAlign: 'center', minWidth: 100 }}>
+                  <th className="rt-matrix-th" style={{ textAlign: 'center', minWidth: 100 }}>
                     {t('roles.quickSelect', 'Quick Select')}
                   </th>
                 )}
@@ -1189,22 +1336,22 @@ export function TeamsPage() {
                 return (
                   <tr
                     key={mod.key}
+                    className="rt-matrix-tr"
                     style={{
-                      borderBottom: '1px solid #e2e8f0',
-                      backgroundColor: idx % 2 === 0 ? '#ffffff' : '#fafafa',
+                      backgroundColor: idx % 2 === 0 ? 'transparent' : (isDarkMode ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.015)'),
                     }}
                   >
-                    <td style={{ padding: '10px 16px' }}>
-                      <Text strong style={{ fontSize: 13 }}>{mod.label}</Text>
+                    <td className="rt-matrix-td">
+                      <Text strong style={{ fontSize: 13, color: semantic.textPrimary }}>{mod.label}</Text>
                       {mod.description && (
-                        <div style={{ fontSize: 11, color: '#64748b' }}>{mod.description}</div>
+                        <div style={{ fontSize: 11, color: semantic.textSecondary }}>{mod.description}</div>
                       )}
                     </td>
 
                     {(permissionSchema.actions || []).map((act) => {
                       const isAllowed = isSuper ? true : Boolean(rowActions[act.key]);
                       return (
-                        <td key={act.key} style={{ padding: '10px 16px', textAlign: 'center' }}>
+                        <td key={act.key} className="rt-matrix-td" style={{ textAlign: 'center' }}>
                           <Checkbox
                             checked={isAllowed}
                             disabled={isSuper || (editingRole?.isSystem && !isSuperAdmin)}
@@ -1215,12 +1362,12 @@ export function TeamsPage() {
                     })}
 
                     {!editingRole?.isSystem && (
-                      <td style={{ padding: '10px 16px', textAlign: 'center' }}>
+                      <td className="rt-matrix-td" style={{ textAlign: 'center' }}>
                         <Button
                           size="small"
                           type="text"
                           onClick={() => handleToggleAllForModule(mod.key, !allChecked)}
-                          style={{ fontSize: 11 }}
+                          style={{ fontSize: 11, color: isDarkMode ? brandTokens.teal : brandTokens.navy }}
                         >
                           {allChecked ? t('roles.clear', 'Clear') : t('roles.all', 'All')}
                         </Button>
@@ -1236,3 +1383,5 @@ export function TeamsPage() {
     </div>
   );
 }
+
+export default TeamsPage;

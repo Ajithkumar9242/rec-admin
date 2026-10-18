@@ -1,0 +1,207 @@
+/**
+ * Modern Minimalist SaaS Styles & Transitions
+ * RecruiTrain Admin Portal - Company & Job Modules
+ */
+
+/* Entrance Animation */
+@keyframes rtFadeSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.rt-page-container {
+  animation: rtFadeSlideIn 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  width: 100%;
+}
+
+/* Card & Interactive Transitions */
+.rt-card-hover {
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.rt-card-hover:hover {
+  transform: translateY(-1px);
+}
+
+/* Subtle Interactive Buttons */
+.rt-action-btn {
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+/* Table Row Smooth Hover */
+.ant-table-row {
+  transition: background-color 0.15s ease !important;
+}
+
+/* Sidebar & Navigation Transitions */
+.rt-sidebar-smooth {
+  transition: width 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              min-width 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+              max-width 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.rt-menu-item {
+  transition: background-color 0.18s ease, color 0.18s ease, transform 0.12s ease !important;
+}
+
+.rt-menu-item:hover {
+  transform: translateX(2px);
+}
+
+/* Topbar Icon Button Transitions */
+.rt-topbar-action-btn {
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 0.18s ease,
+              color 0.18s ease !important;
+}
+
+.rt-topbar-action-btn:hover {
+  transform: translateY(-1px);
+}
+
+.rt-topbar-action-btn:active {
+  transform: translateY(0);
+}
+
+/* Permission Matrix Styling */
+.rt-permission-matrix-container {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid #dce9ed;
+  transition: border-color 0.2s ease;
+}
+
+.dark .rt-permission-matrix-container {
+  border-color: #26475a;
+}
+
+.rt-matrix-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.rt-matrix-th {
+  padding: 10px 14px;
+  background: #f8fbfa;
+  border-bottom: 1px solid #dce9ed;
+  font-weight: 600;
+  color: #16313f;
+  white-space: nowrap;
+}
+
+.dark .rt-matrix-th {
+  background: #152b38;
+  border-bottom: 1px solid #26475a;
+  color: #eaf5f8;
+}
+
+.rt-matrix-tr {
+  border-bottom: 1px solid #e4edf0;
+  transition: background-color 0.15s ease;
+}
+
+.dark .rt-matrix-tr {
+  border-bottom: 1px solid #1d3848;
+}
+
+.rt-matrix-tr:hover {
+  background-color: rgba(79, 168, 192, 0.05);
+}
+
+.dark .rt-matrix-tr:hover {
+  background-color: rgba(79, 168, 192, 0.1);
+}
+
+.rt-matrix-td {
+  padding: 10px 14px;
+}
+
+/* Usage Progress / Indicator Pill */
+.rt-quota-badge {
+  display: inline-flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rt-quota-bar {
+  height: 4px;
+  border-radius: 2px;
+  background: #e2e8f0;
+  overflow: hidden;
+  width: 100%;
+  min-width: 70px;
+}
+
+.dark .rt-quota-bar {
+  background: #26475a;
+}
+
+.rt-quota-bar-fill {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+/* Wizard step container transitions */
+.rt-step-content {
+  animation: rtFadeSlideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Upload zone styling */
+.rt-upload-dropzone {
+  border: 1.5px dashed #b8ced6;
+  border-radius: 8px;
+  padding: 24px 16px;
+  text-align: center;
+  background: rgba(79, 168, 192, 0.03);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.rt-upload-dropzone:hover {
+  border-color: #4fa8c0;
+  background: rgba(79, 168, 192, 0.06);
+}
+
+.dark .rt-upload-dropzone {
+  border-color: #26475a;
+  background: rgba(79, 168, 192, 0.05);
+}
+
+.dark .rt-upload-dropzone:hover {
+  border-color: #4fa8c0;
+  background: rgba(79, 168, 192, 0.1);
+}
+
+/* Horizontal scroll container for tables to avoid clipping */
+.rt-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Respect Reduced Motion Preferences */
+@media (prefers-reduced-motion: reduce) {
+  .rt-page-container,
+  .rt-step-content,
+  .rt-card-hover,
+  .rt-sidebar-smooth,
+  .rt-menu-item,
+  .rt-topbar-action-btn,
+  .rt-quota-bar-fill,
+  .ant-table-row {
+    animation: none !important;
+    transition: none !important;
+    transform: none !important;
+  }
+}

@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { fetchCurrentUser } from './store/authSlice.js';
 import { getAntdTheme } from './theme/themeConfig.js';
 import { AppRoutes } from './routes/index.jsx';
+import './styles/moduleDesign.css';
 
 export function App() {
   const dispatch = useDispatch();

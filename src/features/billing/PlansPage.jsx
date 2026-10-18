@@ -27,16 +27,20 @@ import {
   ExclamationCircleOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
+import { useSelector } from 'react-redux';
 import { DataTable } from '../../components/common/DataTable.jsx';
 import { DeleteConfirmationModal } from '../../components/common/DeleteConfirmationModal.jsx';
 import { billingApi, formatBillingError } from '../../services/billingApi.js';
-import { brandTokens } from '../../theme/tokens.js';
+import { brandTokens, lightSemanticTokens, darkSemanticTokens } from '../../theme/tokens.js';
 
 const { Text, Paragraph } = Typography;
 const { Option } = Select;
 
 export function PlansPage() {
   const { t } = useTranslation();
+  const isDarkMode = useSelector((state) => state.theme?.isDarkMode);
+  const semantic = isDarkMode ? darkSemanticTokens : lightSemanticTokens;
+
   const [activeTab, setActiveTab] = useState('active');
   const [plans, setPlans] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -214,60 +218,88 @@ export function PlansPage() {
       key: 'name',
       render: (name, record) => (
         <div>
-          <div style={{ fontWeight: 600, color: brandTokens.navy }}>{name}</div>
+          <div style={{ fontWeight: 600, fontSize: 13.5, color: semantic.textPrimary }}>{name}</div>
           {record.description && (
-            <div style={{ fontSize: 12, color: brandTokens.muted }}>{record.description}</div>
+            <div style={{ fontSize: 12, color: semantic.textSecondary, marginTop: 2 }}>{record.description}</div>
           )}
         </div>
       ),
     },
     {
-      title: t('billing.plans.price'),
+      title: t('billing.plans.regularPrice', 'Regular Price'),
       dataIndex: 'price',
       key: 'price',
       render: (price, record) => (
-        <div>
-          <span style={{ fontWeight: 600 }}>
-            {Number(price).toFixed(2)} {record.currency}
-          </span>
-          {record.offerPrice && (
-            <Tag color="orange" style={{ marginLeft: 6 }}>
-              {t('billing.plans.offerPrice')}: {Number(record.offerPrice).toFixed(2)} {record.currency}
-            </Tag>
-          )}
-        </div>
+        <span style={{ fontWeight: 600, fontSize: 13.5, color: semantic.textPrimary }}>
+          {Number(price).toFixed(2)} {record.currency}
+        </span>
       ),
+    },
+    {
+      title: t('billing.plans.offerPrice', 'Offer Price'),
+      dataIndex: 'offerPrice',
+      key: 'offerPrice',
+      render: (offerPrice, record) =>
+        offerPrice ? (
+          <Tag color="orange" style={{ fontWeight: 600, borderRadius: 4 }}>
+            {t('billing.plans.offerPrice')}: {Number(offerPrice).toFixed(2)} {record.currency}
+          </Tag>
+        ) : (
+          <span style={{ color: semantic.textDisabled }}>—</span>
+        ),
     },
     {
       title: t('billing.plans.billingInterval'),
       dataIndex: 'billingInterval',
       key: 'billingInterval',
       render: (interval) => (
-        <Tag color="cyan">{t(`billing.intervals.${interval}`)}</Tag>
+        <Tag
+          color="cyan"
+          style={{
+            borderRadius: 4,
+            fontWeight: 500,
+            fontSize: 11.5,
+            border: 'none',
+            background: isDarkMode ? 'rgba(79, 168, 192, 0.15)' : '#e0f2fe',
+            color: isDarkMode ? '#7dd3fc' : '#0369a1',
+          }}
+        >
+          {t(`billing.intervals.${interval}`) || interval}
+        </Tag>
       ),
     },
     {
       title: t('billing.plans.candidateAccess'),
       dataIndex: 'candidateAccessLimit',
       key: 'candidateAccessLimit',
-      render: (limit) => (
-        <span>{limit} {t('billing.subscriptions.candidateAccess')}</span>
-      ),
+      render: (limit) => <span style={{ fontSize: 13, color: semantic.textPrimary }}>{limit}</span>,
     },
     {
       title: t('billing.plans.jobPostings'),
       dataIndex: 'jobPostingLimit',
       key: 'jobPostingLimit',
+      render: (limit) => <span style={{ fontSize: 13, color: semantic.textPrimary }}>{limit}</span>,
     },
     {
       title: t('billing.plans.teamMembers'),
       dataIndex: 'teamMemberLimit',
       key: 'teamMemberLimit',
+      render: (limit) => <span style={{ fontSize: 13, color: semantic.textPrimary }}>{limit}</span>,
     },
     {
       title: t('billing.plans.activeSubscriptions'),
       key: 'activeSubs',
-      render: (_, record) => record._count?.subscriptions || 0,
+      render: (_, record) => (
+        <Badge
+          count={record._count?.subscriptions || 0}
+          overflowCount={999}
+          style={{
+            backgroundColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+            borderRadius: 6,
+            fontWeight: 600,
+          }}
+        />
+      ),
     },
     {
       title: t('billing.plans.status'),
@@ -278,7 +310,11 @@ export function PlansPage() {
         if (status === 'ACTIVE') color = 'success';
         if (status === 'INACTIVE') color = 'warning';
         if (status === 'ARCHIVED') color = 'magenta';
-        return <Tag color={color}>{t(`billing.statuses.${status}`)}</Tag>;
+        return (
+          <Tag color={color} style={{ borderRadius: 4, fontWeight: 500 }}>
+            {t(`billing.statuses.${status}`)}
+          </Tag>
+        );
       },
     },
     {
@@ -290,9 +326,10 @@ export function PlansPage() {
           <Button
             type="text"
             size="small"
-            icon={<EyeOutlined style={{ color: brandTokens.navy }} />}
+            icon={<EyeOutlined style={{ color: isDarkMode ? brandTokens.teal : brandTokens.navy }} />}
             onClick={() => openViewModal(record)}
             title={t('billing.plans.viewPlan')}
+            style={{ borderRadius: 6 }}
           />
           {record.status !== 'ARCHIVED' && (
             <>
@@ -302,13 +339,21 @@ export function PlansPage() {
                 icon={<EditOutlined style={{ color: brandTokens.teal }} />}
                 onClick={() => openEditModal(record)}
                 title={t('billing.plans.editPlan')}
+                style={{ borderRadius: 6 }}
               />
               <Button
                 type="text"
                 size="small"
-                icon={record.status === 'ACTIVE' ? <StopOutlined style={{ color: brandTokens.amber }} /> : <CheckCircleOutlined style={{ color: brandTokens.success }} />}
+                icon={
+                  record.status === 'ACTIVE' ? (
+                    <StopOutlined style={{ color: brandTokens.amber }} />
+                  ) : (
+                    <CheckCircleOutlined style={{ color: brandTokens.success }} />
+                  )
+                }
                 onClick={() => handleToggleStatus(record)}
                 title={record.status === 'ACTIVE' ? t('billing.plans.deactivate') : t('billing.plans.activate')}
+                style={{ borderRadius: 6 }}
               />
               <Button
                 type="text"
@@ -317,6 +362,7 @@ export function PlansPage() {
                 icon={<DeleteOutlined />}
                 onClick={() => handleOpenDelete(record, false)}
                 title={t('billing.plans.archivePlan')}
+                style={{ borderRadius: 6 }}
               />
             </>
           )}
@@ -332,9 +378,9 @@ export function PlansPage() {
       key: 'name',
       render: (name, record) => (
         <div>
-          <div style={{ fontWeight: 600, color: brandTokens.navy }}>{name}</div>
+          <div style={{ fontWeight: 600, fontSize: 13.5, color: semantic.textPrimary }}>{name}</div>
           {record.description && (
-            <div style={{ fontSize: 12, color: brandTokens.muted }}>{record.description}</div>
+            <div style={{ fontSize: 12, color: semantic.textSecondary, marginTop: 2 }}>{record.description}</div>
           )}
         </div>
       ),
@@ -345,9 +391,12 @@ export function PlansPage() {
       key: 'price',
       render: (price, record) => (
         <div>
-          <span style={{ fontWeight: 600 }}>
+          <span style={{ fontWeight: 600, color: semantic.textPrimary }}>
             {Number(price).toFixed(2)} {record.currency}
-          </span> / {t(`billing.intervals.${record.billingInterval}`)}
+          </span>{' '}
+          <span style={{ fontSize: 12, color: semantic.textSecondary }}>
+            / {t(`billing.intervals.${record.billingInterval}`)}
+          </span>
         </div>
       ),
     },
@@ -355,7 +404,11 @@ export function PlansPage() {
       title: t('trash.deletedAt', 'Deleted Date'),
       dataIndex: 'deletedAt',
       key: 'deletedAt',
-      render: (d) => (d ? new Date(d).toLocaleDateString() : '-'),
+      render: (d) => (
+        <span style={{ color: semantic.textSecondary }}>
+          {d ? new Date(d).toLocaleDateString() : '-'}
+        </span>
+      ),
     },
     {
       title: t('trash.retention', 'Retention Status'),
@@ -365,11 +418,11 @@ export function PlansPage() {
         if (!ret) return '-';
         const isExpiringSoon = ret.daysRemaining <= 5;
         return (
-          <Space direction="vertical" size={0}>
-            <Tag color={isExpiringSoon ? 'red' : 'gold'}>
+          <Space direction="vertical" size={2}>
+            <Tag color={isExpiringSoon ? 'red' : 'gold'} style={{ borderRadius: 4, fontWeight: 500 }}>
               {ret.daysRemaining} {t('trash.daysRemaining', 'days remaining')}
             </Tag>
-            <span style={{ fontSize: 11, color: brandTokens.muted }}>
+            <span style={{ fontSize: 11, color: semantic.textSecondary }}>
               Purge: {ret.purgeDate}
             </span>
           </Space>
@@ -379,7 +432,13 @@ export function PlansPage() {
     {
       title: t('billing.plans.activeSubscriptions', 'Subscriptions'),
       key: 'activeSubs',
-      render: (_, record) => record._count?.subscriptions || 0,
+      render: (_, record) => (
+        <Badge
+          count={record._count?.subscriptions || 0}
+          overflowCount={999}
+          style={{ backgroundColor: '#64748b', borderRadius: 6, fontWeight: 600 }}
+        />
+      ),
     },
     {
       title: t('table.actions'),
@@ -400,6 +459,7 @@ export function PlansPage() {
                 size="small"
                 icon={<UndoOutlined style={{ color: brandTokens.teal }} />}
                 title={t('billing.plans.restore', 'Restore Plan')}
+                style={{ borderRadius: 6 }}
               />
             </Popconfirm>
             {hasSubscriptions ? (
@@ -408,7 +468,8 @@ export function PlansPage() {
                   type="text"
                   size="small"
                   disabled
-                  icon={<DeleteOutlined style={{ color: '#d9d9d9' }} />}
+                  icon={<DeleteOutlined style={{ color: semantic.textDisabled }} />}
+                  style={{ borderRadius: 6 }}
                 />
               </Tooltip>
             ) : (
@@ -419,6 +480,7 @@ export function PlansPage() {
                 icon={<DeleteOutlined />}
                 onClick={() => handleOpenDelete(record, true)}
                 title={t('trash.permanentDelete', 'Permanent Delete')}
+                style={{ borderRadius: 6 }}
               />
             )}
           </Space>
@@ -428,7 +490,7 @@ export function PlansPage() {
   ];
 
   return (
-    <div>
+    <div className="rt-page-container" style={{ maxWidth: 1400, margin: '0 auto' }}>
       <Tabs
         activeKey={activeTab}
         onChange={setActiveTab}
@@ -470,12 +532,14 @@ export function PlansPage() {
         onCancel={() => setIsCreateModalOpen(false)}
         footer={null}
         destroyOnHidden
+        centered
         width={600}
       >
         <Form
           form={createForm}
           layout="vertical"
           onFinish={handleCreate}
+          style={{ marginTop: 12 }}
           initialValues={{
             currency: 'EUR',
             billingInterval: 'MONTHLY',
@@ -519,7 +583,7 @@ export function PlansPage() {
               name="currency"
               label={t('billing.plans.currency')}
               rules={[{ required: true }]}
-              style={{ width: 100 }}
+              style={{ width: 110 }}
             >
               <Select>
                 <Option value="EUR">EUR (€)</Option>
@@ -572,10 +636,19 @@ export function PlansPage() {
             </Form.Item>
           </Space>
 
-          <Form.Item style={{ marginTop: 24, textAlign: 'right' }}>
+          <Form.Item style={{ marginTop: 24, textAlign: 'right', marginBottom: 0 }}>
             <Space>
               <Button onClick={() => setIsCreateModalOpen(false)}>{t('common.cancel')}</Button>
-              <Button type="primary" htmlType="submit" loading={submitting} style={{ background: brandTokens.navy }}>
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={submitting}
+                style={{
+                  backgroundColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                  borderColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                  fontWeight: 600,
+                }}
+              >
                 {t('common.save')}
               </Button>
             </Space>
@@ -590,9 +663,10 @@ export function PlansPage() {
         onCancel={() => setIsEditModalOpen(false)}
         footer={null}
         destroyOnHidden
+        centered
         width={600}
       >
-        <Form form={editForm} layout="vertical" onFinish={handleEdit}>
+        <Form form={editForm} layout="vertical" onFinish={handleEdit} style={{ marginTop: 12 }}>
           <Form.Item name="name" label={t('billing.plans.name')} rules={[{ required: true }]}>
             <Input />
           </Form.Item>
@@ -610,7 +684,7 @@ export function PlansPage() {
               <InputNumber min={0} step={0.01} precision={2} style={{ width: '100%' }} />
             </Form.Item>
 
-            <Form.Item name="currency" label={t('billing.plans.currency')} rules={[{ required: true }]} style={{ width: 100 }}>
+            <Form.Item name="currency" label={t('billing.plans.currency')} rules={[{ required: true }]} style={{ width: 110 }}>
               <Select>
                 <Option value="EUR">EUR (€)</Option>
                 <Option value="USD">USD ($)</Option>
@@ -649,10 +723,19 @@ export function PlansPage() {
             </Select>
           </Form.Item>
 
-          <Form.Item style={{ marginTop: 24, textAlign: 'right' }}>
+          <Form.Item style={{ marginTop: 24, textAlign: 'right', marginBottom: 0 }}>
             <Space>
               <Button onClick={() => setIsEditModalOpen(false)}>{t('common.cancel')}</Button>
-              <Button type="primary" htmlType="submit" loading={submitting} style={{ background: brandTokens.navy }}>
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={submitting}
+                style={{
+                  backgroundColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                  borderColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                  fontWeight: 600,
+                }}
+              >
                 {t('common.save')}
               </Button>
             </Space>
@@ -665,6 +748,7 @@ export function PlansPage() {
         title={t('billing.plans.viewPlan')}
         open={isViewModalOpen}
         onCancel={() => setIsViewModalOpen(false)}
+        centered
         footer={[
           <Button key="close" onClick={() => setIsViewModalOpen(false)}>
             {t('common.back')}
@@ -721,3 +805,5 @@ export function PlansPage() {
     </div>
   );
 }
+
+export default PlansPage;

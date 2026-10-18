@@ -29,12 +29,14 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import api from '../../services/api.js';
 import { updateUserSecurityState } from '../../store/authSlice.js';
-import { brandTokens } from '../../theme/tokens.js';
+import { brandTokens, lightSemanticTokens, darkSemanticTokens } from '../../theme/tokens.js';
 
 const { Title, Paragraph, Text } = Typography;
 
 export function SecuritySettingsPage() {
   const { user } = useSelector((state) => state.auth);
+  const isDarkMode = useSelector((state) => state.theme?.isDarkMode);
+  const semantic = isDarkMode ? darkSemanticTokens : lightSemanticTokens;
   const dispatch = useDispatch();
   const { t } = useTranslation();
 
@@ -187,39 +189,47 @@ export function SecuritySettingsPage() {
   };
 
   return (
-    <div style={{ maxWidth: 900, margin: '0 auto' }}>
-      <div style={{ marginBottom: 24 }}>
-        <Title level={2} style={{ margin: 0, fontSize: 24 }}>
+    <div className="rt-page-container" style={{ maxWidth: 900, margin: '0 auto' }}>
+      <div style={{ marginBottom: 20 }}>
+        <Title level={2} style={{ margin: 0, fontSize: 22, fontWeight: 700, color: semantic.textPrimary }}>
           {t('shell.securitySettings')}
         </Title>
-        <Paragraph type="secondary">
+        <Paragraph style={{ margin: '4px 0 0 0', fontSize: 13, color: semantic.textSecondary }}>
           Manage administrator multi-factor authentication and access credentials.
         </Paragraph>
       </div>
 
       <Card
+        className="rt-card-hover"
+        variant="outlined"
         title={
-          <Space>
-            <SafetyCertificateOutlined style={{ color: brandTokens.navy }} />
-            <span>{t('twoFactor.title')}</span>
+          <Space size={8}>
+            <SafetyCertificateOutlined style={{ color: isDarkMode ? brandTokens.teal : brandTokens.navy, fontSize: 17 }} />
+            <span style={{ fontSize: 15, fontWeight: 600, color: semantic.textPrimary }}>{t('twoFactor.title')}</span>
           </Space>
         }
         extra={
           user?.totpEnabled ? (
-            <Tag color="success" style={{ padding: '2px 8px', fontWeight: 600 }}>
+            <Tag color="success" style={{ padding: '2px 8px', fontWeight: 600, borderRadius: 4 }}>
               ACTIVE
             </Tag>
           ) : (
-            <Tag color="warning" style={{ padding: '2px 8px', fontWeight: 600 }}>
+            <Tag color="warning" style={{ padding: '2px 8px', fontWeight: 600, borderRadius: 4 }}>
               NOT CONFIGURED
             </Tag>
           )
         }
-        style={{ borderRadius: 12, marginBottom: 24 }}
+        style={{
+          borderRadius: 12,
+          marginBottom: 20,
+          border: `1px solid ${semantic.borderDefault}`,
+          background: semantic.bgCard,
+        }}
+        styles={{ body: { padding: '20px' } }}
       >
         <Row gutter={[24, 24]} align="middle">
-          <Col xs={24} md={16}>
-            <Paragraph style={{ margin: 0 }}>
+          <Col xs={24} md={15}>
+            <Paragraph style={{ margin: 0, fontSize: 13.5, color: semantic.textPrimary, lineHeight: 1.5 }}>
               {user?.totpEnabled
                 ? 'Two-Factor Authentication is currently securing your account with TOTP (Google Authenticator / 1Password).'
                 : 'Protect your account from unauthorized access by requiring a 6-digit TOTP code in addition to your password.'}
@@ -227,7 +237,7 @@ export function SecuritySettingsPage() {
 
             {user?.totpEnabled && (
               <div style={{ marginTop: 12 }}>
-                <Text type="secondary">
+                <Text style={{ fontSize: 12.5, color: semantic.textSecondary }}>
                   {t('twoFactor.backupCodesRemaining', {
                     count: user?.remainingBackupCodes ?? 0,
                   })}
@@ -236,13 +246,14 @@ export function SecuritySettingsPage() {
             )}
           </Col>
 
-          <Col xs={24} md={8} style={{ textAlign: 'right' }}>
+          <Col xs={24} md={9} style={{ textAlign: 'right' }}>
             {user?.totpEnabled ? (
-              <Space direction="vertical" style={{ width: '100%' }}>
+              <Space direction="vertical" style={{ width: '100%' }} size={10}>
                 <Button
                   icon={<ReloadOutlined />}
                   onClick={() => setRegenModalVisible(true)}
                   block
+                  style={{ borderRadius: 8, fontWeight: 500 }}
                 >
                   {t('twoFactor.regenerateBackupCodes')}
                 </Button>
@@ -251,6 +262,7 @@ export function SecuritySettingsPage() {
                   icon={<QrcodeOutlined />}
                   onClick={handleStartEnrollment}
                   block
+                  style={{ borderRadius: 8, fontWeight: 500 }}
                 >
                   Reconfigure Authenticator
                 </Button>
@@ -263,6 +275,12 @@ export function SecuritySettingsPage() {
                 onClick={handleStartEnrollment}
                 loading={enrollLoading}
                 block
+                style={{
+                  borderRadius: 8,
+                  fontWeight: 600,
+                  backgroundColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                  borderColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                }}
               >
                 {t('twoFactor.enrollTitle')}
               </Button>
@@ -273,15 +291,23 @@ export function SecuritySettingsPage() {
 
       {/* Administrator Profile & Login Identifier Card */}
       <Card
+        className="rt-card-hover"
+        variant="outlined"
         title={
-          <Space>
-            <UserOutlined style={{ color: brandTokens.navy }} />
-            <span>{t('profile.title')}</span>
+          <Space size={8}>
+            <UserOutlined style={{ color: isDarkMode ? brandTokens.teal : brandTokens.navy, fontSize: 17 }} />
+            <span style={{ fontSize: 15, fontWeight: 600, color: semantic.textPrimary }}>{t('profile.title')}</span>
           </Space>
         }
-        style={{ borderRadius: 12, marginBottom: 24 }}
+        style={{
+          borderRadius: 12,
+          marginBottom: 20,
+          border: `1px solid ${semantic.borderDefault}`,
+          background: semantic.bgCard,
+        }}
+        styles={{ body: { padding: '20px' } }}
       >
-        <Paragraph type="secondary" style={{ marginBottom: 20 }}>
+        <Paragraph style={{ marginBottom: 18, fontSize: 13, color: semantic.textSecondary }}>
           {t('profile.subtitle')}
         </Paragraph>
 
@@ -313,9 +339,10 @@ export function SecuritySettingsPage() {
                 rules={[{ required: true, message: t('profile.namePlaceholder') }]}
               >
                 <Input
-                  prefix={<UserOutlined style={{ color: brandTokens.muted }} />}
+                  prefix={<UserOutlined style={{ color: semantic.textDisabled }} />}
                   placeholder={t('profile.namePlaceholder')}
                   size="large"
+                  style={{ borderRadius: 8 }}
                 />
               </Form.Item>
             </Col>
@@ -330,9 +357,10 @@ export function SecuritySettingsPage() {
                 ]}
               >
                 <Input
-                  prefix={<MailOutlined style={{ color: brandTokens.muted }} />}
+                  prefix={<MailOutlined style={{ color: semantic.textDisabled }} />}
                   placeholder="admin@company.com"
                   size="large"
+                  style={{ borderRadius: 8 }}
                 />
               </Form.Item>
             </Col>
@@ -342,12 +370,13 @@ export function SecuritySettingsPage() {
             name="currentPassword"
             label={t('profile.currentPasswordPrompt')}
             rules={[{ required: true, message: t('validation.passwordRequired') }]}
-            style={{ maxWidth: 400 }}
+            style={{ maxWidth: 420 }}
           >
             <Input.Password
-              prefix={<LockOutlined style={{ color: brandTokens.muted }} />}
+              prefix={<LockOutlined style={{ color: semantic.textDisabled }} />}
               placeholder={t('profile.currentPasswordPlaceholder')}
               size="large"
+              style={{ borderRadius: 8 }}
             />
           </Form.Item>
 
@@ -356,7 +385,12 @@ export function SecuritySettingsPage() {
             htmlType="submit"
             size="large"
             loading={profileLoading}
-            style={{ fontWeight: 600 }}
+            style={{
+              fontWeight: 600,
+              borderRadius: 8,
+              backgroundColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+              borderColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+            }}
           >
             {t('profile.updateButton')}
           </Button>
@@ -365,13 +399,21 @@ export function SecuritySettingsPage() {
 
       {/* Change Password Card */}
       <Card
+        className="rt-card-hover"
+        variant="outlined"
         title={
-          <Space>
-            <LockOutlined style={{ color: brandTokens.navy }} />
-            <span>{t('profile.changePasswordTitle')}</span>
+          <Space size={8}>
+            <LockOutlined style={{ color: isDarkMode ? brandTokens.teal : brandTokens.navy, fontSize: 17 }} />
+            <span style={{ fontSize: 15, fontWeight: 600, color: semantic.textPrimary }}>{t('profile.changePasswordTitle')}</span>
           </Space>
         }
-        style={{ borderRadius: 12, marginBottom: 24 }}
+        style={{
+          borderRadius: 12,
+          marginBottom: 20,
+          border: `1px solid ${semantic.borderDefault}`,
+          background: semantic.bgCard,
+        }}
+        styles={{ body: { padding: '20px' } }}
       >
         {pwdError && (
           <Alert
@@ -396,9 +438,10 @@ export function SecuritySettingsPage() {
             rules={[{ required: true, message: t('validation.passwordRequired') }]}
           >
             <Input.Password
-              prefix={<LockOutlined style={{ color: brandTokens.muted }} />}
+              prefix={<LockOutlined style={{ color: semantic.textDisabled }} />}
               placeholder={t('profile.currentPasswordPlaceholder')}
               size="large"
+              style={{ borderRadius: 8 }}
             />
           </Form.Item>
 
@@ -411,9 +454,10 @@ export function SecuritySettingsPage() {
             ]}
           >
             <Input.Password
-              prefix={<LockOutlined style={{ color: brandTokens.muted }} />}
+              prefix={<LockOutlined style={{ color: semantic.textDisabled }} />}
               placeholder={t('profile.newPasswordPlaceholder')}
               size="large"
+              style={{ borderRadius: 8 }}
             />
           </Form.Item>
 
@@ -422,7 +466,12 @@ export function SecuritySettingsPage() {
             htmlType="submit"
             size="large"
             loading={pwdLoading}
-            style={{ fontWeight: 600 }}
+            style={{
+              fontWeight: 600,
+              borderRadius: 8,
+              backgroundColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+              borderColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+            }}
           >
             {t('profile.changePasswordButton')}
           </Button>
@@ -442,7 +491,7 @@ export function SecuritySettingsPage() {
         centered
         width={480}
       >
-        <Paragraph type="secondary" style={{ marginTop: 8 }}>
+        <Paragraph style={{ marginTop: 8, fontSize: 13, color: semantic.textSecondary }}>
           {t('twoFactor.enrollSubtitle')}
         </Paragraph>
 
@@ -457,13 +506,13 @@ export function SecuritySettingsPage() {
 
         {enrollData && (
           <div style={{ textAlign: 'center', margin: '20px 0' }}>
-            <Paragraph strong>{t('twoFactor.scanQr')}</Paragraph>
+            <Paragraph strong style={{ color: semantic.textPrimary }}>{t('twoFactor.scanQr')}</Paragraph>
             <div
               style={{
                 display: 'inline-block',
                 padding: 12,
                 backgroundColor: '#ffffff',
-                border: `1px solid ${brandTokens.border}`,
+                border: `1px solid ${semantic.borderDefault}`,
                 borderRadius: 8,
               }}
             >
@@ -475,29 +524,33 @@ export function SecuritySettingsPage() {
             </div>
 
             <div style={{ marginTop: 16 }}>
-              <Text type="secondary" style={{ fontSize: 12 }}>
+              <Text style={{ fontSize: 12, color: semantic.textSecondary }}>
                 {t('twoFactor.manualSecret')}
               </Text>
-              <div
-                style={{
-                  fontFamily: 'monospace',
-                  letterSpacing: '0.15em',
-                  fontWeight: 600,
-                  fontSize: 14,
-                  backgroundColor: '#f3fafb',
-                  padding: '6px 12px',
-                  borderRadius: 6,
-                  margin: '6px auto',
-                  display: 'inline-block',
-                }}
-              >
-                {enrollData.secret}
+              <div>
+                <div
+                  style={{
+                    fontFamily: 'monospace',
+                    letterSpacing: '0.15em',
+                    fontWeight: 600,
+                    fontSize: 14,
+                    backgroundColor: isDarkMode ? 'rgba(79, 168, 192, 0.12)' : '#f3fafb',
+                    border: `1px solid ${semantic.borderSubtle}`,
+                    color: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                    padding: '6px 12px',
+                    borderRadius: 6,
+                    margin: '6px auto',
+                    display: 'inline-block',
+                  }}
+                >
+                  {enrollData.secret}
+                </div>
               </div>
             </div>
           </div>
         )}
 
-        <Divider />
+        <Divider style={{ borderColor: semantic.borderSubtle }} />
 
         <Form form={enrollForm} layout="vertical" onFinish={handleConfirmEnrollment}>
           <Form.Item
@@ -517,6 +570,7 @@ export function SecuritySettingsPage() {
                 letterSpacing: '0.4em',
                 fontSize: 20,
                 fontWeight: 600,
+                borderRadius: 8,
               }}
               autoFocus
             />
@@ -528,6 +582,12 @@ export function SecuritySettingsPage() {
             size="large"
             block
             loading={enrollLoading}
+            style={{
+              fontWeight: 600,
+              borderRadius: 8,
+              backgroundColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+              borderColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+            }}
           >
             {t('common.continue')}
           </Button>
@@ -545,16 +605,22 @@ export function SecuritySettingsPage() {
         open={backupCodesModalVisible}
         onCancel={() => setBackupCodesModalVisible(false)}
         footer={[
-          <Button key="copy" icon={<CopyOutlined />} onClick={handleCopyCodes}>
+          <Button key="copy" icon={<CopyOutlined />} onClick={handleCopyCodes} style={{ borderRadius: 6 }}>
             {t('common.copy')}
           </Button>,
-          <Button key="download" icon={<DownloadOutlined />} onClick={handleDownloadCodes}>
+          <Button key="download" icon={<DownloadOutlined />} onClick={handleDownloadCodes} style={{ borderRadius: 6 }}>
             {t('common.download')}
           </Button>,
           <Button
             key="done"
             type="primary"
             onClick={() => setBackupCodesModalVisible(false)}
+            style={{
+              backgroundColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+              borderColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+              borderRadius: 6,
+              fontWeight: 600,
+            }}
           >
             Done
           </Button>,
@@ -571,8 +637,8 @@ export function SecuritySettingsPage() {
 
         <div
           style={{
-            backgroundColor: '#f3fafb',
-            border: `1px solid ${brandTokens.border}`,
+            backgroundColor: isDarkMode ? 'rgba(79, 168, 192, 0.08)' : '#f3fafb',
+            border: `1px solid ${semantic.borderDefault}`,
             borderRadius: 8,
             padding: '16px 20px',
             display: 'grid',
@@ -586,8 +652,8 @@ export function SecuritySettingsPage() {
               style={{
                 fontFamily: 'monospace',
                 fontWeight: 600,
-                fontSize: 15,
-                color: brandTokens.navy,
+                fontSize: 14,
+                color: isDarkMode ? brandTokens.teal : brandTokens.navy,
                 letterSpacing: '0.1em',
               }}
             >
@@ -608,8 +674,9 @@ export function SecuritySettingsPage() {
         footer={null}
         destroyOnHidden
         centered
+        width={440}
       >
-        <Paragraph type="secondary" style={{ marginTop: 8 }}>
+        <Paragraph style={{ marginTop: 8, fontSize: 13, color: semantic.textSecondary }}>
           {t('twoFactor.regenerateConfirmPrompt')}
         </Paragraph>
 
@@ -622,16 +689,17 @@ export function SecuritySettingsPage() {
           />
         )}
 
-        <Form form={regenForm} layout="vertical" onFinish={handleRegenerateCodes}>
+        <Form form={regenForm} layout="vertical" onFinish={handleRegenerateCodes} style={{ marginTop: 12 }}>
           <Form.Item
             name="password"
             label={t('auth.passwordLabel')}
             rules={[{ required: true, message: t('validation.passwordRequired') }]}
           >
             <Input.Password
-              prefix={<LockOutlined />}
+              prefix={<LockOutlined style={{ color: semantic.textDisabled }} />}
               placeholder={t('auth.passwordPlaceholder')}
               size="large"
+              style={{ borderRadius: 8 }}
               autoFocus
             />
           </Form.Item>
@@ -643,6 +711,7 @@ export function SecuritySettingsPage() {
             size="large"
             block
             loading={regenLoading}
+            style={{ borderRadius: 8, fontWeight: 600, marginTop: 8 }}
           >
             {t('twoFactor.regenerateBackupCodes')}
           </Button>
@@ -651,3 +720,5 @@ export function SecuritySettingsPage() {
     </div>
   );
 }
+
+export default SecuritySettingsPage;

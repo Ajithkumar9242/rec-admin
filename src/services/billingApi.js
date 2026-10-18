@@ -19,12 +19,15 @@ export const billingApi = {
   upgradeSubscription: (id, data) => api.post(`/billing/subscriptions/${id}/upgrade`, data).then((res) => res.data),
   cancelSubscription: (id, data) => api.post(`/billing/subscriptions/${id}/cancel`, data).then((res) => res.data),
   revokeSubscription: (id, data) => api.post(`/billing/subscriptions/${id}/revoke`, data).then((res) => res.data),
+  applyPlanQuotas: (id, data) => api.post(`/billing/subscriptions/${id}/apply-plan-quotas`, data).then((res) => res.data),
   getSubscriptionHistory: (id) => api.get(`/billing/subscriptions/${id}/history`).then((res) => res.data),
 
   // Invoices & Payments
   getInvoices: (params) => api.get('/billing/invoices', { params }).then((res) => res.data),
   getInvoice: (id) => api.get(`/billing/invoices/${id}`).then((res) => res.data),
   createInvoice: (data) => api.post('/billing/invoices', data).then((res) => res.data),
+  createInvoiceStripeCheckout: (id, data) => api.post(`/billing/invoices/${id}/stripe-checkout`, data).then((res) => res.data),
+  confirmInvoiceStripeCheckout: (id, data) => api.post(`/billing/invoices/${id}/confirm-stripe-checkout`, data).then((res) => res.data),
   recordPayment: (id, data) => api.post(`/billing/invoices/${id}/payments`, data).then((res) => res.data),
   voidInvoice: (id, data) => api.post(`/billing/invoices/${id}/void`, data).then((res) => res.data),
 

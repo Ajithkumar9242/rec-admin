@@ -21,14 +21,14 @@ export function getAntdTheme(isDarkMode = false) {
     },
     components: {
       Button: {
-        controlHeight: 42,
+        controlHeight: 40,
         colorPrimary: isDarkMode ? brandTokens.teal : brandTokens.navy,
         colorPrimaryHover: isDarkMode ? brandTokens.tealLight : brandTokens.navySoft,
         borderRadius: 8,
         fontWeight: 600,
       },
       Input: {
-        controlHeight: 42,
+        controlHeight: 40,
         colorBorder: semantic.borderDefault,
         borderRadius: 8,
       },
@@ -40,15 +40,19 @@ export function getAntdTheme(isDarkMode = false) {
       },
       Layout: {
         bodyBg: semantic.bgApp,
-        headerBg: isDarkMode ? '#12242f' : '#16313f',
-        siderBg: isDarkMode ? '#0d1a22' : '#16313f',
+        headerBg: semantic.bgSurface,
+        siderBg: isDarkMode ? '#0d1820' : '#ffffff',
       },
       Menu: {
         itemBg: 'transparent',
-        itemColor: isDarkMode ? '#8fa9b5' : '#b8ced6',
-        itemSelectedColor: '#ffffff',
-        itemSelectedBg: brandTokens.teal,
-        borderRadius: 6,
+        itemColor: isDarkMode ? '#94a3b8' : '#475569',
+        itemSelectedColor: isDarkMode ? '#ffffff' : brandTokens.navy,
+        itemSelectedBg: isDarkMode ? 'rgba(79, 168, 192, 0.2)' : 'rgba(79, 168, 192, 0.12)',
+        itemHoverColor: isDarkMode ? '#ffffff' : brandTokens.navy,
+        itemHoverBg: isDarkMode ? 'rgba(255, 255, 255, 0.05)' : 'rgba(79, 168, 192, 0.06)',
+        subMenuItemBg: 'transparent',
+        borderRadius: 8,
+        fontSize: 13,
       },
       Typography: {
         colorTextHeading: semantic.textPrimary,

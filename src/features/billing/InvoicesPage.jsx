@@ -23,20 +23,26 @@ import {
   DollarOutlined,
   CloseCircleOutlined,
   SearchOutlined,
+  CreditCardOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
+import { useSelector } from 'react-redux';
 import { DataTable } from '../../components/common/DataTable.jsx';
 import { billingApi, formatBillingError } from '../../services/billingApi.js';
-import { brandTokens } from '../../theme/tokens.js';
+import { brandTokens, lightSemanticTokens, darkSemanticTokens } from '../../theme/tokens.js';
 
 const { Text, Title } = Typography;
 const { Option } = Select;
 
 export function InvoicesPage() {
   const { t } = useTranslation();
+  const isDarkMode = useSelector((state) => state.theme?.isDarkMode);
+  const semantic = isDarkMode ? darkSemanticTokens : lightSemanticTokens;
+
   const [invoices, setInvoices] = useState([]);
   const [companies, setCompanies] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [stripeLoading, setStripeLoading] = useState(false);
   const [error, setError] = useState(null);
 
   // Modals state
@@ -80,6 +86,43 @@ export function InvoicesPage() {
     fetchInvoices();
     fetchCompanies();
   }, [fetchInvoices, fetchCompanies]);
+
+  // Handle return from Stripe Checkout
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const sessionId = params.get('session_id');
+    const invoiceId = params.get('invoice_id');
+    const status = params.get('status');
+
+    if (sessionId && invoiceId && status === 'success') {
+      billingApi
+        .confirmInvoiceStripeCheckout(invoiceId, { sessionId })
+        .then((res) => {
+          message.success('Stripe payment verified and recorded successfully!');
+          fetchInvoices();
+          window.history.replaceState({}, document.title, window.location.pathname);
+        })
+        .catch((err) => {
+          message.error(formatBillingError(err, 'Failed to verify Stripe payment session.'));
+        });
+    }
+  }, [fetchInvoices]);
+
+  const handlePayWithStripe = async (invoice) => {
+    try {
+      setStripeLoading(true);
+      const res = await billingApi.createInvoiceStripeCheckout(invoice.id);
+      if (res.success && res.data?.url) {
+        window.location.href = res.data.url;
+      } else {
+        message.error('Failed to initiate Stripe checkout session.');
+      }
+    } catch (err) {
+      message.error(formatBillingError(err, 'Failed to initiate Stripe checkout.'));
+    } finally {
+      setStripeLoading(false);
+    }
+  };
 
   const handleCreate = async (values) => {
     try {
@@ -137,8 +180,12 @@ export function InvoicesPage() {
 
   const openPaymentModal = (invoice) => {
     setSelectedInvoice(invoice);
+    const totalPaid = (invoice.payments || [])
+      .filter((p) => p.status === 'SUCCEEDED')
+      .reduce((sum, p) => sum + Number(p.amount), 0);
+    const outstanding = Math.max(0, Number(invoice.grossTotal) - totalPaid);
     paymentForm.setFieldsValue({
-      amount: Number(invoice.grossTotal),
+      amount: Number(outstanding.toFixed(2)),
       paymentMethod: 'manual_bank_transfer',
       reference: '',
     });
@@ -159,45 +206,61 @@ export function InvoicesPage() {
       title: t('billing.invoices.invoiceNumber'),
       dataIndex: 'invoiceNumber',
       key: 'invoiceNumber',
-      render: (num) => <span style={{ fontWeight: 600, color: brandTokens.navy }}>{num}</span>,
+      render: (num) => (
+        <span style={{ fontWeight: 600, color: isDarkMode ? brandTokens.teal : brandTokens.navy }}>
+          {num}
+        </span>
+      ),
     },
     {
       title: t('billing.invoices.employer'),
       key: 'company',
       render: (_, record) => (
-        <div>
-          <div>{record.company?.name}</div>
-          {record.taxIdSnapshot && (
-            <div style={{ fontSize: 11, color: brandTokens.muted }}>Tax ID: {record.taxIdSnapshot}</div>
-          )}
-        </div>
+        <span style={{ fontWeight: 500, color: semantic.textPrimary }}>
+          {record.company?.name || record.legalNameSnapshot || '—'}
+        </span>
       ),
     },
     {
       title: t('billing.invoices.issueDate'),
       dataIndex: 'issueDate',
       key: 'issueDate',
-      render: (d) => new Date(d).toLocaleDateString(),
+      render: (d) => (
+        <span style={{ fontSize: 12.5, color: semantic.textSecondary }}>
+          {d ? new Date(d).toLocaleDateString() : '—'}
+        </span>
+      ),
     },
     {
       title: t('billing.invoices.dueDate'),
       dataIndex: 'dueDate',
       key: 'dueDate',
-      render: (d) => new Date(d).toLocaleDateString(),
+      render: (d) => (
+        <span style={{ fontSize: 12.5, color: semantic.textSecondary }}>
+          {d ? new Date(d).toLocaleDateString() : '—'}
+        </span>
+      ),
     },
     {
       title: t('billing.invoices.netAmount'),
       dataIndex: 'netAmount',
       key: 'netAmount',
-      render: (net, r) => `${Number(net).toFixed(2)} ${r.currency}`,
+      render: (net, r) => (
+        <span style={{ color: semantic.textPrimary, fontWeight: 500 }}>
+          {Number(net).toFixed(2)} {r.currency}
+        </span>
+      ),
     },
     {
       title: t('billing.invoices.taxAmount'),
-      key: 'tax',
-      render: (_, r) => (
+      dataIndex: 'taxAmount',
+      key: 'taxAmount',
+      render: (tax, r) => (
         <span>
-          {Number(r.taxAmount).toFixed(2)} {r.currency}
-          <div style={{ fontSize: 11, color: brandTokens.muted }}>
+          <span style={{ color: semantic.textPrimary }}>
+            {Number(tax).toFixed(2)} {r.currency}
+          </span>
+          <div style={{ fontSize: 11, color: semantic.textSecondary }}>
             {(Number(r.taxRate) * 100).toFixed(0)}% Tax
           </div>
         </span>
@@ -208,13 +271,13 @@ export function InvoicesPage() {
       dataIndex: 'grossTotal',
       key: 'grossTotal',
       render: (gross, r) => (
-        <span style={{ fontWeight: 700, color: brandTokens.navy }}>
+        <span style={{ fontWeight: 700, color: semantic.textPrimary, fontSize: 13.5 }}>
           {Number(gross).toFixed(2)} {r.currency}
         </span>
       ),
     },
     {
-      title: t('billing.invoices.status'),
+      title: t('billing.invoices.paymentStatus', 'Payment Status'),
       dataIndex: 'status',
       key: 'status',
       render: (status) => {
@@ -223,31 +286,56 @@ export function InvoicesPage() {
         if (status === 'OPEN') color = 'blue';
         if (status === 'OVERDUE') color = 'volcano';
         if (status === 'VOID') color = 'default';
-        return <Tag color={color}>{t(`billing.statuses.${status}`)}</Tag>;
+        return (
+          <Tag color={color} style={{ borderRadius: 4, fontWeight: 500 }}>
+            {t(`billing.statuses.${status}`) || status}
+          </Tag>
+        );
       },
     },
     {
       title: t('table.actions'),
       key: 'invActions',
       fixed: 'right',
-      render: (_, record) => (
-        <Space size={4}>
-          <Button
-            type="text"
-            size="small"
-            icon={<EyeOutlined style={{ color: brandTokens.navy }} />}
-            onClick={() => openViewModal(record)}
-            title={t('billing.invoices.viewInvoice')}
-          />
-          {record.status === 'OPEN' && (
-            <>
-              <Button
-                type="text"
-                size="small"
-                icon={<DollarOutlined style={{ color: brandTokens.success }} />}
-                onClick={() => openPaymentModal(record)}
-                title={t('billing.invoices.recordPayment')}
-              />
+      render: (_, record) => {
+        const totalPaid = (record.payments || [])
+          .filter((p) => p.status === 'SUCCEEDED')
+          .reduce((sum, p) => sum + Number(p.amount), 0);
+        const hasOutstanding = Number(record.grossTotal) - totalPaid > 0.001;
+        const isPayable = record.status !== 'PAID' && record.status !== 'VOID' && hasOutstanding;
+
+        return (
+          <Space size={6}>
+            <Button
+              type="text"
+              size="small"
+              icon={<EyeOutlined style={{ color: isDarkMode ? brandTokens.teal : brandTokens.navy }} />}
+              onClick={() => openViewModal(record)}
+              title={t('billing.invoices.viewInvoice')}
+              style={{ borderRadius: 6 }}
+            />
+            {isPayable && (
+              <>
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<CreditCardOutlined style={{ color: brandTokens.teal }} />}
+                  loading={stripeLoading}
+                  onClick={() => handlePayWithStripe(record)}
+                  title={t('billing.invoices.payWithStripe', 'Pay with Stripe')}
+                  style={{ borderRadius: 6 }}
+                />
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<DollarOutlined style={{ color: brandTokens.success }} />}
+                  onClick={() => openPaymentModal(record)}
+                  title={t('billing.invoices.recordPayment', 'Record Manual Payment')}
+                  style={{ borderRadius: 6 }}
+                />
+              </>
+            )}
+            {record.status === 'OPEN' && (
               <Button
                 type="text"
                 size="small"
@@ -255,16 +343,17 @@ export function InvoicesPage() {
                 icon={<CloseCircleOutlined />}
                 onClick={() => openVoidModal(record)}
                 title={t('billing.invoices.void')}
+                style={{ borderRadius: 6 }}
               />
-            </>
-          )}
-        </Space>
-      ),
+            )}
+          </Space>
+        );
+      },
     },
   ];
 
   return (
-    <div>
+    <div className="rt-page-container" style={{ maxWidth: 1400, margin: '0 auto' }}>
       <DataTable
         title={t('billing.invoices.title')}
         subtitle={t('billing.invoices.subtitle')}
@@ -288,12 +377,14 @@ export function InvoicesPage() {
         onCancel={() => setIsCreateModalOpen(false)}
         footer={null}
         destroyOnHidden
+        centered
         width={550}
       >
         <Form
           form={createForm}
           layout="vertical"
           onFinish={handleCreate}
+          style={{ marginTop: 12 }}
           initialValues={{
             currency: 'EUR',
             netAmount: 100,
@@ -329,7 +420,7 @@ export function InvoicesPage() {
               name="currency"
               label={t('billing.invoices.currency')}
               rules={[{ required: true }]}
-              style={{ width: 100 }}
+              style={{ width: 110 }}
             >
               <Select>
                 <Option value="EUR">EUR (€)</Option>
@@ -343,10 +434,19 @@ export function InvoicesPage() {
             <Input type="date" />
           </Form.Item>
 
-          <Form.Item style={{ marginTop: 24, textAlign: 'right' }}>
+          <Form.Item style={{ marginTop: 24, textAlign: 'right', marginBottom: 0 }}>
             <Space>
               <Button onClick={() => setIsCreateModalOpen(false)}>{t('common.cancel')}</Button>
-              <Button type="primary" htmlType="submit" loading={submitting} style={{ background: brandTokens.navy }}>
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={submitting}
+                style={{
+                  backgroundColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                  borderColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                  fontWeight: 600,
+                }}
+              >
                 {t('billing.invoices.createInvoice')}
               </Button>
             </Space>
@@ -361,16 +461,17 @@ export function InvoicesPage() {
         onCancel={() => setIsPaymentModalOpen(false)}
         footer={null}
         destroyOnHidden
+        centered
         width={450}
       >
         {selectedInvoice && (
-          <Form form={paymentForm} layout="vertical" onFinish={handleRecordPayment}>
+          <Form form={paymentForm} layout="vertical" onFinish={handleRecordPayment} style={{ marginTop: 12 }}>
             <div style={{ marginBottom: 16 }}>
-              <Text type="secondary">Invoice: </Text>
-              <strong>{selectedInvoice.invoiceNumber}</strong>
-              <div>
-                <Text type="secondary">Gross Total: </Text>
-                <strong>{Number(selectedInvoice.grossTotal).toFixed(2)} {selectedInvoice.currency}</strong>
+              <Text style={{ color: semantic.textSecondary }}>Invoice: </Text>
+              <strong style={{ color: semantic.textPrimary }}>{selectedInvoice.invoiceNumber}</strong>
+              <div style={{ marginTop: 2 }}>
+                <Text style={{ color: semantic.textSecondary }}>Gross Total: </Text>
+                <strong style={{ color: semantic.textPrimary }}>{Number(selectedInvoice.grossTotal).toFixed(2)} {selectedInvoice.currency}</strong>
               </div>
             </div>
 
@@ -388,10 +489,10 @@ export function InvoicesPage() {
               rules={[{ required: true }]}
             >
               <Select>
-                <Option value="manual_bank_transfer">SEPA / Bank Transfer</Option>
-                <Option value="stripe">Stripe</Option>
-                <Option value="credit_card">Credit Card</Option>
-                <Option value="cash">Cash / Direct</Option>
+                <Option value="manual_bank_transfer">SEPA / Bank Transfer (Manual)</Option>
+                <Option value="manual_credit_card">Credit Card (Terminal / Offline)</Option>
+                <Option value="manual_cash">Cash / Direct</Option>
+                <Option value="manual_other">Other Manual Accounting</Option>
               </Select>
             </Form.Item>
 
@@ -399,10 +500,19 @@ export function InvoicesPage() {
               <Input placeholder="e.g. Bank reference TXN-94819" />
             </Form.Item>
 
-            <Form.Item style={{ textAlign: 'right' }}>
+            <Form.Item style={{ textAlign: 'right', marginTop: 20, marginBottom: 0 }}>
               <Space>
                 <Button onClick={() => setIsPaymentModalOpen(false)}>{t('common.cancel')}</Button>
-                <Button type="primary" htmlType="submit" loading={submitting} style={{ background: brandTokens.navy }}>
+                <Button
+                  type="primary"
+                  htmlType="submit"
+                  loading={submitting}
+                  style={{
+                    backgroundColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                    borderColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                    fontWeight: 600,
+                  }}
+                >
                   Confirm Payment
                 </Button>
               </Space>
@@ -418,14 +528,15 @@ export function InvoicesPage() {
         onCancel={() => setIsVoidModalOpen(false)}
         footer={null}
         destroyOnHidden
+        centered
         width={450}
       >
-        <Form form={voidForm} layout="vertical" onFinish={handleVoid}>
+        <Form form={voidForm} layout="vertical" onFinish={handleVoid} style={{ marginTop: 12 }}>
           <Alert
             message={t('billing.invoices.voidConfirm')}
             type="warning"
             showIcon
-            style={{ marginBottom: 16 }}
+            style={{ marginBottom: 16, borderRadius: 8 }}
           />
           <Form.Item
             name="reason"
@@ -435,7 +546,7 @@ export function InvoicesPage() {
             <Input.TextArea rows={3} placeholder="Issued in error, duplicate, contract canceled..." />
           </Form.Item>
 
-          <Form.Item style={{ textAlign: 'right' }}>
+          <Form.Item style={{ textAlign: 'right', marginTop: 20, marginBottom: 0 }}>
             <Space>
               <Button onClick={() => setIsVoidModalOpen(false)}>{t('common.cancel')}</Button>
               <Button danger type="primary" htmlType="submit" loading={submitting}>
@@ -451,11 +562,12 @@ export function InvoicesPage() {
         title={`${t('billing.invoices.viewInvoice')} — ${selectedInvoice?.invoiceNumber || ''}`}
         open={isViewModalOpen}
         onCancel={() => setIsViewModalOpen(false)}
+        centered
         footer={[
-          <Button key="print" icon={<PrinterOutlined />} onClick={handlePrint}>
+          <Button key="print" icon={<PrinterOutlined />} onClick={handlePrint} style={{ borderRadius: 6 }}>
             {t('billing.invoices.downloadPrint')}
           </Button>,
-          <Button key="close" onClick={() => setIsViewModalOpen(false)}>
+          <Button key="close" onClick={() => setIsViewModalOpen(false)} style={{ borderRadius: 6 }}>
             {t('common.back')}
           </Button>,
         ]}
@@ -465,38 +577,46 @@ export function InvoicesPage() {
           <div style={{ padding: '8px 0' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
               <div>
-                <Title level={4} style={{ margin: 0, color: brandTokens.navy }}>
+                <Title level={4} style={{ margin: 0, color: isDarkMode ? brandTokens.teal : brandTokens.navy }}>
                   Recrui<span style={{ color: brandTokens.teal }}>Train</span>
                 </Title>
-                <div style={{ fontSize: 12, color: brandTokens.muted }}>Abrechnungsservice GmbH</div>
-                <div style={{ fontSize: 12, color: brandTokens.muted }}>USt-IdNr.: DE345892110</div>
+                <div style={{ fontSize: 12, color: semantic.textSecondary }}>Abrechnungsservice GmbH</div>
+                <div style={{ fontSize: 12, color: semantic.textSecondary }}>USt-IdNr.: DE345892110</div>
               </div>
 
               <div style={{ textAlign: 'right' }}>
-                <Tag color={selectedInvoice.status === 'PAID' ? 'success' : 'default'} style={{ fontSize: 13, padding: '2px 8px' }}>
+                <Tag color={selectedInvoice.status === 'PAID' ? 'success' : 'default'} style={{ fontSize: 12.5, padding: '2px 8px', borderRadius: 4 }}>
                   {t(`billing.statuses.${selectedInvoice.status}`)}
                 </Tag>
-                <div style={{ fontWeight: 600, marginTop: 4 }}>{selectedInvoice.invoiceNumber}</div>
-                <div style={{ fontSize: 12, color: brandTokens.muted }}>
+                <div style={{ fontWeight: 600, marginTop: 4, color: semantic.textPrimary }}>{selectedInvoice.invoiceNumber}</div>
+                <div style={{ fontSize: 12, color: semantic.textSecondary }}>
                   {t('billing.invoices.issueDate')}: {new Date(selectedInvoice.issueDate).toLocaleDateString()}
                 </div>
-                <div style={{ fontSize: 12, color: brandTokens.muted }}>
+                <div style={{ fontSize: 12, color: semantic.textSecondary }}>
                   {t('billing.invoices.dueDate')}: {new Date(selectedInvoice.dueDate).toLocaleDateString()}
                 </div>
               </div>
             </div>
 
-            <Card size="small" style={{ marginBottom: 20, backgroundColor: '#fcfdfd' }}>
-              <div style={{ fontWeight: 600, color: brandTokens.navy }}>
+            <Card
+              size="small"
+              style={{
+                marginBottom: 20,
+                backgroundColor: isDarkMode ? 'rgba(79, 168, 192, 0.08)' : '#fcfdfd',
+                borderColor: semantic.borderDefault,
+                borderRadius: 8,
+              }}
+            >
+              <div style={{ fontWeight: 600, color: semantic.textPrimary }}>
                 {selectedInvoice.legalNameSnapshot || selectedInvoice.company?.name}
               </div>
               {selectedInvoice.taxIdSnapshot && (
-                <div style={{ fontSize: 12, color: brandTokens.muted }}>
+                <div style={{ fontSize: 12, color: semantic.textSecondary, marginTop: 2 }}>
                   {t('billing.invoices.taxId')}: {selectedInvoice.taxIdSnapshot}
                 </div>
               )}
               {selectedInvoice.billingAddressSnapshot && (
-                <div style={{ fontSize: 12, color: brandTokens.muted }}>
+                <div style={{ fontSize: 12, color: semantic.textSecondary, marginTop: 2 }}>
                   {selectedInvoice.billingAddressSnapshot}
                 </div>
               )}
@@ -511,7 +631,7 @@ export function InvoicesPage() {
                 {Number(selectedInvoice.taxAmount).toFixed(2)} {selectedInvoice.currency}
               </Descriptions.Item>
               <Descriptions.Item label={<strong>{t('billing.invoices.grossTotal')}</strong>}>
-                <strong style={{ fontSize: 16, color: brandTokens.navy }}>
+                <strong style={{ fontSize: 16, color: isDarkMode ? brandTokens.teal : brandTokens.navy }}>
                   {Number(selectedInvoice.grossTotal).toFixed(2)} {selectedInvoice.currency}
                 </strong>
               </Descriptions.Item>
@@ -520,7 +640,7 @@ export function InvoicesPage() {
             {/* Payments List */}
             {selectedInvoice.payments?.length > 0 && (
               <div>
-                <Title level={5} style={{ fontSize: 14, color: brandTokens.navy }}>
+                <Title level={5} style={{ fontSize: 14, color: semantic.textPrimary, marginBottom: 10 }}>
                   {t('billing.invoices.paymentHistory')}
                 </Title>
                 <Table
@@ -539,7 +659,7 @@ export function InvoicesPage() {
                     {
                       title: 'Status',
                       dataIndex: 'status',
-                      render: (s) => <Tag color={s === 'SUCCEEDED' ? 'success' : 'default'}>{s}</Tag>,
+                      render: (s) => <Tag color={s === 'SUCCEEDED' ? 'success' : 'default'} style={{ borderRadius: 4 }}>{s}</Tag>,
                     },
                   ]}
                 />
@@ -551,3 +671,5 @@ export function InvoicesPage() {
     </div>
   );
 }
+
+export default InvoicesPage;

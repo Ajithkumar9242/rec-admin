@@ -37,8 +37,9 @@ import {
 } from '@ant-design/icons';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useSelector } from 'react-redux';
 import { jobsApi } from '../../services/jobsApi.js';
-import { brandTokens } from '../../theme/tokens.js';
+import { brandTokens, lightSemanticTokens, darkSemanticTokens } from '../../theme/tokens.js';
 
 const { Title, Text, Paragraph } = Typography;
 const { Option } = Select;
@@ -48,6 +49,8 @@ export function JobDetailsPage() {
   const navigate = useNavigate();
   const { id } = useParams();
   const { message, modal } = App.useApp();
+  const isDarkMode = useSelector((state) => state.theme?.isDarkMode);
+  const semantic = isDarkMode ? darkSemanticTokens : lightSemanticTokens;
 
   const [job, setJob] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -306,6 +309,20 @@ export function JobDetailsPage() {
     },
   ];
 
+  const sectionCardStyle = {
+    marginBottom: 20,
+    borderRadius: 12,
+    border: `1px solid ${semantic.borderDefault}`,
+    backgroundColor: semantic.bgCard,
+  };
+
+  const sectionHeaderStyle = {
+    backgroundColor: isDarkMode ? 'rgba(79, 168, 192, 0.08)' : '#f8fafc',
+    borderBottom: `1px solid ${semantic.borderDefault}`,
+    fontWeight: 600,
+    color: semantic.textPrimary,
+  };
+
   if (loading) {
     return (
       <div style={{ textAlign: 'center', padding: '60px 0' }}>
@@ -325,16 +342,42 @@ export function JobDetailsPage() {
   }
 
   return (
-    <div style={{ maxWidth: 1200, margin: '0 auto', padding: '0 4px 40px 4px' }}>
+    <div className="rt-fade-in" style={{ maxWidth: 1200, margin: '0 auto', padding: '0 4px 40px 4px' }}>
       {/* Top Navigation & Profile Header */}
-      <Card variant="outlined" style={{ marginBottom: 20 }} styles={{ body: { padding: '20px 24px' } }}>
+      <Card
+        className="rt-card-hover"
+        variant="outlined"
+        style={{
+          marginBottom: 20,
+          borderRadius: 12,
+          border: `1px solid ${semantic.borderDefault}`,
+          backgroundColor: semantic.bgCard,
+        }}
+        styles={{ body: { padding: '24px' } }}
+      >
         <Row justify="space-between" align="middle" gutter={[16, 16]}>
           <Col xs={24} md={16}>
             <Space align="start" size={16}>
               <Button icon={<ArrowLeftOutlined />} onClick={() => navigate('/admin/jobs')} />
+              <div
+                style={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 10,
+                  backgroundColor: isDarkMode ? 'rgba(79, 168, 192, 0.15)' : '#e0f2fe',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: brandTokens.teal,
+                  fontSize: 22,
+                  flexShrink: 0,
+                }}
+              >
+                <BankOutlined />
+              </div>
               <div>
                 <Space align="center" size={8} wrap>
-                  <Title level={3} style={{ margin: 0, color: brandTokens.navy }}>
+                  <Title level={3} style={{ margin: 0, color: isDarkMode ? semantic.textPrimary : brandTokens.navy }}>
                     {job.title}
                   </Title>
                   {job.jobCode && <Tag style={{ fontWeight: 600 }}>{job.jobCode}</Tag>}
@@ -457,233 +500,254 @@ export function JobDetailsPage() {
         </Row>
       </Card>
 
-      {/* Main Tabs */}
-      <Tabs
-        activeKey={activeTabKey}
-        onChange={setActiveTabKey}
-        items={[
-          {
-            key: 'overview',
-            label: (
-              <span>
-                <FileTextOutlined style={{ marginRight: 6 }} />
-                {t('jobs.jobDetails')}
-              </span>
-            ),
-            children: (
-              <div>
-                {/* Basic & Organization Card */}
-                <Card title="Organization & Roles" variant="outlined" style={{ marginBottom: 20 }}>
-                  <Descriptions bordered column={{ xs: 1, sm: 2, md: 3 }}>
-                    <Descriptions.Item label={t('jobs.fields.company')}>
-                      <Link to={`/admin/companies/${job.companyId}`}>
-                        {job.company?.name}
-                      </Link>
-                    </Descriptions.Item>
-                    <Descriptions.Item label={t('jobs.fields.industry')}>
-                      {job.industry?.name || '—'}
-                    </Descriptions.Item>
-                    <Descriptions.Item label={t('jobs.employmentType.title')}>
-                      {t(`jobs.employmentType.${job.employmentType}`, job.employmentType)}
-                    </Descriptions.Item>
-                    <Descriptions.Item label={t('jobs.fields.department')}>
-                      {job.department || '—'}
-                    </Descriptions.Item>
-                    <Descriptions.Item label={t('jobs.fields.profession')}>
-                      {job.profession || '—'}
-                    </Descriptions.Item>
-                    <Descriptions.Item label={t('jobs.fields.openings')}>
-                      {job.openings ?? 1}
-                    </Descriptions.Item>
-                    <Descriptions.Item label={t('jobs.fields.targetJoiningDate')}>
-                      {job.targetJoiningDate ? new Date(job.targetJoiningDate).toLocaleDateString() : '—'}
-                    </Descriptions.Item>
-                    <Descriptions.Item label={t('jobs.fields.keywords')}>
-                      {Array.isArray(job.keywords) && job.keywords.length > 0 ? (
-                        <Space wrap size={4}>
-                          {job.keywords.map((k, i) => (
-                            <Tag key={i}>{k}</Tag>
-                          ))}
-                        </Space>
-                      ) : (
-                        '—'
-                      )}
-                    </Descriptions.Item>
-                  </Descriptions>
-                </Card>
+      {/* Main Tabs Container */}
+      <Card
+        variant="outlined"
+        style={{
+          borderRadius: 12,
+          border: `1px solid ${semantic.borderDefault}`,
+          backgroundColor: semantic.bgCard,
+        }}
+        styles={{ body: { padding: '16px 24px 24px' } }}
+      >
+        <Tabs
+          activeKey={activeTabKey}
+          onChange={setActiveTabKey}
+          items={[
+            {
+              key: 'overview',
+              label: (
+                <span>
+                  <FileTextOutlined style={{ marginRight: 6 }} />
+                  {t('jobs.jobDetails')}
+                </span>
+              ),
+              children: (
+                <div>
+                  {/* Basic & Organization Card */}
+                  <Card title="Organization & Roles" variant="outlined" style={sectionCardStyle} styles={{ header: sectionHeaderStyle }}>
+                    <Descriptions bordered column={{ xs: 1, sm: 2, md: 3 }}>
+                      <Descriptions.Item label={t('jobs.fields.company')}>
+                        <Link to={`/admin/companies/${job.companyId}`}>
+                          {job.company?.name}
+                        </Link>
+                      </Descriptions.Item>
+                      <Descriptions.Item label={t('jobs.fields.industry')}>
+                        {job.industry?.name || '—'}
+                      </Descriptions.Item>
+                      <Descriptions.Item label={t('jobs.employmentType.title')}>
+                        {t(`jobs.employmentType.${job.employmentType}`, job.employmentType)}
+                      </Descriptions.Item>
+                      <Descriptions.Item label={t('jobs.fields.department')}>
+                        {job.department || '—'}
+                      </Descriptions.Item>
+                      <Descriptions.Item label={t('jobs.fields.profession')}>
+                        {job.profession || '—'}
+                      </Descriptions.Item>
+                      <Descriptions.Item label={t('jobs.fields.openings')}>
+                        {job.openings ?? 1}
+                      </Descriptions.Item>
+                      <Descriptions.Item label={t('jobs.fields.targetJoiningDate')}>
+                        {job.targetJoiningDate ? new Date(job.targetJoiningDate).toLocaleDateString() : '—'}
+                      </Descriptions.Item>
+                      <Descriptions.Item label={t('jobs.fields.keywords')}>
+                        {Array.isArray(job.keywords) && job.keywords.length > 0 ? (
+                          <Space wrap size={4}>
+                            {job.keywords.map((k, i) => (
+                              <Tag key={i}>{k}</Tag>
+                            ))}
+                          </Space>
+                        ) : (
+                          '—'
+                        )}
+                      </Descriptions.Item>
+                    </Descriptions>
+                  </Card>
 
-                {/* Compensation & Experience Card */}
-                <Card title="Compensation & Experience" variant="outlined" style={{ marginBottom: 20 }}>
-                  <Descriptions bordered column={{ xs: 1, sm: 2, md: 3 }}>
-                    <Descriptions.Item label={t('jobs.fields.compensationType')}>
-                      {job.compensationType || 'ANNUAL'}
-                    </Descriptions.Item>
-                    <Descriptions.Item label="Salary Range">
-                      {job.minSalary != null && job.maxSalary != null
-                        ? `${Number(job.minSalary).toLocaleString()} – ${Number(job.maxSalary).toLocaleString()} ${job.currency || 'EUR'}`
-                        : 'Not disclosed'}
-                    </Descriptions.Item>
-                    <Descriptions.Item label={t('jobs.fields.salaryNegotiable')}>
-                      {job.salaryNegotiable ? 'Yes' : 'No'}
-                    </Descriptions.Item>
-                    <Descriptions.Item label="Experience Range">
-                      {`${job.minExperience ?? 0} – ${job.maxExperience ?? 5} years`}
-                    </Descriptions.Item>
-                    <Descriptions.Item label={t('jobs.fields.maxApplicantsLimit')}>
-                      {job.maxApplicantsLimit ? `${job.maxApplicantsLimit} applicants` : 'Unlimited'}
-                    </Descriptions.Item>
-                    <Descriptions.Item label={t('jobs.fields.autoCloseOnLimit')}>
-                      {job.autoCloseOnLimit ? 'Yes' : 'No'}
-                    </Descriptions.Item>
-                  </Descriptions>
-                </Card>
+                  {/* Compensation & Experience Card */}
+                  <Card title="Compensation & Experience" variant="outlined" style={sectionCardStyle} styles={{ header: sectionHeaderStyle }}>
+                    <Descriptions bordered column={{ xs: 1, sm: 2, md: 3 }}>
+                      <Descriptions.Item label={t('jobs.fields.compensationType')}>
+                        {job.compensationType || 'ANNUAL'}
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Salary Range">
+                        {job.minSalary != null && job.maxSalary != null
+                          ? `${Number(job.minSalary).toLocaleString()} – ${Number(job.maxSalary).toLocaleString()} ${job.currency || 'EUR'}`
+                          : 'Not disclosed'}
+                      </Descriptions.Item>
+                      <Descriptions.Item label={t('jobs.fields.salaryNegotiable')}>
+                        {job.salaryNegotiable ? 'Yes' : 'No'}
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Experience Range">
+                        {`${job.minExperience ?? 0} – ${job.maxExperience ?? 5} years`}
+                      </Descriptions.Item>
+                      <Descriptions.Item label={t('jobs.fields.maxApplicantsLimit')}>
+                        {job.maxApplicantsLimit ? `${job.maxApplicantsLimit} applicants` : 'Unlimited'}
+                      </Descriptions.Item>
+                      <Descriptions.Item label={t('jobs.fields.autoCloseOnLimit')}>
+                        {job.autoCloseOnLimit ? 'Yes' : 'No'}
+                      </Descriptions.Item>
+                    </Descriptions>
+                  </Card>
 
-                {/* Location & Languages Card */}
-                <Card title="Workplace, Location & Languages" variant="outlined" style={{ marginBottom: 20 }}>
-                  <Descriptions bordered column={{ xs: 1, sm: 2, md: 3 }}>
-                    <Descriptions.Item label={t('jobs.fields.workplaceType')}>
-                      <Space size={4} wrap>
-                        {(Array.isArray(job.workArrangements) && job.workArrangements.length > 0
-                          ? job.workArrangements
-                          : [job.workArrangement || job.workplaceType || 'ON_SITE']
-                        ).map((arr, idx) => (
-                          <React.Fragment key={arr || idx}>
-                            {getWorkplaceTag(arr)}
-                          </React.Fragment>
-                        ))}
-                      </Space>
-                    </Descriptions.Item>
-                    <Descriptions.Item label={t('jobs.fields.country')}>
-                      {job.country || 'DE'}
-                    </Descriptions.Item>
-                    <Descriptions.Item label={t('jobs.fields.city')}>
-                      {job.city || '—'}
-                    </Descriptions.Item>
-                    <Descriptions.Item label={t('jobs.fields.address')}>
-                      {job.address || '—'}
-                    </Descriptions.Item>
-                    <Descriptions.Item label={t('jobs.fields.germanLevel')}>
-                      {job.germanLevel ? <Tag color="cyan">{job.germanLevel}</Tag> : 'Not specified'}
-                    </Descriptions.Item>
-                    <Descriptions.Item label={t('jobs.fields.englishLevel')}>
-                      {job.englishLevel ? <Tag color="blue">{job.englishLevel}</Tag> : 'Not specified'}
-                    </Descriptions.Item>
-                    {Array.isArray(job.otherLanguages) && job.otherLanguages.length > 0 && (
-                      <Descriptions.Item label={t('jobs.fields.otherLanguages')} span={3}>
-                        <Space wrap size={4}>
-                          {job.otherLanguages.map((l, i) => (
-                            <Tag key={i}>{l}</Tag>
+                  {/* Location & Languages Card */}
+                  <Card title="Workplace, Location & Languages" variant="outlined" style={sectionCardStyle} styles={{ header: sectionHeaderStyle }}>
+                    <Descriptions bordered column={{ xs: 1, sm: 2, md: 3 }}>
+                      <Descriptions.Item label={t('jobs.fields.workplaceType')}>
+                        <Space size={4} wrap>
+                          {(Array.isArray(job.workArrangements) && job.workArrangements.length > 0
+                            ? job.workArrangements
+                            : [job.workArrangement || job.workplaceType || 'ON_SITE']
+                          ).map((arr, idx) => (
+                            <React.Fragment key={arr || idx}>
+                              {getWorkplaceTag(arr)}
+                            </React.Fragment>
                           ))}
                         </Space>
                       </Descriptions.Item>
+                      <Descriptions.Item label={t('jobs.fields.country')}>
+                        {job.country || 'DE'}
+                      </Descriptions.Item>
+                      <Descriptions.Item label={t('jobs.fields.city')}>
+                        {job.city || '—'}
+                      </Descriptions.Item>
+                      <Descriptions.Item label={t('jobs.fields.address')}>
+                        {job.address || '—'}
+                      </Descriptions.Item>
+                      <Descriptions.Item label={t('jobs.fields.germanLevel')}>
+                        {job.germanLevel ? <Tag color="cyan">{job.germanLevel}</Tag> : 'Not specified'}
+                      </Descriptions.Item>
+                      <Descriptions.Item label={t('jobs.fields.englishLevel')}>
+                        {job.englishLevel ? <Tag color="blue">{job.englishLevel}</Tag> : 'Not specified'}
+                      </Descriptions.Item>
+                      {Array.isArray(job.otherLanguages) && job.otherLanguages.length > 0 && (
+                        <Descriptions.Item label={t('jobs.fields.otherLanguages')} span={3}>
+                          <Space wrap size={4}>
+                            {job.otherLanguages.map((l, i) => (
+                              <Tag key={i}>{l}</Tag>
+                            ))}
+                          </Space>
+                        </Descriptions.Item>
+                      )}
+                    </Descriptions>
+                  </Card>
+
+                  {/* Description & Requirements Content */}
+                  <Card title={t('jobs.fields.jobDescription')} variant="outlined" style={sectionCardStyle} styles={{ header: sectionHeaderStyle }}>
+                    <Paragraph style={{ whiteSpace: 'pre-wrap' }}>{job.description}</Paragraph>
+
+                    {job.responsibilities && (
+                      <>
+                        <Title level={5} style={{ marginTop: 20 }}>{t('jobs.fields.responsibilities')}</Title>
+                        <Paragraph style={{ whiteSpace: 'pre-wrap' }}>{job.responsibilities}</Paragraph>
+                      </>
                     )}
-                  </Descriptions>
-                </Card>
 
-                {/* Description & Requirements Content */}
-                <Card title={t('jobs.fields.jobDescription')} variant="outlined" style={{ marginBottom: 20 }}>
-                  <Paragraph style={{ whiteSpace: 'pre-wrap' }}>{job.description}</Paragraph>
+                    {job.requirements && (
+                      <>
+                        <Title level={5} style={{ marginTop: 20 }}>{t('jobs.fields.requirements')}</Title>
+                        <Paragraph style={{ whiteSpace: 'pre-wrap' }}>{job.requirements}</Paragraph>
+                      </>
+                    )}
 
-                  {job.responsibilities && (
-                    <>
-                      <Title level={5} style={{ marginTop: 20 }}>{t('jobs.fields.responsibilities')}</Title>
-                      <Paragraph style={{ whiteSpace: 'pre-wrap' }}>{job.responsibilities}</Paragraph>
-                    </>
-                  )}
+                    {job.benefits && (
+                      <>
+                        <Title level={5} style={{ marginTop: 20 }}>{t('jobs.fields.benefits')}</Title>
+                        <Paragraph style={{ whiteSpace: 'pre-wrap' }}>{job.benefits}</Paragraph>
+                      </>
+                    )}
+                  </Card>
+                </div>
+              ),
+            },
+            {
+              key: 'applicants',
+              label: (
+                <span>
+                  <UserOutlined style={{ marginRight: 6 }} />
+                  {t('jobs.applicants')} ({job._count?.applications || applicants.length || 0})
+                </span>
+              ),
+              children: (
+                <div>
+                  {/* Search & Filter Toolbar */}
+                  <Card
+                    variant="outlined"
+                    style={{
+                      marginBottom: 16,
+                      borderRadius: 10,
+                      border: `1px solid ${semantic.borderDefault}`,
+                      backgroundColor: isDarkMode ? 'rgba(255, 255, 255, 0.02)' : '#f8fafc',
+                    }}
+                    styles={{ body: { padding: 16 } }}
+                  >
+                    <Row justify="space-between" align="middle" gutter={[12, 12]}>
+                      <Col xs={24} md={16}>
+                        <Space wrap size={10}>
+                          <Input
+                            placeholder="Search candidate name, email, phone..."
+                            prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
+                            value={applicantSearch}
+                            onChange={(e) => setApplicantSearch(e.target.value)}
+                            onPressEnter={() => {
+                              setApplicantPagination((p) => ({ ...p, current: 1 }));
+                              fetchApplicants();
+                            }}
+                            style={{ width: 280 }}
+                            allowClear
+                          />
+                          <Select
+                            placeholder="Application Status"
+                            value={applicantStatusFilter || undefined}
+                            onChange={(val) => {
+                              setApplicantStatusFilter(val || '');
+                              setApplicantPagination((p) => ({ ...p, current: 1 }));
+                            }}
+                            style={{ width: 160 }}
+                            allowClear
+                          >
+                            <Option value="SUBMITTED">SUBMITTED</Option>
+                            <Option value="IN_REVIEW">IN_REVIEW</Option>
+                            <Option value="SHORTLISTED">SHORTLISTED</Option>
+                            <Option value="INTERVIEW">INTERVIEW</Option>
+                            <Option value="OFFER">OFFER</Option>
+                            <Option value="HIRED">HIRED</Option>
+                            <Option value="REJECTED">REJECTED</Option>
+                          </Select>
+                          <Button icon={<ReloadOutlined />} onClick={fetchApplicants}>
+                            {t('common.retry', 'Refresh')}
+                          </Button>
+                        </Space>
+                      </Col>
+                    </Row>
+                  </Card>
 
-                  {job.requirements && (
-                    <>
-                      <Title level={5} style={{ marginTop: 20 }}>{t('jobs.fields.requirements')}</Title>
-                      <Paragraph style={{ whiteSpace: 'pre-wrap' }}>{job.requirements}</Paragraph>
-                    </>
-                  )}
-
-                  {job.benefits && (
-                    <>
-                      <Title level={5} style={{ marginTop: 20 }}>{t('jobs.fields.benefits')}</Title>
-                      <Paragraph style={{ whiteSpace: 'pre-wrap' }}>{job.benefits}</Paragraph>
-                    </>
-                  )}
-                </Card>
-              </div>
-            ),
-          },
-          {
-            key: 'applicants',
-            label: (
-              <span>
-                <UserOutlined style={{ marginRight: 6 }} />
-                {t('jobs.applicants')} ({job._count?.applications || applicants.length || 0})
-              </span>
-            ),
-            children: (
-              <div>
-                {/* Search & Filter Toolbar */}
-                <Card variant="outlined" style={{ marginBottom: 16 }} styles={{ body: { padding: 16 } }}>
-                  <Row justify="space-between" align="middle" gutter={[12, 12]}>
-                    <Col xs={24} md={16}>
-                      <Space wrap size={10}>
-                        <Input
-                          placeholder="Search candidate name, email, phone..."
-                          prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
-                          value={applicantSearch}
-                          onChange={(e) => setApplicantSearch(e.target.value)}
-                          onPressEnter={() => {
-                            setApplicantPagination((p) => ({ ...p, current: 1 }));
-                            fetchApplicants();
-                          }}
-                          style={{ width: 280 }}
-                          allowClear
-                        />
-                        <Select
-                          placeholder="Application Status"
-                          value={applicantStatusFilter || undefined}
-                          onChange={(val) => {
-                            setApplicantStatusFilter(val || '');
-                            setApplicantPagination((p) => ({ ...p, current: 1 }));
-                          }}
-                          style={{ width: 160 }}
-                          allowClear
-                        >
-                          <Option value="SUBMITTED">SUBMITTED</Option>
-                          <Option value="IN_REVIEW">IN_REVIEW</Option>
-                          <Option value="SHORTLISTED">SHORTLISTED</Option>
-                          <Option value="INTERVIEW">INTERVIEW</Option>
-                          <Option value="OFFER">OFFER</Option>
-                          <Option value="HIRED">HIRED</Option>
-                          <Option value="REJECTED">REJECTED</Option>
-                        </Select>
-                        <Button icon={<ReloadOutlined />} onClick={fetchApplicants}>
-                          {t('common.retry', 'Refresh')}
-                        </Button>
-                      </Space>
-                    </Col>
-                  </Row>
-                </Card>
-
-                {/* Applicants Table */}
-                <Table
-                  columns={applicantColumns}
-                  dataSource={applicants}
-                  rowKey="id"
-                  loading={applicantsLoading}
-                  pagination={{
-                    current: applicantPagination.current,
-                    pageSize: applicantPagination.pageSize,
-                    total: applicantPagination.total,
-                    onChange: (page, pageSize) => {
-                      setApplicantPagination({ current: page, pageSize, total: applicantPagination.total });
-                    },
-                  }}
-                  locale={{
-                    emptyText: t('jobs.applicantsTab.noApplicants'),
-                  }}
-                />
-              </div>
-            ),
-          },
-        ]}
-      />
+                  {/* Applicants Table */}
+                  <div className="rt-table-container">
+                    <Table
+                      columns={applicantColumns}
+                      dataSource={applicants}
+                      rowKey="id"
+                      loading={applicantsLoading}
+                      pagination={{
+                        current: applicantPagination.current,
+                        pageSize: applicantPagination.pageSize,
+                        total: applicantPagination.total,
+                        onChange: (page, pageSize) => {
+                          setApplicantPagination({ current: page, pageSize, total: applicantPagination.total });
+                        },
+                      }}
+                      locale={{
+                        emptyText: t('jobs.applicantsTab.noApplicants'),
+                      }}
+                    />
+                  </div>
+                </div>
+              ),
+            },
+          ]}
+        />
+      </Card>
 
       {/* Cover Letter Modal */}
       <Modal

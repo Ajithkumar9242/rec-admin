@@ -20,13 +20,15 @@ import {
 import { useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import { configurationApi, formatConfigurationError } from '../../services/configurationApi.js';
-import { brandTokens } from '../../theme/tokens.js';
+import { brandTokens, lightSemanticTokens, darkSemanticTokens } from '../../theme/tokens.js';
 
 const { Title, Text, Paragraph } = Typography;
 
 export function EmployerVisibilityPage() {
   const { t } = useTranslation();
   const { user } = useSelector((state) => state.auth);
+  const isDarkMode = useSelector((state) => state.theme.isDarkMode);
+  const semantic = isDarkMode ? darkSemanticTokens : lightSemanticTokens;
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
 
   const [form] = Form.useForm();
@@ -72,12 +74,29 @@ export function EmployerVisibilityPage() {
   };
 
   return (
-    <div style={{ maxWidth: 840, margin: '0 auto' }}>
+    <div style={{ maxWidth: 880, margin: '0 auto', paddingBottom: 24 }}>
+      {/* Page Header */}
       <div style={{ marginBottom: 20 }}>
-        <Title level={3} style={{ color: brandTokens.navy, marginBottom: 4 }}>
+        <Title
+          level={3}
+          style={{
+            margin: '0 0 6px 0',
+            fontSize: 22,
+            fontWeight: 700,
+            letterSpacing: '-0.02em',
+            color: semantic.textPrimary,
+          }}
+        >
           {t('configuration.employerVisibility.title')}
         </Title>
-        <Paragraph type="secondary" style={{ marginBottom: 0 }}>
+        <Paragraph
+          style={{
+            margin: 0,
+            fontSize: 13,
+            color: semantic.textSecondary,
+            lineHeight: 1.4,
+          }}
+        >
           {t('configuration.employerVisibility.subtitle')}
         </Paragraph>
       </div>
@@ -87,7 +106,12 @@ export function EmployerVisibilityPage() {
         showIcon
         icon={<SafetyCertificateOutlined style={{ color: brandTokens.teal }} />}
         message={t('configuration.employerVisibility.privacyNotice')}
-        style={{ marginBottom: 20, borderRadius: 8, border: `1px solid ${brandTokens.teal}` }}
+        style={{
+          marginBottom: 20,
+          borderRadius: 8,
+          border: `1px solid ${isDarkMode ? 'rgba(79, 168, 192, 0.3)' : brandTokens.teal}`,
+          background: isDarkMode ? 'rgba(79, 168, 192, 0.08)' : undefined,
+        }}
       />
 
       {!isSuperAdmin && (
@@ -110,7 +134,12 @@ export function EmployerVisibilityPage() {
       )}
 
       <Card
-        style={{ borderRadius: 12, border: '1px solid #dce9ed' }}
+        style={{
+          borderRadius: 12,
+          background: semantic.bgSurface,
+          border: `1px solid ${isDarkMode ? '#1a2e3b' : semantic.borderSubtle}`,
+          boxShadow: isDarkMode ? 'none' : '0 1px 3px rgba(0,0,0,0.03)',
+        }}
         styles={{ body: { padding: 24 } }}
       >
         <Spin spinning={loading}>
@@ -131,10 +160,10 @@ export function EmployerVisibilityPage() {
               }}
             >
               <div>
-                <Text strong style={{ fontSize: 14 }}>
+                <Text strong style={{ fontSize: 14, color: semantic.textPrimary }}>
                   {t('configuration.employerVisibility.resumesLabel')}
                 </Text>
-                <div style={{ fontSize: 13, color: '#5c7480', marginTop: 4 }}>
+                <div style={{ fontSize: 13, color: semantic.textSecondary, marginTop: 4 }}>
                   {t('configuration.employerVisibility.resumesHelp')}
                 </div>
               </div>
@@ -143,7 +172,7 @@ export function EmployerVisibilityPage() {
               </Form.Item>
             </div>
 
-            <Divider style={{ margin: '16px 0' }} />
+            <Divider style={{ margin: '16px 0', borderColor: isDarkMode ? '#1a2e3b' : semantic.borderSubtle }} />
 
             {/* Show Candidate Full Name */}
             <div
@@ -156,10 +185,10 @@ export function EmployerVisibilityPage() {
               }}
             >
               <div>
-                <Text strong style={{ fontSize: 14 }}>
+                <Text strong style={{ fontSize: 14, color: semantic.textPrimary }}>
                   {t('configuration.employerVisibility.fullNameLabel')}
                 </Text>
-                <div style={{ fontSize: 13, color: '#5c7480', marginTop: 4 }}>
+                <div style={{ fontSize: 13, color: semantic.textSecondary, marginTop: 4 }}>
                   {t('configuration.employerVisibility.fullNameHelp')}
                 </div>
               </div>
@@ -168,7 +197,7 @@ export function EmployerVisibilityPage() {
               </Form.Item>
             </div>
 
-            <Divider style={{ margin: '16px 0' }} />
+            <Divider style={{ margin: '16px 0', borderColor: isDarkMode ? '#1a2e3b' : semantic.borderSubtle }} />
 
             {/* Show Candidate Email */}
             <div
@@ -181,10 +210,10 @@ export function EmployerVisibilityPage() {
               }}
             >
               <div>
-                <Text strong style={{ fontSize: 14 }}>
+                <Text strong style={{ fontSize: 14, color: semantic.textPrimary }}>
                   {t('configuration.employerVisibility.emailLabel')}
                 </Text>
-                <div style={{ fontSize: 13, color: '#5c7480', marginTop: 4 }}>
+                <div style={{ fontSize: 13, color: semantic.textSecondary, marginTop: 4 }}>
                   {t('configuration.employerVisibility.emailHelp')}
                 </div>
               </div>
@@ -193,7 +222,7 @@ export function EmployerVisibilityPage() {
               </Form.Item>
             </div>
 
-            <Divider style={{ margin: '16px 0' }} />
+            <Divider style={{ margin: '16px 0', borderColor: isDarkMode ? '#1a2e3b' : semantic.borderSubtle }} />
 
             {/* Show Candidate Phone Number */}
             <div
@@ -206,10 +235,10 @@ export function EmployerVisibilityPage() {
               }}
             >
               <div>
-                <Text strong style={{ fontSize: 14 }}>
+                <Text strong style={{ fontSize: 14, color: semantic.textPrimary }}>
                   {t('configuration.employerVisibility.phoneLabel')}
                 </Text>
-                <div style={{ fontSize: 13, color: '#5c7480', marginTop: 4 }}>
+                <div style={{ fontSize: 13, color: semantic.textSecondary, marginTop: 4 }}>
                   {t('configuration.employerVisibility.phoneHelp')}
                 </div>
               </div>
@@ -218,7 +247,7 @@ export function EmployerVisibilityPage() {
               </Form.Item>
             </div>
 
-            <Divider style={{ margin: '24px 0 20px 0' }} />
+            <Divider style={{ margin: '24px 0 20px 0', borderColor: isDarkMode ? '#1a2e3b' : semantic.borderSubtle }} />
 
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
               <Button
@@ -228,10 +257,10 @@ export function EmployerVisibilityPage() {
                 loading={saving}
                 disabled={!isSuperAdmin}
                 style={{
-                  backgroundColor: brandTokens.navy,
-                  borderColor: brandTokens.navy,
                   padding: '0 24px',
                   height: 40,
+                  fontWeight: 600,
+                  borderRadius: 8,
                 }}
               >
                 {t('configuration.employerVisibility.saveButton')}

@@ -4,13 +4,14 @@ import {
   Menu,
   Button,
   Space,
-  Tag,
   Avatar,
   Dropdown,
   Popconfirm,
   Badge,
   Grid,
-  theme,
+  Drawer,
+  Tooltip,
+  Popover,
 } from 'antd';
 import {
   DashboardOutlined,
@@ -26,6 +27,7 @@ import {
   SettingOutlined,
   FileTextOutlined,
   TeamOutlined,
+  BellOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
@@ -40,6 +42,7 @@ const { Header, Sider, Content } = Layout;
 
 export function AdminShell() {
   const [collapsed, setCollapsed] = useState(false);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
   const screens = Grid.useBreakpoint() || {};
   const navigate = useNavigate();
   const location = useLocation();
@@ -59,17 +62,17 @@ export function AdminShell() {
   const menuItems = [
     {
       key: '/admin',
-      icon: <DashboardOutlined />,
+      icon: <DashboardOutlined style={{ fontSize: 16 }} />,
       label: t('shell.dashboard'),
     },
     {
       key: '/admin/security',
-      icon: <SafetyCertificateOutlined />,
+      icon: <SafetyCertificateOutlined style={{ fontSize: 16 }} />,
       label: t('shell.securitySettings'),
     },
     {
       key: 'configuration-group',
-      icon: <SettingOutlined />,
+      icon: <SettingOutlined style={{ fontSize: 16 }} />,
       label: t('shell.platformConfiguration'),
       children: [
         {
@@ -107,7 +110,7 @@ export function AdminShell() {
     },
     {
       key: 'companies-group',
-      icon: <SolutionOutlined />,
+      icon: <SolutionOutlined style={{ fontSize: 16 }} />,
       label: t('shell.companies', 'Companies'),
       children: [
         {
@@ -122,7 +125,7 @@ export function AdminShell() {
     },
     {
       key: 'jobs-group',
-      icon: <FileTextOutlined />,
+      icon: <FileTextOutlined style={{ fontSize: 16 }} />,
       label: t('shell.jobs', 'Job Postings'),
       children: [
         {
@@ -137,23 +140,23 @@ export function AdminShell() {
     },
     {
       key: '/admin/candidates',
-      icon: <UsergroupAddOutlined />,
+      icon: <UsergroupAddOutlined style={{ fontSize: 16 }} />,
       label: t('shell.candidates', 'Candidates'),
     },
     {
       key: '/admin/teams',
-      icon: <TeamOutlined />,
+      icon: <TeamOutlined style={{ fontSize: 16 }} />,
       label: t('shell.teams', 'Teams & Permissions'),
     },
     {
       key: 'pipeline-future',
-      icon: <ProjectOutlined />,
+      icon: <ProjectOutlined style={{ fontSize: 16 }} />,
       label: t('shell.pipeline'),
       disabled: true,
     },
     {
       key: 'billing-group',
-      icon: <CreditCardOutlined />,
+      icon: <CreditCardOutlined style={{ fontSize: 16 }} />,
       label: t('shell.billing'),
       children: [
         {
@@ -179,6 +182,9 @@ export function AdminShell() {
   const handleMenuClick = ({ key }) => {
     if (key.startsWith('/admin')) {
       navigate(key);
+      if (isMobile) {
+        setMobileDrawerOpen(false);
+      }
     }
   };
 
@@ -186,9 +192,12 @@ export function AdminShell() {
     {
       key: 'profile-info',
       label: (
-        <div style={{ padding: '4px 0' }}>
-          <div style={{ fontWeight: 600 }}>{user?.name}</div>
+        <div style={{ padding: '6px 4px' }}>
+          <div style={{ fontWeight: 600, fontSize: 13, color: semantic.textPrimary }}>{user?.name || 'Administrator'}</div>
           <div style={{ fontSize: 12, color: semantic.textSecondary }}>{user?.email}</div>
+          <div style={{ fontSize: 11, color: brandTokens.teal, marginTop: 2, fontWeight: 500 }}>
+            {user?.role === 'SUPER_ADMIN' ? 'Super Administrator' : 'Administrator'}
+          </div>
         </div>
       ),
       disabled: true,
@@ -202,14 +211,212 @@ export function AdminShell() {
       label: t('shell.securitySettings'),
       onClick: () => navigate('/admin/security'),
     },
-    {
-      key: 'logout',
-      icon: <LogoutOutlined />,
-      danger: true,
-      label: t('auth.logout'),
-      onClick: handleLogout,
-    },
   ];
+
+  const notificationsPopoverContent = (
+    <div style={{ padding: '8px 4px', width: 260, textAlign: 'center' }}>
+      <BellOutlined style={{ fontSize: 24, color: brandTokens.teal, marginBottom: 8 }} />
+      <div style={{ fontWeight: 600, fontSize: 13, color: semantic.textPrimary, marginBottom: 4 }}>
+        {t('dashboard.recentNotifications')}
+      </div>
+      <div style={{ fontSize: 12, color: semantic.textSecondary }}>
+        {t('dashboard.noNotifications')}
+      </div>
+    </div>
+  );
+
+  // Render navigation menu content (shared between desktop Sider and mobile Drawer)
+  const renderSidebarContent = (isCollapsedMode = false) => (
+    <div
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        width: '100%',
+        overflow: 'hidden',
+        background: isDarkMode ? '#0d1820' : '#ffffff',
+      }}
+    >
+      {/* 1. Fixed Brand / Logo Header */}
+      <div
+        style={{
+          height: 64,
+          minHeight: 64,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: isCollapsedMode ? 'center' : 'flex-start',
+          padding: isCollapsedMode ? '0' : '0 18px',
+          borderBottom: `1px solid ${isDarkMode ? '#1a2e3b' : semantic.borderSubtle}`,
+          flexShrink: 0,
+        }}
+      >
+        <BrandLogo
+          collapsed={isCollapsedMode}
+          isDarkMode={isDarkMode}
+          showSubtitle={false}
+          tagText={user?.role === 'SUPER_ADMIN' ? 'SUPER' : 'ADMIN'}
+        />
+      </div>
+
+      {/* 2. Middle Scrollable Navigation List */}
+      <div
+        className="admin-sidebar-scroll"
+        style={{
+          flex: 1,
+          minHeight: 0,
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          padding: '10px 8px',
+        }}
+      >
+        <Menu
+          mode="inline"
+          selectedKeys={[location.pathname]}
+          items={menuItems}
+          onClick={handleMenuClick}
+          inlineCollapsed={isCollapsedMode}
+          style={{
+            background: 'transparent',
+            borderRight: 'none',
+            fontSize: 13,
+            fontWeight: 500,
+          }}
+        />
+      </div>
+
+      {/* 3. Fixed User Profile & Logout Footer */}
+      <div
+        style={{
+          flexShrink: 0,
+          borderTop: `1px solid ${isDarkMode ? '#1a2e3b' : semantic.borderSubtle}`,
+          padding: isCollapsedMode ? '14px 8px' : '12px 14px',
+          background: isDarkMode ? '#0a141b' : '#fbfcfd',
+          display: 'flex',
+          flexDirection: isCollapsedMode ? 'column' : 'row',
+          alignItems: 'center',
+          justifyContent: isCollapsedMode ? 'center' : 'space-between',
+          gap: isCollapsedMode ? 12 : 8,
+        }}
+      >
+        {isCollapsedMode ? (
+          <>
+            <Tooltip title={`${user?.name || 'Admin'} (${user?.email || ''})`} placement="right">
+              <Avatar
+                size={34}
+                style={{
+                  backgroundColor: isDarkMode ? 'rgba(79, 168, 192, 0.2)' : brandTokens.navy,
+                  color: brandTokens.teal,
+                  fontWeight: 600,
+                  fontSize: 14,
+                  cursor: 'pointer',
+                }}
+                icon={<UserOutlined />}
+              >
+                {user?.name?.[0]?.toUpperCase()}
+              </Avatar>
+            </Tooltip>
+
+            <Popconfirm
+              title={t('auth.logoutConfirm')}
+              onConfirm={handleLogout}
+              okText={t('common.submit')}
+              cancelText={t('common.cancel')}
+              placement="rightBottom"
+            >
+              <Tooltip title={t('auth.logout')} placement="right">
+                <Button
+                  type="text"
+                  danger
+                  size="small"
+                  shape="circle"
+                  icon={<LogoutOutlined style={{ fontSize: 15 }} />}
+                  aria-label={t('auth.logout')}
+                />
+              </Tooltip>
+            </Popconfirm>
+          </>
+        ) : (
+          <>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 10,
+                minWidth: 0,
+                flex: 1,
+              }}
+            >
+              <Avatar
+                size={34}
+                style={{
+                  backgroundColor: isDarkMode ? 'rgba(79, 168, 192, 0.2)' : brandTokens.navy,
+                  color: brandTokens.teal,
+                  fontWeight: 600,
+                  fontSize: 14,
+                  flexShrink: 0,
+                }}
+                icon={<UserOutlined />}
+              >
+                {user?.name?.[0]?.toUpperCase()}
+              </Avatar>
+              <div style={{ minWidth: 0, flex: 1, lineHeight: 1.3 }}>
+                <div
+                  style={{
+                    fontSize: 13,
+                    fontWeight: 600,
+                    color: semantic.textPrimary,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                  title={user?.name}
+                >
+                  {user?.name || 'Administrator'}
+                </div>
+                <div
+                  style={{
+                    fontSize: 11,
+                    color: semantic.textSecondary,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                  title={user?.email}
+                >
+                  {user?.email}
+                </div>
+              </div>
+            </div>
+
+            <Popconfirm
+              title={t('auth.logoutConfirm')}
+              onConfirm={handleLogout}
+              okText={t('common.submit')}
+              cancelText={t('common.cancel')}
+              placement="topRight"
+            >
+              <Button
+                type="text"
+                danger
+                size="middle"
+                icon={<LogoutOutlined style={{ fontSize: 15 }} />}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '4px 8px',
+                  borderRadius: 6,
+                }}
+                title={t('auth.logout')}
+                aria-label={t('auth.logout')}
+              >
+                <span style={{ fontSize: 12, fontWeight: 600 }}>{t('auth.logout')}</span>
+              </Button>
+            </Popconfirm>
+          </>
+        )}
+      </div>
+    </div>
+  );
 
   return (
     <Layout
@@ -232,7 +439,7 @@ export function AdminShell() {
         }
         .admin-sidebar-scroll {
           scrollbar-width: thin;
-          scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+          scrollbar-color: ${isDarkMode ? 'rgba(255, 255, 255, 0.15) transparent' : 'rgba(0, 0, 0, 0.15) transparent'};
         }
         .admin-sidebar-scroll::-webkit-scrollbar {
           width: 5px;
@@ -241,96 +448,61 @@ export function AdminShell() {
           background: transparent;
         }
         .admin-sidebar-scroll::-webkit-scrollbar-thumb {
-          background: rgba(255, 255, 255, 0.2);
+          background: ${isDarkMode ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.15)'};
           border-radius: 4px;
         }
         .admin-sidebar-scroll::-webkit-scrollbar-thumb:hover {
-          background: rgba(255, 255, 255, 0.35);
+          background: ${isDarkMode ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.25)'};
         }
       `}</style>
-      <Sider
-        trigger={null}
-        collapsible
-        collapsed={collapsed}
-        breakpoint="lg"
-        collapsedWidth={isMobile ? 0 : 80}
-        onBreakpoint={(broken) => {
-          if (broken) setCollapsed(true);
-        }}
-        width={240}
-        style={{
-          height: '100%',
-          maxHeight: '100dvh',
-          background: isDarkMode ? '#12242f' : '#16313f',
-          boxShadow: '2px 0 8px rgba(0,0,0,0.15)',
-          zIndex: 100,
-          display: 'flex',
-          flexDirection: 'column',
-          flexShrink: 0,
-        }}
-      >
-        <div
+
+      {/* Desktop Sidebar */}
+      {!isMobile && (
+        <Sider
+          trigger={null}
+          collapsible
+          collapsed={collapsed}
+          className="rt-sidebar-smooth"
+          breakpoint="lg"
+          collapsedWidth={80}
+          onBreakpoint={(broken) => {
+            if (broken) setCollapsed(true);
+          }}
+          width={250}
           style={{
-            height: 64,
-            minHeight: 64,
+            height: '100%',
+            maxHeight: '100dvh',
+            background: isDarkMode ? '#0d1820' : '#ffffff',
+            borderRight: `1px solid ${isDarkMode ? '#1a2e3b' : semantic.borderSubtle}`,
+            boxShadow: isDarkMode ? 'none' : '1px 0 3px rgba(0,0,0,0.02)',
+            zIndex: 100,
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: collapsed ? 'center' : 'flex-start',
-            padding: collapsed ? '0' : '0 20px',
-            borderBottom: `1px solid ${isDarkMode ? '#1d3848' : '#1e3d4e'}`,
+            flexDirection: 'column',
             flexShrink: 0,
+            transition: 'all 0.22s cubic-bezier(0.16, 1, 0.3, 1)',
           }}
         >
-          {collapsed ? (
-            <div style={{ color: brandTokens.teal, fontSize: 24, fontWeight: 'bold' }}>R</div>
-          ) : (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <span
-                style={{
-                  fontWeight: 700,
-                  fontSize: 18,
-                  letterSpacing: '-0.02em',
-                  color: '#ffffff',
-                }}
-              >
-                Recrui<span style={{ color: brandTokens.teal }}>Train</span>
-              </span>
-              <Tag
-                color={user?.role === 'SUPER_ADMIN' ? 'gold' : 'blue'}
-                style={{ fontSize: 10, lineHeight: '18px', padding: '0 6px', margin: 0 }}
-              >
-                {user?.role === 'SUPER_ADMIN' ? 'SUPER' : 'ADMIN'}
-              </Tag>
-            </div>
-          )}
-        </div>
+          {renderSidebarContent(collapsed)}
+        </Sider>
+      )}
 
-        <div
-          className="admin-sidebar-scroll"
-          style={{
-            flex: 1,
-            minHeight: 0,
-            height: 'calc(100% - 64px)',
-            maxHeight: 'calc(100dvh - 64px)',
-            overflowY: 'auto',
-            overflowX: 'hidden',
+      {/* Mobile Drawer Navigation */}
+      {isMobile && (
+        <Drawer
+          placement="left"
+          open={mobileDrawerOpen}
+          onClose={() => setMobileDrawerOpen(false)}
+          closable={false}
+          width={260}
+          styles={{
+            body: { padding: 0, height: '100%' },
           }}
         >
-          <Menu
-            theme="dark"
-            mode="inline"
-            selectedKeys={[location.pathname]}
-            items={menuItems}
-            onClick={handleMenuClick}
-            style={{
-              background: 'transparent',
-              padding: '12px 8px',
-              borderRight: 'none',
-            }}
-          />
-        </div>
-      </Sider>
+          {renderSidebarContent(false)}
+        </Drawer>
+      )}
 
+      {/* Main App Layout */}
       <Layout
         style={{
           display: 'flex',
@@ -343,14 +515,15 @@ export function AdminShell() {
           overflow: 'hidden',
         }}
       >
+        {/* Compact, Clean Topbar */}
         <Header
           style={{
-            padding: isMobile ? '0 12px' : '0 24px',
+            padding: isMobile ? '0 12px' : '0 20px',
             background: semantic.bgSurface,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            borderBottom: `1px solid ${semantic.borderDefault}`,
+            borderBottom: `1px solid ${isDarkMode ? '#1a2e3b' : semantic.borderSubtle}`,
             height: 64,
             minHeight: 64,
             lineHeight: '64px',
@@ -358,58 +531,112 @@ export function AdminShell() {
             zIndex: 10,
           }}
         >
-          <Button
-            type="text"
-            icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
-            onClick={() => setCollapsed(!collapsed)}
-            style={{ fontSize: 16, width: 40, height: 40 }}
-          />
+          {/* Left: Sidebar Collapse/Mobile Drawer Toggle */}
+          <Space align="center" size={12}>
+            <Button
+              type="text"
+              className="rt-topbar-action-btn"
+              icon={
+                isMobile ? (
+                  <MenuUnfoldOutlined style={{ fontSize: 18 }} />
+                ) : collapsed ? (
+                  <MenuUnfoldOutlined style={{ fontSize: 17 }} />
+                ) : (
+                  <MenuFoldOutlined style={{ fontSize: 17 }} />
+                )
+              }
+              onClick={() => {
+                if (isMobile) {
+                  setMobileDrawerOpen(!mobileDrawerOpen);
+                } else {
+                  setCollapsed(!collapsed);
+                }
+              }}
+              style={{
+                width: 38,
+                height: 38,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: semantic.textSecondary,
+              }}
+              aria-label="Toggle navigation menu"
+            />
+          </Space>
 
-          <Space size={isMobile ? 8 : 16} align="center">
-            {!isMobile && (
-              <Badge status="success" text={t('shell.platformStatus')} style={{ marginRight: 8 }} />
-            )}
+          {/* Right: Functional Modern SaaS Controls (No Platform Status, No Logout) */}
+          <Space size={isMobile ? 6 : 14} align="center">
+            {/* Notifications Popover */}
+            <Popover
+              content={notificationsPopoverContent}
+              trigger="click"
+              placement="bottomRight"
+            >
+              <Tooltip title={t('dashboard.recentNotifications')}>
+                <Button
+                  type="text"
+                  shape="circle"
+                  className="rt-topbar-action-btn"
+                  style={{
+                    width: 38,
+                    height: 38,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: semantic.textSecondary,
+                  }}
+                  icon={
+                    <Badge dot={false} offset={[2, -2]}>
+                      <BellOutlined style={{ fontSize: 17 }} />
+                    </Badge>
+                  }
+                  aria-label="Notifications"
+                />
+              </Tooltip>
+            </Popover>
+
+            {/* Theme Switcher */}
             <ThemeSwitcher />
-            <LanguageSwitcher />
 
-            <Dropdown menu={{ items: userMenuItems }} trigger={['click']}>
-              <Button type="text" style={{ padding: '4px 8px', height: 'auto' }}>
-                <Space align="center" size={6}>
+            {/* Language Switcher */}
+            <LanguageSwitcher compact />
+
+            {/* User Profile Dropdown */}
+            <Dropdown menu={{ items: userMenuItems }} trigger={['click']} placement="bottomRight">
+              <Tooltip title={`${user?.name || 'Administrator'} (${user?.role === 'SUPER_ADMIN' ? 'Super Administrator' : 'Administrator'})`}>
+                <Button
+                  type="text"
+                  shape="circle"
+                  className="rt-topbar-action-btn"
+                  aria-label="User profile menu"
+                  style={{
+                    width: 38,
+                    height: 38,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: 0,
+                  }}
+                >
                   <Avatar
+                    size={30}
                     style={{
-                      backgroundColor: brandTokens.navy,
+                      backgroundColor: isDarkMode ? 'rgba(79, 168, 192, 0.2)' : brandTokens.navy,
                       color: brandTokens.teal,
                       fontWeight: 600,
+                      fontSize: 13,
                     }}
                     icon={<UserOutlined />}
                   >
                     {user?.name?.[0]?.toUpperCase()}
                   </Avatar>
-                  {!isMobile && (
-                    <span style={{ fontWeight: 500, color: semantic.textPrimary }}>
-                      {user?.name}
-                    </span>
-                  )}
-                </Space>
-              </Button>
+                </Button>
+              </Tooltip>
             </Dropdown>
-
-            <Popconfirm
-              title={t('auth.logoutConfirm')}
-              onConfirm={handleLogout}
-              okText={t('common.submit')}
-              cancelText={t('common.cancel')}
-            >
-              <Button
-                type="text"
-                danger
-                icon={<LogoutOutlined />}
-                title={t('auth.logout')}
-              />
-            </Popconfirm>
           </Space>
         </Header>
 
+        {/* Scrollable Page Content */}
         <Content
           style={{
             flex: 1,
@@ -417,7 +644,7 @@ export function AdminShell() {
             minWidth: 0,
             overflowY: 'auto',
             overflowX: 'hidden',
-            padding: isMobile ? '16px' : '24px',
+            padding: isMobile ? '16px' : '24px 28px',
             boxSizing: 'border-box',
           }}
         >
@@ -427,3 +654,5 @@ export function AdminShell() {
     </Layout>
   );
 }
+
+export default AdminShell;

@@ -37,11 +37,12 @@ import {
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useSelector } from 'react-redux';
 import { DataTable } from '../../components/common/DataTable.jsx';
 import { DeleteConfirmationModal } from '../../components/common/DeleteConfirmationModal.jsx';
 import { jobsApi } from '../../services/jobsApi.js';
 import { companiesApi } from '../../services/companiesApi.js';
-import { brandTokens } from '../../theme/tokens.js';
+import { brandTokens, lightSemanticTokens, darkSemanticTokens } from '../../theme/tokens.js';
 
 const { Text } = Typography;
 const { Option } = Select;
@@ -50,6 +51,8 @@ export function JobsPage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { message } = App.useApp();
+  const isDarkMode = useSelector((state) => state.theme?.isDarkMode);
+  const semantic = isDarkMode ? darkSemanticTokens : lightSemanticTokens;
 
   // Active view tab ('active' | 'trash')
   const [activeTab, setActiveTab] = useState('active');
@@ -681,160 +684,208 @@ export function JobsPage() {
     },
   ];
 
+  // Modern Minimalist KPI Card Renderer
+  const renderKpiCard = ({ title, value, icon, color, active = false, onClick = null, badge = null }) => (
+    <Card
+      className="rt-card-hover"
+      variant="outlined"
+      onClick={onClick}
+      style={{
+        borderRadius: 12,
+        border: `1px solid ${active ? (color || (isDarkMode ? brandTokens.teal : brandTokens.navy)) : semantic.borderDefault}`,
+        background: semantic.bgCard,
+        boxShadow: active
+          ? (isDarkMode ? '0 0 0 1px rgba(79,168,192,0.3)' : '0 2px 10px rgba(22,49,63,0.06)')
+          : (isDarkMode ? 'none' : '0 1px 3px rgba(0,0,0,0.02)'),
+        height: '100%',
+        cursor: onClick ? 'pointer' : 'default',
+        transition: 'all 0.18s ease',
+      }}
+      styles={{
+        body: {
+          padding: '16px 18px',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          height: '100%',
+        },
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 8,
+              background: isDarkMode ? 'rgba(79, 168, 192, 0.12)' : 'rgba(22, 49, 63, 0.05)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: 17,
+              color: color || (isDarkMode ? brandTokens.teal : brandTokens.navy),
+            }}
+          >
+            {icon}
+          </div>
+          <span
+            style={{
+              fontSize: 13,
+              fontWeight: 500,
+              color: semantic.textSecondary,
+              lineHeight: 1.3,
+            }}
+          >
+            {title}
+          </span>
+        </div>
+        {badge}
+      </div>
+
+      <div
+        style={{
+          fontSize: 25,
+          fontWeight: 700,
+          letterSpacing: '-0.02em',
+          color: color && active ? color : semantic.textPrimary,
+          lineHeight: 1.1,
+        }}
+      >
+        {value}
+      </div>
+    </Card>
+  );
+
   return (
-    <div style={{ padding: '0 4px' }}>
+    <div className="rt-page-container" style={{ padding: '0 4px' }}>
       {/* Page Header */}
-      <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700, margin: '0 0 6px 0', color: brandTokens.navy }}>
-          {t('jobs.title')}
-        </h1>
-        <Text type="secondary">{t('jobs.subtitle')}</Text>
+      <div
+        style={{
+          marginBottom: 20,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          flexWrap: 'wrap',
+          gap: 12,
+        }}
+      >
+        <div>
+          <h1
+            style={{
+              fontSize: 22,
+              fontWeight: 700,
+              margin: '0 0 4px 0',
+              color: semantic.textPrimary,
+              letterSpacing: '-0.01em',
+            }}
+          >
+            {t('jobs.title')}
+          </h1>
+          <Text style={{ fontSize: 13, color: semantic.textSecondary }}>{t('jobs.subtitle')}</Text>
+        </div>
+
+        <Button
+          type="primary"
+          icon={<PlusOutlined />}
+          onClick={() => navigate('/admin/jobs/new')}
+          style={{
+            backgroundColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+            borderColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+            borderRadius: 8,
+            fontWeight: 600,
+            height: 38,
+          }}
+        >
+          {t('jobs.createJob')}
+        </Button>
       </div>
 
       {/* Metric Cards */}
       <Row gutter={[12, 12]} style={{ marginBottom: 20 }}>
         <Col xs={12} sm={8} md={4}>
-          <Card
-            variant="outlined"
-            size="small"
-            hoverable
-            onClick={() => {
+          {renderKpiCard({
+            title: t('jobs.status.ALL'),
+            value: counts.ALL || 0,
+            icon: <FileTextOutlined />,
+            color: isDarkMode ? brandTokens.teal : brandTokens.navy,
+            active: activeTab === 'active' && statusFilter === '',
+            onClick: () => {
               setActiveTab('active');
               setStatusFilter('');
               setPagination((p) => ({ ...p, current: 1 }));
-            }}
-            style={{
-              cursor: 'pointer',
-              borderColor: activeTab === 'active' && statusFilter === '' ? brandTokens.navy : undefined,
-              backgroundColor: activeTab === 'active' && statusFilter === '' ? '#f8fafc' : undefined,
-            }}
-          >
-            <Statistic
-              title={t('jobs.status.ALL')}
-              value={counts.ALL || 0}
-              prefix={<FileTextOutlined style={{ color: brandTokens.navy }} />}
-            />
-          </Card>
+            },
+          })}
         </Col>
         <Col xs={12} sm={8} md={4}>
-          <Card
-            variant="outlined"
-            size="small"
-            hoverable
-            onClick={() => {
+          {renderKpiCard({
+            title: t('jobs.status.PUBLISHED'),
+            value: counts.PUBLISHED || 0,
+            icon: <CheckCircleOutlined />,
+            color: '#16a34a',
+            active: activeTab === 'active' && statusFilter === 'PUBLISHED',
+            onClick: () => {
               setActiveTab('active');
               setStatusFilter('PUBLISHED');
               setPagination((p) => ({ ...p, current: 1 }));
-            }}
-            style={{
-              cursor: 'pointer',
-              borderColor: activeTab === 'active' && statusFilter === 'PUBLISHED' ? '#16a34a' : undefined,
-              backgroundColor: activeTab === 'active' && statusFilter === 'PUBLISHED' ? '#f0fdf4' : undefined,
-            }}
-          >
-            <Statistic
-              title={t('jobs.status.PUBLISHED')}
-              value={counts.PUBLISHED || 0}
-              valueStyle={{ color: '#16a34a' }}
-              prefix={<CheckCircleOutlined style={{ color: '#16a34a' }} />}
-            />
-          </Card>
+            },
+          })}
         </Col>
         <Col xs={12} sm={8} md={4}>
-          <Card
-            variant="outlined"
-            size="small"
-            hoverable
-            onClick={() => {
+          {renderKpiCard({
+            title: t('jobs.status.DRAFT'),
+            value: counts.DRAFT || 0,
+            icon: <ClockCircleOutlined />,
+            color: '#64748b',
+            active: activeTab === 'active' && statusFilter === 'DRAFT',
+            onClick: () => {
               setActiveTab('active');
               setStatusFilter('DRAFT');
               setPagination((p) => ({ ...p, current: 1 }));
-            }}
-            style={{
-              cursor: 'pointer',
-              borderColor: activeTab === 'active' && statusFilter === 'DRAFT' ? '#64748b' : undefined,
-              backgroundColor: activeTab === 'active' && statusFilter === 'DRAFT' ? '#f1f5f9' : undefined,
-            }}
-          >
-            <Statistic
-              title={t('jobs.status.DRAFT')}
-              value={counts.DRAFT || 0}
-              valueStyle={{ color: '#64748b' }}
-              prefix={<ClockCircleOutlined style={{ color: '#64748b' }} />}
-            />
-          </Card>
+            },
+          })}
         </Col>
         <Col xs={12} sm={8} md={4}>
-          <Card
-            variant="outlined"
-            size="small"
-            hoverable
-            onClick={() => {
+          {renderKpiCard({
+            title: t('jobs.status.PENDING_APPROVAL'),
+            value: counts.PENDING_APPROVAL || 0,
+            icon: <ClockCircleOutlined />,
+            color: '#d97706',
+            active: activeTab === 'active' && statusFilter === 'PENDING_APPROVAL',
+            badge: <Badge status="warning" />,
+            onClick: () => {
               setActiveTab('active');
               setStatusFilter('PENDING_APPROVAL');
               setPagination((p) => ({ ...p, current: 1 }));
-            }}
-            style={{
-              cursor: 'pointer',
-              borderColor: activeTab === 'active' && statusFilter === 'PENDING_APPROVAL' ? '#d97706' : undefined,
-              backgroundColor: activeTab === 'active' && statusFilter === 'PENDING_APPROVAL' ? '#fffbeb' : undefined,
-            }}
-          >
-            <Statistic
-              title={t('jobs.status.PENDING_APPROVAL')}
-              value={counts.PENDING_APPROVAL || 0}
-              valueStyle={{ color: '#d97706' }}
-              prefix={<Badge status="warning" />}
-            />
-          </Card>
+            },
+          })}
         </Col>
         <Col xs={12} sm={8} md={4}>
-          <Card
-            variant="outlined"
-            size="small"
-            hoverable
-            onClick={() => {
+          {renderKpiCard({
+            title: t('jobs.status.CLOSED'),
+            value: counts.CLOSED || 0,
+            icon: <StopOutlined />,
+            color: '#dc2626',
+            active: activeTab === 'active' && statusFilter === 'CLOSED',
+            onClick: () => {
               setActiveTab('active');
               setStatusFilter('CLOSED');
               setPagination((p) => ({ ...p, current: 1 }));
-            }}
-            style={{
-              cursor: 'pointer',
-              borderColor: activeTab === 'active' && statusFilter === 'CLOSED' ? '#dc2626' : undefined,
-              backgroundColor: activeTab === 'active' && statusFilter === 'CLOSED' ? '#fef2f2' : undefined,
-            }}
-          >
-            <Statistic
-              title={t('jobs.status.CLOSED')}
-              value={counts.CLOSED || 0}
-              valueStyle={{ color: '#dc2626' }}
-              prefix={<StopOutlined style={{ color: '#dc2626' }} />}
-            />
-          </Card>
+            },
+          })}
         </Col>
         <Col xs={12} sm={8} md={4}>
-          <Card
-            variant="outlined"
-            size="small"
-            hoverable
-            onClick={() => {
+          {renderKpiCard({
+            title: t('companies.inTrash', 'In Trash (30d)'),
+            value: counts.TRASH || 0,
+            icon: <DeleteOutlined />,
+            color: counts.TRASH > 0 ? '#ef4444' : undefined,
+            active: activeTab === 'trash',
+            onClick: () => {
               setActiveTab('trash');
               setStatusFilter('');
               setPagination((p) => ({ ...p, current: 1 }));
-            }}
-            style={{
-              cursor: 'pointer',
-              borderColor: activeTab === 'trash' ? '#ef4444' : undefined,
-              backgroundColor: activeTab === 'trash' ? '#fff1f0' : undefined,
-            }}
-          >
-            <Statistic
-              title={t('companies.inTrash', 'In Trash (30d)')}
-              value={counts.TRASH || 0}
-              valueStyle={{ color: counts.TRASH > 0 ? '#ef4444' : undefined }}
-              prefix={<DeleteOutlined style={{ color: '#ef4444' }} />}
-            />
-          </Card>
+            },
+          })}
         </Col>
       </Row>
 
@@ -852,7 +903,7 @@ export function JobsPage() {
           {
             key: 'active',
             label: (
-              <span style={{ fontWeight: 600 }}>
+              <span style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center' }}>
                 <CheckCircleOutlined style={{ color: '#16a34a', marginRight: 6 }} />
                 {t('jobs.activeJobs', 'Active Jobs')} ({counts.ALL || 0})
               </span>
@@ -861,8 +912,8 @@ export function JobsPage() {
           {
             key: 'trash',
             label: (
-              <span style={{ fontWeight: 600 }}>
-                <DeleteOutlined style={{ color: '#ef4444', marginRight: 6 }} />
+              <span style={{ fontWeight: 600, display: 'inline-flex', alignItems: 'center', color: counts.TRASH > 0 ? '#ef4444' : undefined }}>
+                <DeleteOutlined style={{ color: counts.TRASH > 0 ? '#ef4444' : undefined, marginRight: 6 }} />
                 {t('companies.inTrash', 'Trash & Retention')} ({counts.TRASH || 0})
               </span>
             ),
@@ -870,21 +921,50 @@ export function JobsPage() {
         ]}
       />
 
+      {/* Trash Policy Alert Banner */}
+      {activeTab === 'trash' && (
+        <div style={{ marginBottom: 16 }}>
+          <Alert
+            style={{
+              borderRadius: 10,
+              border: `1px solid ${isDarkMode ? 'rgba(234, 179, 8, 0.3)' : '#fef08a'}`,
+              background: isDarkMode ? 'rgba(234, 179, 8, 0.08)' : '#fffbeb',
+            }}
+            type="warning"
+            showIcon
+            message={t('companies.trashBannerTitle', 'Job Trash & 30-Day Retention Policy')}
+            description={t(
+              'jobs.trashBannerDesc',
+              'Soft-deleted job postings are retained in Trash for 30 days before permanent cleanup. During this period, administrators can restore jobs to draft status provided the company subscription quota allows.'
+            )}
+          />
+        </div>
+      )}
+
       {/* Filter & Action Toolbar */}
-      <Card variant="outlined" style={{ marginBottom: 16 }} styles={{ body: { padding: 16 } }}>
+      <Card
+        variant="outlined"
+        style={{
+          marginBottom: 16,
+          borderRadius: 12,
+          border: `1px solid ${semantic.borderDefault}`,
+          background: semantic.bgCard,
+        }}
+        styles={{ body: { padding: '14px 18px' } }}
+      >
         <Row gutter={[12, 12]} justify="space-between" align="middle">
           <Col xs={24} lg={18}>
             <Space wrap size={10} style={{ width: '100%' }}>
               <Input
                 placeholder="Search title, code, keywords..."
-                prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
+                prefix={<SearchOutlined style={{ color: semantic.textDisabled }} />}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 onPressEnter={() => {
                   setPagination((p) => ({ ...p, current: 1 }));
                   fetchJobs();
                 }}
-                style={{ width: 220 }}
+                style={{ width: 220, borderRadius: 8 }}
                 allowClear
               />
               <Select
@@ -894,7 +974,7 @@ export function JobsPage() {
                   setCompanyFilter(val || '');
                   setPagination((p) => ({ ...p, current: 1 }));
                 }}
-                style={{ width: 180 }}
+                style={{ width: 180, borderRadius: 8 }}
                 allowClear
                 showSearch
                 optionFilterProp="children"
@@ -913,7 +993,7 @@ export function JobsPage() {
                     setStatusFilter(val || '');
                     setPagination((p) => ({ ...p, current: 1 }));
                   }}
-                  style={{ width: 140 }}
+                  style={{ width: 140, borderRadius: 8 }}
                   allowClear
                 >
                   <Option value="PUBLISHED">{t('jobs.status.PUBLISHED')}</Option>
@@ -930,7 +1010,7 @@ export function JobsPage() {
                   setHiringScopeFilter(val || '');
                   setPagination((p) => ({ ...p, current: 1 }));
                 }}
-                style={{ width: 140 }}
+                style={{ width: 140, borderRadius: 8 }}
                 allowClear
               >
                 <Option value="DOMESTIC">{t('jobs.hiringScope.DOMESTIC')}</Option>
@@ -944,7 +1024,7 @@ export function JobsPage() {
                   setEmploymentTypeFilter(val || '');
                   setPagination((p) => ({ ...p, current: 1 }));
                 }}
-                style={{ width: 150 }}
+                style={{ width: 150, borderRadius: 8 }}
                 allowClear
               >
                 <Option value="FULL_TIME">{t('jobs.employmentType.FULL_TIME')}</Option>
@@ -954,22 +1034,15 @@ export function JobsPage() {
                 <Option value="INTERNSHIP">{t('jobs.employmentType.INTERNSHIP')}</Option>
                 <Option value="WORKING_STUDENT">{t('jobs.employmentType.WORKING_STUDENT')}</Option>
               </Select>
-              <Button icon={<ReloadOutlined />} onClick={fetchJobs}>
+              <Button icon={<ReloadOutlined />} onClick={fetchJobs} style={{ borderRadius: 8 }}>
                 {t('common.retry', 'Refresh')}
               </Button>
             </Space>
           </Col>
           <Col xs={24} lg={6} style={{ textAlign: 'right' }}>
-            {activeTab === 'active' && (
-              <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={() => navigate('/admin/jobs/new')}
-                style={{ backgroundColor: brandTokens.navy, borderColor: brandTokens.navy }}
-              >
-                {t('jobs.createJob')}
-              </Button>
-            )}
+            <Text style={{ fontSize: 13, color: semantic.textSecondary }}>
+              {t('table.totalRecords', { total: pagination.total })}
+            </Text>
           </Col>
         </Row>
       </Card>

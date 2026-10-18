@@ -43,9 +43,10 @@ import {
 } from '@ant-design/icons';
 import { useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { useSelector } from 'react-redux';
 import { companiesApi } from '../../services/companiesApi.js';
 import { configurationApi } from '../../services/configurationApi.js';
-import { brandTokens } from '../../theme/tokens.js';
+import { brandTokens, lightSemanticTokens, darkSemanticTokens } from '../../theme/tokens.js';
 
 const { Text, Title, Paragraph } = Typography;
 const { Option } = Select;
@@ -65,6 +66,8 @@ export function CompanyOnboardingWizard() {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const { message } = App.useApp();
+  const isDarkMode = useSelector((state) => state.theme?.isDarkMode);
+  const semantic = isDarkMode ? darkSemanticTokens : lightSemanticTokens;
 
   const [form] = Form.useForm();
   const [currentStep, setCurrentStep] = useState(0);
@@ -504,14 +507,14 @@ export function CompanyOnboardingWizard() {
             type="text"
             icon={<ArrowLeftOutlined />}
             onClick={() => navigate('/admin/companies')}
-            style={{ marginBottom: 4, paddingLeft: 0, color: brandTokens.slate }}
+            style={{ marginBottom: 4, paddingLeft: 0, color: semantic.textSecondary, borderRadius: 6 }}
           >
             {t('common.back', 'Back to Companies')}
           </Button>
-          <Title level={2} style={{ margin: 0, color: brandTokens.navy, fontWeight: 700 }}>
+          <Title level={2} style={{ margin: 0, color: semantic.textPrimary, fontWeight: 700, letterSpacing: '-0.01em' }}>
             {t('companies.newCompanyTitle', 'Company Onboarding Wizard')}
           </Title>
-          <Text type="secondary" style={{ fontSize: 14 }}>
+          <Text style={{ fontSize: 13, color: semantic.textSecondary }}>
             {t(
               'companies.newCompanySubtitle',
               'Guide a new employer organization through compliance verification, asset branding, document collection, and initial administrative account provisioning.'
@@ -524,11 +527,13 @@ export function CompanyOnboardingWizard() {
       <Card
         variant="outlined"
         style={{
-          marginBottom: 24,
-          borderRadius: 8,
-          boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+          marginBottom: 20,
+          borderRadius: 12,
+          border: `1px solid ${semantic.borderDefault}`,
+          background: semantic.bgCard,
+          boxShadow: isDarkMode ? 'none' : '0 1px 3px rgba(0,0,0,0.02)',
         }}
-        styles={{ body: { padding: '20px 24px' } }}
+        styles={{ body: { padding: '18px 24px' } }}
       >
         <Steps
           current={currentStep}
@@ -546,11 +551,12 @@ export function CompanyOnboardingWizard() {
       <Card
         variant="outlined"
         style={{
-          borderRadius: 8,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
-          borderColor: '#e2e8f0',
+          borderRadius: 12,
+          border: `1px solid ${semantic.borderDefault}`,
+          background: semantic.bgCard,
+          boxShadow: isDarkMode ? 'none' : '0 2px 10px rgba(22,49,63,0.04)',
         }}
-        styles={{ body: { padding: '32px 36px' } }}
+        styles={{ body: { padding: '28px 32px' } }}
       >
         <Form
           form={form}
@@ -1501,7 +1507,11 @@ export function CompanyOnboardingWizard() {
           <Row justify="space-between" align="middle">
             <Col>
               {currentStep > 0 && (
-                <Button icon={<ArrowLeftOutlined />} onClick={handlePrev} size="large">
+                <Button
+                  icon={<ArrowLeftOutlined />}
+                  onClick={handlePrev}
+                  style={{ borderRadius: 8, height: 40, fontWeight: 500 }}
+                >
                   {t('companies.wizard.prev', 'Previous')}
                 </Button>
               )}
@@ -1512,11 +1522,13 @@ export function CompanyOnboardingWizard() {
                   type="primary"
                   icon={<ArrowRightOutlined />}
                   onClick={handleNext}
-                  size="large"
                   style={{
-                    backgroundColor: brandTokens.navy,
-                    borderColor: brandTokens.navy,
+                    backgroundColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                    borderColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                    borderRadius: 8,
+                    height: 40,
                     padding: '0 24px',
+                    fontWeight: 600,
                   }}
                 >
                   {t('companies.wizard.next', 'Next Step')}
@@ -1527,10 +1539,11 @@ export function CompanyOnboardingWizard() {
                   icon={<CheckOutlined />}
                   loading={submitting}
                   onClick={handleSubmit}
-                  size="large"
                   style={{
-                    backgroundColor: '#16a34a',
-                    borderColor: '#16a34a',
+                    backgroundColor: '#10b981',
+                    borderColor: '#10b981',
+                    borderRadius: 8,
+                    height: 40,
                     padding: '0 28px',
                     fontWeight: 600,
                   }}
