@@ -20,6 +20,7 @@ import {
   App,
   Spin,
   Tooltip,
+  Breadcrumb,
 } from 'antd';
 import {
   ArrowLeftOutlined,
@@ -30,7 +31,7 @@ import {
   InfoCircleOutlined,
   BankOutlined,
 } from '@ant-design/icons';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useSelector } from 'react-redux';
 import dayjs from 'dayjs';
@@ -54,7 +55,9 @@ export function JobCreateEditPage() {
 
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+  const [submittingDraft, setSubmittingDraft] = useState(false);
+  const [submittingPublish, setSubmittingPublish] = useState(false);
+  const submitting = submittingDraft || submittingPublish;
   const [uploadingTxt, setUploadingTxt] = useState(false);
 
   // Reference catalogs
@@ -344,13 +347,26 @@ export function JobCreateEditPage() {
         status: targetStatus,
       };
 
-      setSubmitting(true);
+      if (targetStatus === 'DRAFT') {
+        setSubmittingDraft(true);
+      } else {
+        setSubmittingPublish(true);
+      }
+
       if (isEditMode) {
         await jobsApi.updateJob(id, payload);
-        message.success(t('jobs.messages.updateSuccess'));
+        message.success(
+          targetStatus === 'DRAFT'
+            ? t('jobs.messages.draftUpdated', 'Job draft updated successfully.')
+            : t('jobs.messages.updateSuccess', 'Job posting updated successfully.')
+        );
       } else {
         await jobsApi.createJob(payload);
-        message.success(t('jobs.messages.createSuccess'));
+        message.success(
+          targetStatus === 'DRAFT'
+            ? t('jobs.messages.draftSuccess', 'Job saved as draft.')
+            : t('jobs.messages.createSuccess', 'Job created and published successfully!')
+        );
       }
       navigate('/admin/jobs');
     } catch (err) {
@@ -394,7 +410,8 @@ export function JobCreateEditPage() {
         message.error(errMsg);
       }
     } finally {
-      setSubmitting(false);
+      setSubmittingDraft(false);
+      setSubmittingPublish(false);
     }
   };
 
@@ -427,54 +444,61 @@ export function JobCreateEditPage() {
     borderRadius: 12,
     border: `1px solid ${semantic.borderDefault}`,
     backgroundColor: semantic.bgCard,
+    boxShadow: isDarkMode ? 'none' : '0 1px 3px rgba(0,0,0,0.02)',
   };
 
   const cardHeaderStyle = {
-    backgroundColor: isDarkMode ? 'rgba(79, 168, 192, 0.08)' : '#f8fafc',
+    backgroundColor: isDarkMode ? 'rgba(79, 168, 192, 0.05)' : '#f8fafc',
     borderBottom: `1px solid ${semantic.borderDefault}`,
     fontWeight: 600,
     color: semantic.textPrimary,
+    fontSize: 14,
+    padding: '14px 24px',
+  };
+
+  const cardBodyStyle = {
+    padding: '24px 28px',
   };
 
   return (
-    <div className="rt-fade-in" style={{ maxWidth: 1100, margin: '0 auto', padding: '0 4px 60px 4px' }}>
+    <div className="rt-page-container" style={{ maxWidth: 1080, margin: '0 auto', padding: '0 8px 60px 8px' }}>
+      {/* Breadcrumb Navigation */}
+      <Breadcrumb
+        style={{ marginBottom: 16 }}
+        items={[
+          { title: <Link to="/admin/dashboard">{t('shell.dashboard', 'Dashboard')}</Link> },
+          { title: <Link to="/admin/jobs">{t('shell.jobs', 'Job Postings')}</Link> },
+          { title: isEditMode ? (t('jobs.editJob') || 'Edit Job') : (t('jobs.createJob') || 'Create Job') },
+        ]}
+      />
+
       {/* Top Header */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-        <Space align="center" size={12}>
-          <Button icon={<ArrowLeftOutlined />} onClick={handleCancel} />
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: 24,
+          flexWrap: 'wrap',
+          gap: 16,
+        }}
+      >
+        <Space align="center" size={14}>
+          <Button
+            icon={<ArrowLeftOutlined />}
+            onClick={handleCancel}
+            style={{ borderRadius: 8, height: 38, width: 38, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          />
           <div>
-            <Title level={4} style={{ margin: 0, color: isDarkMode ? semantic.textPrimary : brandTokens.navy }}>
+            <Title level={3} style={{ margin: 0, color: semantic.textPrimary, fontWeight: 700, letterSpacing: '-0.01em' }}>
               {isEditMode ? t('jobs.editJob') : t('jobs.createJob')}
             </Title>
-            <Text type="secondary">
+            <Text style={{ fontSize: 13, color: semantic.textSecondary, display: 'block', marginTop: 2 }}>
               {isEditMode
                 ? `Editing job ID: ${existingJob?.jobCode || id}`
                 : 'Configure and publish an official job opening on behalf of an onboarded enterprise.'}
             </Text>
           </div>
-        </Space>
-
-        {/* Action Buttons Header */}
-        <Space wrap>
-          <Button icon={<CloseOutlined />} onClick={handleCancel}>
-            {t('jobs.actions.cancel')}
-          </Button>
-          <Button
-            icon={<SaveOutlined />}
-            onClick={() => handleSubmit('DRAFT')}
-            loading={submitting}
-          >
-            {t('jobs.actions.saveDraft')}
-          </Button>
-          <Button
-            type="primary"
-            icon={<CheckCircleOutlined />}
-            onClick={() => handleSubmit('PUBLISHED')}
-            loading={submitting}
-            style={{ backgroundColor: brandTokens.navy, borderColor: brandTokens.navy }}
-          >
-            {t('jobs.actions.publish')}
-          </Button>
         </Space>
       </div>
 
@@ -504,7 +528,7 @@ export function JobCreateEditPage() {
           title={t('jobs.sections.basic')}
           variant="outlined"
           style={cardStyle}
-          styles={{ header: cardHeaderStyle }}
+          styles={{ header: cardHeaderStyle, body: cardBodyStyle }}
         >
           <Row gutter={16}>
             <Col xs={24} md={16}>
@@ -557,7 +581,7 @@ export function JobCreateEditPage() {
           title={t('jobs.sections.organization')}
           variant="outlined"
           style={cardStyle}
-          styles={{ header: cardHeaderStyle }}
+          styles={{ header: cardHeaderStyle, body: cardBodyStyle }}
         >
           <Row gutter={16}>
             <Col xs={24} md={12}>
@@ -728,7 +752,7 @@ export function JobCreateEditPage() {
           title={t('jobs.sections.compensation')}
           variant="outlined"
           style={cardStyle}
-          styles={{ header: cardHeaderStyle }}
+          styles={{ header: cardHeaderStyle, body: cardBodyStyle }}
         >
           <Row gutter={16}>
             <Col xs={24} md={6}>
@@ -860,7 +884,7 @@ export function JobCreateEditPage() {
           title={t('jobs.sections.location')}
           variant="outlined"
           style={cardStyle}
-          styles={{ header: cardHeaderStyle }}
+          styles={{ header: cardHeaderStyle, body: cardBodyStyle }}
         >
           <Row gutter={16}>
             <Col xs={24} md={8}>
@@ -921,7 +945,7 @@ export function JobCreateEditPage() {
           title={t('jobs.sections.languages')}
           variant="outlined"
           style={cardStyle}
-          styles={{ header: cardHeaderStyle }}
+          styles={{ header: cardHeaderStyle, body: cardBodyStyle }}
         >
           <Row gutter={16}>
             <Col xs={24} md={8}>
@@ -988,7 +1012,7 @@ export function JobCreateEditPage() {
           }
           variant="outlined"
           style={cardStyle}
-          styles={{ header: cardHeaderStyle }}
+          styles={{ header: cardHeaderStyle, body: cardBodyStyle }}
         >
           <Form.Item
             name="description"
@@ -1017,28 +1041,40 @@ export function JobCreateEditPage() {
           </Form.Item>
         </Card>
 
-        {/* Bottom Actions Sticky/Bar */}
-        <Card
-          variant="outlined"
+        {/* Bottom Actions Sticky Bar */}
+        <div
+          className="rt-sticky-action-bar"
           style={{
-            borderRadius: 12,
+            backgroundColor: isDarkMode ? 'rgba(21, 43, 56, 0.92)' : 'rgba(255, 255, 255, 0.92)',
             border: `1px solid ${semantic.borderDefault}`,
-            backgroundColor: semantic.bgCard,
-            position: 'sticky',
-            bottom: 16,
-            zIndex: 10,
-            boxShadow: isDarkMode ? '0 4px 20px rgba(0,0,0,0.5)' : '0 4px 20px rgba(0,0,0,0.06)',
+            boxShadow: isDarkMode ? '0 8px 32px rgba(0,0,0,0.5)' : '0 4px 20px rgba(22,49,63,0.08)',
+            padding: '14px 24px',
+            marginTop: 24,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: 16,
           }}
-          styles={{ body: { padding: '16px 24px' } }}
         >
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-            <Button icon={<CloseOutlined />} onClick={handleCancel}>
+          <Space align="center" size={12}>
+            <Tag color={isEditMode ? 'processing' : 'default'} style={{ borderRadius: 6, margin: 0, padding: '2px 8px' }}>
+              {isEditMode ? (existingJob?.status || 'EDITING') : 'DRAFT MODE'}
+            </Tag>
+            <Text style={{ fontSize: 13, color: semantic.textSecondary }}>
+              Save as draft to safely store your progress, or publish immediately for applicant sourcing.
+            </Text>
+          </Space>
+
+          <Space wrap align="center">
+            <Button icon={<CloseOutlined />} onClick={handleCancel} style={{ borderRadius: 8, height: 40 }}>
               {t('jobs.actions.cancel')}
             </Button>
             <Button
               icon={<SaveOutlined />}
               onClick={() => handleSubmit('DRAFT')}
-              loading={submitting}
+              loading={submittingDraft}
+              style={{ borderRadius: 8, height: 40, fontWeight: 500 }}
             >
               {t('jobs.actions.saveDraft')}
             </Button>
@@ -1046,13 +1082,20 @@ export function JobCreateEditPage() {
               type="primary"
               icon={<CheckCircleOutlined />}
               onClick={() => handleSubmit('PUBLISHED')}
-              loading={submitting}
-              style={{ backgroundColor: brandTokens.navy, borderColor: brandTokens.navy }}
+              loading={submittingPublish}
+              style={{
+                backgroundColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                borderColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                borderRadius: 8,
+                height: 40,
+                padding: '0 24px',
+                fontWeight: 600,
+              }}
             >
               {t('jobs.actions.publish')}
             </Button>
-          </div>
-        </Card>
+          </Space>
+        </div>
       </Form>
     </div>
   );

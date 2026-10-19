@@ -78,7 +78,7 @@ describe('RecruiTrain Phase 3: Billing & Subscriptions Frontend Suite', () => {
 
       expect(await screen.findByText('Growth Tier')).toBeInTheDocument();
       expect(screen.getByText(/99.00 EUR/)).toBeInTheDocument();
-      expect(screen.getByText(/Offer Price: 79.00 EUR/)).toBeInTheDocument();
+      expect(screen.getByText(/79.00 EUR/)).toBeInTheDocument();
       expect(screen.getByText('Monthly')).toBeInTheDocument();
       expect(screen.getByText('Active')).toBeInTheDocument();
     });

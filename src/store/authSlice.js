@@ -77,6 +77,19 @@ export const confirmMandatoryMFA = createAsyncThunk(
   }
 );
 
+// Fetch effective user permissions
+export const fetchMyPermissions = createAsyncThunk(
+  'auth/fetchMyPermissions',
+  async (_, { rejectWithValue }) => {
+    try {
+      const response = await api.get('/roles/me');
+      return response.data?.data || null;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.error || 'Failed to fetch permissions');
+    }
+  }
+);
+
 // Logout
 export const logoutUser = createAsyncThunk('auth/logoutUser', async () => {
   try {
@@ -96,6 +109,11 @@ const initialState = {
   error: null,
   pendingAdminId: null,
   initialBackupCodes: null, // Shown once upon mandatory enrollment
+  permissions: {},
+  isSuperAdmin: false,
+  roleCode: null,
+  roleName: null,
+  permissionsLoaded: false,
 };
 
 export const authSlice = createSlice({
@@ -221,6 +239,21 @@ export const authSlice = createSlice({
         state.error = action.payload;
       });
 
+    // Fetch Effective Permissions
+    builder
+      .addCase(fetchMyPermissions.fulfilled, (state, action) => {
+        if (action.payload) {
+          state.permissions = action.payload.permissions || {};
+          state.isSuperAdmin = Boolean(action.payload.isSuperAdmin);
+          state.roleCode = action.payload.roleCode || null;
+          state.roleName = action.payload.roleName || null;
+          state.permissionsLoaded = true;
+        }
+      })
+      .addCase(fetchMyPermissions.rejected, (state) => {
+        state.permissionsLoaded = true;
+      });
+
     // Logout
     builder.addCase(logoutUser.fulfilled, (state) => {
       state.user = null;
@@ -229,6 +262,11 @@ export const authSlice = createSlice({
       state.pendingAdminId = null;
       state.initialBackupCodes = null;
       state.error = null;
+      state.permissions = {};
+      state.isSuperAdmin = false;
+      state.roleCode = null;
+      state.roleName = null;
+      state.permissionsLoaded = false;
     });
   },
 });

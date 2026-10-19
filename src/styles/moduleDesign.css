@@ -190,6 +190,222 @@
   -webkit-overflow-scrolling: touch;
 }
 
+/* Modern Form & Wizard Styles */
+.rt-form-card {
+  border-radius: 12px;
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.rt-sticky-action-bar {
+  position: sticky;
+  bottom: 16px;
+  z-index: 10;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 12px;
+}
+
+.rt-section-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  margin-right: 8px;
+  letter-spacing: 0.02em;
+}
+
+/* ==========================================================================
+   Modern Enterprise Form Controls (Inputs, Selects, Textareas, Uploads)
+   ========================================================================== */
+
+/* Form Item Label Typography & Alignment */
+.ant-form-item-label > label {
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: #16313f !important;
+  letter-spacing: -0.01em !important;
+}
+
+.dark .ant-form-item-label > label {
+  color: #eaf5f8 !important;
+}
+
+.ant-form-item-label > label.ant-form-item-required:not(.ant-form-item-required-mark-optional)::before {
+  color: #cf3838 !important;
+  font-size: 13px !important;
+  margin-right: 4px !important;
+}
+
+/* Modern Input, Select, InputNumber & DatePicker Heights and Borders */
+.ant-input,
+.ant-select-single:not(.ant-select-customize-input) .ant-select-selector,
+.ant-input-number,
+.ant-picker {
+  border-radius: 8px !important;
+  border: 1px solid #dce9ed !important;
+  background-color: #ffffff !important;
+  transition: border-color 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 0.18s cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 0.18s ease !important;
+}
+
+.dark .ant-input,
+.dark .ant-select-single:not(.ant-select-customize-input) .ant-select-selector,
+.dark .ant-input-number,
+.dark .ant-picker {
+  border-color: #26475a !important;
+  background-color: #152b38 !important;
+  color: #eaf5f8 !important;
+}
+
+/* Input Focus States */
+.ant-input:focus,
+.ant-input-focused,
+.ant-select-focused:not(.ant-select-disabled) .ant-select-selector,
+.ant-input-number-focused,
+.ant-picker-focused {
+  border-color: #16313f !important;
+  box-shadow: 0 0 0 2.5px rgba(79, 168, 192, 0.25) !important;
+}
+
+.dark .ant-input:focus,
+.dark .ant-input-focused,
+.dark .ant-select-focused:not(.ant-select-disabled) .ant-select-selector,
+.dark .ant-input-number-focused,
+.dark .ant-picker-focused {
+  border-color: #4fa8c0 !important;
+  box-shadow: 0 0 0 2.5px rgba(79, 168, 192, 0.3) !important;
+}
+
+/* Input Hover States */
+.ant-input:hover:not(:focus),
+.ant-select:hover:not(.ant-select-disabled) .ant-select-selector,
+.ant-input-number:hover:not(.ant-input-number-focused),
+.ant-picker:hover:not(.ant-picker-focused) {
+  border-color: #4fa8c0 !important;
+}
+
+/* Placeholder Contrast */
+.ant-input::placeholder,
+.ant-select-selection-placeholder {
+  color: #94a3b8 !important;
+  font-size: 13.5px !important;
+}
+
+.dark .ant-input::placeholder,
+.dark .ant-select-selection-placeholder {
+  color: #64748b !important;
+}
+
+/* Multi-Select Tags */
+.ant-select-multiple .ant-select-selector {
+  border-radius: 8px !important;
+  border: 1px solid #dce9ed !important;
+  min-height: 40px !important;
+  padding: 3px 6px !important;
+  background-color: #ffffff !important;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease !important;
+}
+
+.dark .ant-select-multiple .ant-select-selector {
+  border-color: #26475a !important;
+  background-color: #152b38 !important;
+}
+
+.ant-select-multiple .ant-select-selection-item {
+  background: rgba(79, 168, 192, 0.12) !important;
+  border: 1px solid rgba(79, 168, 192, 0.25) !important;
+  border-radius: 6px !important;
+  font-size: 12.5px !important;
+  font-weight: 500 !important;
+  color: #16313f !important;
+  padding: 2px 8px !important;
+  margin-inline-end: 4px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+}
+
+.dark .ant-select-multiple .ant-select-selection-item {
+  background: rgba(79, 168, 192, 0.22) !important;
+  border-color: rgba(79, 168, 192, 0.4) !important;
+  color: #eaf5f8 !important;
+}
+
+.ant-select-multiple .ant-select-selection-item-remove {
+  color: #5c7480 !important;
+  font-size: 11px !important;
+  margin-left: 4px !important;
+  transition: color 0.15s ease !important;
+}
+
+.ant-select-multiple .ant-select-selection-item-remove:hover {
+  color: #cf3838 !important;
+}
+
+/* Modern Textareas */
+textarea.ant-input {
+  padding: 10px 14px !important;
+  line-height: 1.6 !important;
+  font-size: 13.5px !important;
+  border-radius: 8px !important;
+  min-height: 80px;
+}
+
+/* Upload Dragger Zone */
+.ant-upload-wrapper .ant-upload-drag {
+  border: 1.5px dashed #b8ced6 !important;
+  border-radius: 10px !important;
+  background: rgba(79, 168, 192, 0.02) !important;
+  transition: border-color 0.2s ease, background-color 0.2s ease !important;
+}
+
+.ant-upload-wrapper .ant-upload-drag:hover {
+  border-color: #4fa8c0 !important;
+  background: rgba(79, 168, 192, 0.06) !important;
+}
+
+.dark .ant-upload-wrapper .ant-upload-drag {
+  border-color: #26475a !important;
+  background: rgba(79, 168, 192, 0.04) !important;
+}
+
+.dark .ant-upload-wrapper .ant-upload-drag:hover {
+  border-color: #4fa8c0 !important;
+  background: rgba(79, 168, 192, 0.08) !important;
+}
+
+/* Switches & Checkboxes */
+.ant-switch {
+  transition: background-color 0.2s ease !important;
+}
+
+.ant-checkbox-checked .ant-checkbox-inner {
+  background-color: #16313f !important;
+  border-color: #16313f !important;
+}
+
+.dark .ant-checkbox-checked .ant-checkbox-inner {
+  background-color: #4fa8c0 !important;
+  border-color: #4fa8c0 !important;
+}
+
+/* Radio Group Segmented Buttons */
+.ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled) {
+  background: #16313f !important;
+  border-color: #16313f !important;
+  color: #ffffff !important;
+}
+
+.dark .ant-radio-button-wrapper-checked:not(.ant-radio-button-wrapper-disabled) {
+  background: #4fa8c0 !important;
+  border-color: #4fa8c0 !important;
+  color: #0e1f29 !important;
+}
+
 /* Respect Reduced Motion Preferences */
 @media (prefers-reduced-motion: reduce) {
   .rt-page-container,

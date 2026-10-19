@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useContext } from 'react';
 import {
   Modal,
   Form,
@@ -24,10 +24,11 @@ import {
   SafetyCertificateOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
+import { ReactReduxContext } from 'react-redux';
 import { DataTable, StatusBadge } from '../../components/common/DataTable.jsx';
 import { DeleteConfirmationModal } from '../../components/common/DeleteConfirmationModal.jsx';
 import { configurationApi, formatConfigurationError } from '../../services/configurationApi.js';
-import { brandTokens } from '../../theme/tokens.js';
+import { brandTokens, lightSemanticTokens, darkSemanticTokens } from '../../theme/tokens.js';
 
 const { Text } = Typography;
 const { Option } = Select;
@@ -45,6 +46,21 @@ const CATEGORY_COLORS = {
 
 export function RecruitmentStagesPage() {
   const { t } = useTranslation();
+  const reduxContext = useContext(ReactReduxContext);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    return reduxContext?.store ? Boolean(reduxContext.store.getState()?.theme?.isDarkMode) : false;
+  });
+
+  useEffect(() => {
+    if (!reduxContext?.store) return;
+    const unsubscribe = reduxContext.store.subscribe(() => {
+      setIsDarkMode(Boolean(reduxContext.store.getState()?.theme?.isDarkMode));
+    });
+    return unsubscribe;
+  }, [reduxContext]);
+
+  const semantic = isDarkMode ? darkSemanticTokens : lightSemanticTokens;
+
   const [stages, setStages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [reordering, setReordering] = useState(false);
@@ -301,30 +317,74 @@ export function RecruitmentStagesPage() {
 
       {/* Create Stage Modal */}
       <Modal
-        title={t('configuration.stages.createTitle')}
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                background: isDarkMode ? 'rgba(59, 130, 246, 0.16)' : 'rgba(30, 58, 138, 0.08)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 18,
+                color: brandTokens.navy,
+              }}
+            >
+              <ProjectOutlined />
+            </div>
+            <div>
+              <div style={{ fontWeight: 600, fontSize: 16, color: semantic.textPrimary, lineHeight: 1.3 }}>
+                {t('configuration.stages.createTitle')}
+              </div>
+              <div style={{ fontSize: 12, color: semantic.textSecondary, fontWeight: 400 }}>
+                {t('configuration.stages.createSubtitle', 'Configure a new stage in the recruitment hiring funnel')}
+              </div>
+            </div>
+          </div>
+        }
         open={isCreateModalOpen}
         onCancel={() => setIsCreateModalOpen(false)}
         footer={null}
         destroyOnHidden
+        styles={{
+          content: {
+            borderRadius: 14,
+            border: `1px solid ${semantic.borderDefault}`,
+            background: semantic.bgCard,
+            padding: 0,
+            overflow: 'hidden',
+          },
+          header: {
+            background: semantic.bgCard,
+            borderBottom: `1px solid ${semantic.borderSubtle}`,
+            padding: '18px 24px',
+            margin: 0,
+          },
+          body: {
+            padding: '20px 24px',
+          },
+        }}
       >
-        <Form form={createForm} layout="vertical" onFinish={handleCreate} style={{ marginTop: 16 }}>
+        <Form form={createForm} layout="vertical" onFinish={handleCreate}>
           <Form.Item
             name="name"
-            label={t('configuration.stages.name')}
+            label={<span style={{ fontWeight: 500, color: semantic.textPrimary }}>{t('configuration.stages.name')}</span>}
             rules={[
               { required: true, message: 'Stage name is required' },
               { min: 2, message: 'Minimum 2 characters' },
             ]}
           >
-            <Input placeholder="e.g. Technical Interview" />
+            <Input placeholder="e.g. Technical Interview" style={{ borderRadius: 8, height: 38 }} />
           </Form.Item>
 
           <Form.Item
             name="category"
-            label={t('configuration.stages.category')}
+            label={<span style={{ fontWeight: 500, color: semantic.textPrimary }}>{t('configuration.stages.category')}</span>}
             rules={[{ required: true, message: 'Category is required' }]}
           >
-            <Select>
+            <Select style={{ height: 38 }}>
               {Object.keys(CATEGORY_COLORS).map((cat) => (
                 <Option key={cat} value={cat}>
                   {cat}
@@ -333,17 +393,41 @@ export function RecruitmentStagesPage() {
             </Select>
           </Form.Item>
 
-          <Form.Item name="description" label={t('configuration.stages.description')}>
-            <Input.TextArea rows={3} placeholder="Stage workflow description and guidelines..." />
+          <Form.Item
+            name="description"
+            label={<span style={{ fontWeight: 500, color: semantic.textPrimary }}>{t('configuration.stages.description')}</span>}
+          >
+            <Input.TextArea rows={3} placeholder="Stage workflow description and guidelines..." style={{ borderRadius: 8 }} />
           </Form.Item>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 24 }}>
-            <Button onClick={() => setIsCreateModalOpen(false)}>{t('common.cancel')}</Button>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: 10,
+              marginTop: 24,
+              paddingTop: 16,
+              borderTop: `1px solid ${semantic.borderSubtle}`,
+            }}
+          >
+            <Button
+              onClick={() => setIsCreateModalOpen(false)}
+              disabled={submitting}
+              style={{ borderRadius: 8, height: 38 }}
+            >
+              {t('common.cancel')}
+            </Button>
             <Button
               type="primary"
               htmlType="submit"
               loading={submitting}
-              style={{ backgroundColor: brandTokens.navy, borderColor: brandTokens.navy }}
+              style={{
+                backgroundColor: brandTokens.navy,
+                borderColor: brandTokens.navy,
+                borderRadius: 8,
+                height: 38,
+                fontWeight: 500,
+              }}
             >
               {t('common.save')}
             </Button>
@@ -353,7 +437,33 @@ export function RecruitmentStagesPage() {
 
       {/* Edit Stage Modal */}
       <Modal
-        title={t('configuration.stages.editTitle')}
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                background: isDarkMode ? 'rgba(59, 130, 246, 0.16)' : 'rgba(30, 58, 138, 0.08)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 18,
+                color: brandTokens.navy,
+              }}
+            >
+              <EditOutlined />
+            </div>
+            <div>
+              <div style={{ fontWeight: 600, fontSize: 16, color: semantic.textPrimary, lineHeight: 1.3 }}>
+                {t('configuration.stages.editTitle')}
+              </div>
+              <div style={{ fontSize: 12, color: semantic.textSecondary, fontWeight: 400 }}>
+                {selectedStage?.name || t('configuration.stages.editSubtitle', 'Modify recruitment workflow stage')}
+              </div>
+            </div>
+          </div>
+        }
         open={isEditModalOpen}
         onCancel={() => {
           setIsEditModalOpen(false);
@@ -361,22 +471,40 @@ export function RecruitmentStagesPage() {
         }}
         footer={null}
         destroyOnHidden
+        styles={{
+          content: {
+            borderRadius: 14,
+            border: `1px solid ${semantic.borderDefault}`,
+            background: semantic.bgCard,
+            padding: 0,
+            overflow: 'hidden',
+          },
+          header: {
+            background: semantic.bgCard,
+            borderBottom: `1px solid ${semantic.borderSubtle}`,
+            padding: '18px 24px',
+            margin: 0,
+          },
+          body: {
+            padding: '20px 24px',
+          },
+        }}
       >
-        <Form form={editForm} layout="vertical" onFinish={handleEdit} style={{ marginTop: 16 }}>
+        <Form form={editForm} layout="vertical" onFinish={handleEdit}>
           <Form.Item
             name="name"
-            label={t('configuration.stages.name')}
+            label={<span style={{ fontWeight: 500, color: semantic.textPrimary }}>{t('configuration.stages.name')}</span>}
             rules={[{ required: true, message: 'Stage name is required' }]}
           >
-            <Input />
+            <Input style={{ borderRadius: 8, height: 38 }} />
           </Form.Item>
 
           <Form.Item
             name="category"
-            label={t('configuration.stages.category')}
+            label={<span style={{ fontWeight: 500, color: semantic.textPrimary }}>{t('configuration.stages.category')}</span>}
             rules={[{ required: true, message: 'Category is required' }]}
           >
-            <Select>
+            <Select style={{ height: 38 }}>
               {Object.keys(CATEGORY_COLORS).map((cat) => (
                 <Option key={cat} value={cat}>
                   {cat}
@@ -385,16 +513,30 @@ export function RecruitmentStagesPage() {
             </Select>
           </Form.Item>
 
-          <Form.Item name="description" label={t('configuration.stages.description')}>
-            <Input.TextArea rows={3} />
+          <Form.Item
+            name="description"
+            label={<span style={{ fontWeight: 500, color: semantic.textPrimary }}>{t('configuration.stages.description')}</span>}
+          >
+            <Input.TextArea rows={3} style={{ borderRadius: 8 }} />
           </Form.Item>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 24 }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: 10,
+              marginTop: 24,
+              paddingTop: 16,
+              borderTop: `1px solid ${semantic.borderSubtle}`,
+            }}
+          >
             <Button
               onClick={() => {
                 setIsEditModalOpen(false);
                 setSelectedStage(null);
               }}
+              disabled={submitting}
+              style={{ borderRadius: 8, height: 38 }}
             >
               {t('common.cancel')}
             </Button>
@@ -402,7 +544,13 @@ export function RecruitmentStagesPage() {
               type="primary"
               htmlType="submit"
               loading={submitting}
-              style={{ backgroundColor: brandTokens.navy, borderColor: brandTokens.navy }}
+              style={{
+                backgroundColor: brandTokens.navy,
+                borderColor: brandTokens.navy,
+                borderRadius: 8,
+                height: 38,
+                fontWeight: 500,
+              }}
             >
               {t('common.save')}
             </Button>
@@ -412,11 +560,60 @@ export function RecruitmentStagesPage() {
 
       {/* View Stage Modal */}
       <Modal
-        title={selectedStage?.name}
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                background: isDarkMode ? 'rgba(59, 130, 246, 0.16)' : 'rgba(30, 58, 138, 0.08)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 18,
+                color: brandTokens.navy,
+              }}
+            >
+              <EyeOutlined />
+            </div>
+            <div>
+              <div style={{ fontWeight: 600, fontSize: 16, color: semantic.textPrimary, lineHeight: 1.3 }}>
+                {selectedStage?.name || t('configuration.stages.viewTitle', 'Stage Details')}
+              </div>
+              <div style={{ fontSize: 12, color: semantic.textSecondary, fontWeight: 400 }}>
+                {t('configuration.stages.viewSubtitle', 'Hiring pipeline stage configuration')}
+              </div>
+            </div>
+          </div>
+        }
         open={isViewModalOpen}
         onCancel={() => {
           setIsViewModalOpen(false);
           setSelectedStage(null);
+        }}
+        styles={{
+          content: {
+            borderRadius: 14,
+            border: `1px solid ${semantic.borderDefault}`,
+            background: semantic.bgCard,
+            padding: 0,
+            overflow: 'hidden',
+          },
+          header: {
+            background: semantic.bgCard,
+            borderBottom: `1px solid ${semantic.borderSubtle}`,
+            padding: '18px 24px',
+            margin: 0,
+          },
+          body: {
+            padding: '20px 24px',
+          },
+          footer: {
+            borderTop: `1px solid ${semantic.borderSubtle}`,
+            padding: '14px 24px',
+            margin: 0,
+          },
         }}
         footer={[
           <Button
@@ -425,31 +622,85 @@ export function RecruitmentStagesPage() {
               setIsViewModalOpen(false);
               setSelectedStage(null);
             }}
+            style={{ borderRadius: 8, height: 38 }}
           >
             {t('common.back')}
           </Button>,
         ]}
       >
         {selectedStage && (
-          <Descriptions column={1} bordered size="small" style={{ marginTop: 16 }}>
-            <Descriptions.Item label={t('configuration.stages.name')}>
-              <Text strong>{selectedStage.name}</Text>
-            </Descriptions.Item>
-            <Descriptions.Item label={t('configuration.stages.category')}>
-              <Tag color={CATEGORY_COLORS[selectedStage.category]}>
-                {selectedStage.category}
-              </Tag>
-            </Descriptions.Item>
-            <Descriptions.Item label={t('configuration.stages.order')}>
-              #{selectedStage.order + 1}
-            </Descriptions.Item>
-            <Descriptions.Item label={t('common.status')}>
-              <StatusBadge status={selectedStage.status} />
-            </Descriptions.Item>
-            <Descriptions.Item label={t('configuration.stages.description')}>
-              {selectedStage.description || '—'}
-            </Descriptions.Item>
-          </Descriptions>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, 1fr)',
+                gap: 12,
+                padding: 16,
+                borderRadius: 10,
+                background: isDarkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+                border: `1px solid ${semantic.borderSubtle}`,
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 12, color: semantic.textSecondary, marginBottom: 4 }}>
+                  {t('configuration.stages.name')}
+                </div>
+                <Text strong style={{ fontSize: 14, color: semantic.textPrimary }}>
+                  {selectedStage.name}
+                </Text>
+              </div>
+
+              <div>
+                <div style={{ fontSize: 12, color: semantic.textSecondary, marginBottom: 4 }}>
+                  {t('configuration.stages.category')}
+                </div>
+                <div>
+                  <Tag color={CATEGORY_COLORS[selectedStage.category]} style={{ borderRadius: 6, margin: 0 }}>
+                    {selectedStage.category}
+                  </Tag>
+                </div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: 12, color: semantic.textSecondary, marginBottom: 4 }}>
+                  {t('configuration.stages.order')}
+                </div>
+                <div style={{ fontWeight: 600, color: semantic.textPrimary }}>
+                  #{selectedStage.order + 1}
+                </div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: 12, color: semantic.textSecondary, marginBottom: 4 }}>
+                  {t('common.status')}
+                </div>
+                <div>
+                  <StatusBadge status={selectedStage.status} />
+                </div>
+              </div>
+            </div>
+
+            {selectedStage.description && (
+              <div>
+                <div style={{ fontSize: 12, color: semantic.textSecondary, marginBottom: 6 }}>
+                  {t('configuration.stages.description')}
+                </div>
+                <div
+                  style={{
+                    fontSize: 13,
+                    color: semantic.textPrimary,
+                    padding: '10px 14px',
+                    borderRadius: 8,
+                    background: isDarkMode ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.01)',
+                    border: `1px solid ${semantic.borderSubtle}`,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {selectedStage.description}
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </Modal>
 

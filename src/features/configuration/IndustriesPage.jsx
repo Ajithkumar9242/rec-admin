@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useContext } from 'react';
 import {
   Modal,
   Form,
@@ -25,16 +25,32 @@ import {
   ExclamationCircleOutlined,
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
+import { ReactReduxContext } from 'react-redux';
 import { DataTable, StatusBadge } from '../../components/common/DataTable.jsx';
 import { DeleteConfirmationModal } from '../../components/common/DeleteConfirmationModal.jsx';
 import { configurationApi, formatConfigurationError } from '../../services/configurationApi.js';
-import { brandTokens } from '../../theme/tokens.js';
+import { brandTokens, lightSemanticTokens, darkSemanticTokens } from '../../theme/tokens.js';
 
 const { Text, Paragraph } = Typography;
 const { Option } = Select;
 
 export function IndustriesPage() {
   const { t } = useTranslation();
+  const reduxContext = useContext(ReactReduxContext);
+  const [isDarkMode, setIsDarkMode] = useState(() => {
+    return reduxContext?.store ? Boolean(reduxContext.store.getState()?.theme?.isDarkMode) : false;
+  });
+
+  useEffect(() => {
+    if (!reduxContext?.store) return;
+    const unsubscribe = reduxContext.store.subscribe(() => {
+      setIsDarkMode(Boolean(reduxContext.store.getState()?.theme?.isDarkMode));
+    });
+    return unsubscribe;
+  }, [reduxContext]);
+
+  const semantic = isDarkMode ? darkSemanticTokens : lightSemanticTokens;
+
   const [industries, setIndustries] = useState([]);
   const [hierarchyData, setHierarchyData] = useState([]);
   const [isHierarchyView, setIsHierarchyView] = useState(false);
@@ -270,38 +286,86 @@ export function IndustriesPage() {
 
       {/* Create Industry Modal */}
       <Modal
-        title={t('configuration.industries.createTitle')}
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                background: isDarkMode ? 'rgba(59, 130, 246, 0.16)' : 'rgba(30, 58, 138, 0.08)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 18,
+                color: brandTokens.navy,
+              }}
+            >
+              <ApartmentOutlined />
+            </div>
+            <div>
+              <div style={{ fontWeight: 600, fontSize: 16, color: semantic.textPrimary, lineHeight: 1.3 }}>
+                {t('configuration.industries.createTitle')}
+              </div>
+              <div style={{ fontSize: 12, color: semantic.textSecondary, fontWeight: 400 }}>
+                {t('configuration.industries.createSubtitle', 'Define a new industry taxonomy or sector')}
+              </div>
+            </div>
+          </div>
+        }
         open={isCreateModalOpen}
         onCancel={() => setIsCreateModalOpen(false)}
         footer={null}
         destroyOnHidden
+        styles={{
+          content: {
+            borderRadius: 14,
+            border: `1px solid ${semantic.borderDefault}`,
+            background: semantic.bgCard,
+            padding: 0,
+            overflow: 'hidden',
+          },
+          header: {
+            background: semantic.bgCard,
+            borderBottom: `1px solid ${semantic.borderSubtle}`,
+            padding: '18px 24px',
+            margin: 0,
+          },
+          body: {
+            padding: '20px 24px',
+          },
+        }}
       >
-        <Form form={createForm} layout="vertical" onFinish={handleCreate} style={{ marginTop: 16 }}>
+        <Form form={createForm} layout="vertical" onFinish={handleCreate}>
           <Form.Item
             name="name"
-            label={t('configuration.industries.name')}
+            label={<span style={{ fontWeight: 500, color: semantic.textPrimary }}>{t('configuration.industries.name')}</span>}
             rules={[
               { required: true, message: 'Industry name is required' },
               { min: 2, message: 'Minimum 2 characters' },
             ]}
           >
-            <Input placeholder="e.g. Information Technology" />
+            <Input placeholder="e.g. Information Technology" style={{ borderRadius: 8, height: 38 }} />
           </Form.Item>
 
-          <Form.Item name="code" label={t('configuration.industries.code')}>
-            <Input placeholder="e.g. IT, HEALTH, AUTO" style={{ textTransform: 'uppercase' }} />
+          <Form.Item
+            name="code"
+            label={<span style={{ fontWeight: 500, color: semantic.textPrimary }}>{t('configuration.industries.code')}</span>}
+          >
+            <Input placeholder="e.g. IT, HEALTH, AUTO" style={{ textTransform: 'uppercase', borderRadius: 8, height: 38 }} />
           </Form.Item>
 
           <Form.Item
             name="parentId"
-            label={t('configuration.industries.parent')}
-            extra={t('configuration.industries.parentHelp')}
+            label={<span style={{ fontWeight: 500, color: semantic.textPrimary }}>{t('configuration.industries.parent')}</span>}
+            extra={<span style={{ fontSize: 12, color: semantic.textSecondary }}>{t('configuration.industries.parentHelp')}</span>}
           >
             <Select
               allowClear
               showSearch
               placeholder={t('configuration.industries.rootLevel')}
               optionFilterProp="children"
+              style={{ height: 38 }}
             >
               {rootIndustryOptions.map((ind) => (
                 <Option key={ind.id} value={ind.id}>
@@ -311,17 +375,41 @@ export function IndustriesPage() {
             </Select>
           </Form.Item>
 
-          <Form.Item name="description" label={t('configuration.industries.description')}>
-            <Input.TextArea rows={3} placeholder="Optional operational description..." />
+          <Form.Item
+            name="description"
+            label={<span style={{ fontWeight: 500, color: semantic.textPrimary }}>{t('configuration.industries.description')}</span>}
+          >
+            <Input.TextArea rows={3} placeholder="Optional operational description..." style={{ borderRadius: 8 }} />
           </Form.Item>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 24 }}>
-            <Button onClick={() => setIsCreateModalOpen(false)}>{t('common.cancel')}</Button>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: 10,
+              marginTop: 24,
+              paddingTop: 16,
+              borderTop: `1px solid ${semantic.borderSubtle}`,
+            }}
+          >
+            <Button
+              onClick={() => setIsCreateModalOpen(false)}
+              disabled={submitting}
+              style={{ borderRadius: 8, height: 38 }}
+            >
+              {t('common.cancel')}
+            </Button>
             <Button
               type="primary"
               htmlType="submit"
               loading={submitting}
-              style={{ backgroundColor: brandTokens.navy, borderColor: brandTokens.navy }}
+              style={{
+                backgroundColor: brandTokens.navy,
+                borderColor: brandTokens.navy,
+                borderRadius: 8,
+                height: 38,
+                fontWeight: 500,
+              }}
             >
               {t('common.save')}
             </Button>
@@ -331,7 +419,33 @@ export function IndustriesPage() {
 
       {/* Edit Industry Modal */}
       <Modal
-        title={t('configuration.industries.editTitle')}
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                background: isDarkMode ? 'rgba(59, 130, 246, 0.16)' : 'rgba(30, 58, 138, 0.08)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 18,
+                color: brandTokens.navy,
+              }}
+            >
+              <EditOutlined />
+            </div>
+            <div>
+              <div style={{ fontWeight: 600, fontSize: 16, color: semantic.textPrimary, lineHeight: 1.3 }}>
+                {t('configuration.industries.editTitle')}
+              </div>
+              <div style={{ fontSize: 12, color: semantic.textSecondary, fontWeight: 400 }}>
+                {selectedIndustry?.name || t('configuration.industries.editSubtitle', 'Modify industry taxonomy')}
+              </div>
+            </div>
+          </div>
+        }
         open={isEditModalOpen}
         onCancel={() => {
           setIsEditModalOpen(false);
@@ -339,26 +453,47 @@ export function IndustriesPage() {
         }}
         footer={null}
         destroyOnHidden
+        styles={{
+          content: {
+            borderRadius: 14,
+            border: `1px solid ${semantic.borderDefault}`,
+            background: semantic.bgCard,
+            padding: 0,
+            overflow: 'hidden',
+          },
+          header: {
+            background: semantic.bgCard,
+            borderBottom: `1px solid ${semantic.borderSubtle}`,
+            padding: '18px 24px',
+            margin: 0,
+          },
+          body: {
+            padding: '20px 24px',
+          },
+        }}
       >
-        <Form form={editForm} layout="vertical" onFinish={handleEdit} style={{ marginTop: 16 }}>
+        <Form form={editForm} layout="vertical" onFinish={handleEdit}>
           <Form.Item
             name="name"
-            label={t('configuration.industries.name')}
+            label={<span style={{ fontWeight: 500, color: semantic.textPrimary }}>{t('configuration.industries.name')}</span>}
             rules={[{ required: true, message: 'Industry name is required' }]}
           >
-            <Input />
+            <Input style={{ borderRadius: 8, height: 38 }} />
           </Form.Item>
 
-          <Form.Item name="code" label={t('configuration.industries.code')}>
-            <Input style={{ textTransform: 'uppercase' }} />
+          <Form.Item
+            name="code"
+            label={<span style={{ fontWeight: 500, color: semantic.textPrimary }}>{t('configuration.industries.code')}</span>}
+          >
+            <Input style={{ textTransform: 'uppercase', borderRadius: 8, height: 38 }} />
           </Form.Item>
 
           <Form.Item
             name="parentId"
-            label={t('configuration.industries.parent')}
-            extra={t('configuration.industries.parentHelp')}
+            label={<span style={{ fontWeight: 500, color: semantic.textPrimary }}>{t('configuration.industries.parent')}</span>}
+            extra={<span style={{ fontSize: 12, color: semantic.textSecondary }}>{t('configuration.industries.parentHelp')}</span>}
           >
-            <Select allowClear showSearch optionFilterProp="children">
+            <Select allowClear showSearch optionFilterProp="children" style={{ height: 38 }}>
               {rootIndustryOptions
                 .filter((ind) => ind.id !== selectedIndustry?.id)
                 .map((ind) => (
@@ -369,16 +504,30 @@ export function IndustriesPage() {
             </Select>
           </Form.Item>
 
-          <Form.Item name="description" label={t('configuration.industries.description')}>
-            <Input.TextArea rows={3} />
+          <Form.Item
+            name="description"
+            label={<span style={{ fontWeight: 500, color: semantic.textPrimary }}>{t('configuration.industries.description')}</span>}
+          >
+            <Input.TextArea rows={3} style={{ borderRadius: 8 }} />
           </Form.Item>
 
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 24 }}>
+          <div
+            style={{
+              display: 'flex',
+              justifyContent: 'flex-end',
+              gap: 10,
+              marginTop: 24,
+              paddingTop: 16,
+              borderTop: `1px solid ${semantic.borderSubtle}`,
+            }}
+          >
             <Button
               onClick={() => {
                 setIsEditModalOpen(false);
                 setSelectedIndustry(null);
               }}
+              disabled={submitting}
+              style={{ borderRadius: 8, height: 38 }}
             >
               {t('common.cancel')}
             </Button>
@@ -386,7 +535,13 @@ export function IndustriesPage() {
               type="primary"
               htmlType="submit"
               loading={submitting}
-              style={{ backgroundColor: brandTokens.navy, borderColor: brandTokens.navy }}
+              style={{
+                backgroundColor: brandTokens.navy,
+                borderColor: brandTokens.navy,
+                borderRadius: 8,
+                height: 38,
+                fontWeight: 500,
+              }}
             >
               {t('common.save')}
             </Button>
@@ -396,11 +551,60 @@ export function IndustriesPage() {
 
       {/* View Industry Modal */}
       <Modal
-        title={t('configuration.industries.viewTitle')}
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                background: isDarkMode ? 'rgba(59, 130, 246, 0.16)' : 'rgba(30, 58, 138, 0.08)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 18,
+                color: brandTokens.navy,
+              }}
+            >
+              <EyeOutlined />
+            </div>
+            <div>
+              <div style={{ fontWeight: 600, fontSize: 16, color: semantic.textPrimary, lineHeight: 1.3 }}>
+                {selectedIndustry?.name || t('configuration.industries.viewTitle')}
+              </div>
+              <div style={{ fontSize: 12, color: semantic.textSecondary, fontWeight: 400 }}>
+                {t('configuration.industries.viewSubtitle', 'Industry taxonomy and sector configuration details')}
+              </div>
+            </div>
+          </div>
+        }
         open={isViewModalOpen}
         onCancel={() => {
           setIsViewModalOpen(false);
           setSelectedIndustry(null);
+        }}
+        styles={{
+          content: {
+            borderRadius: 14,
+            border: `1px solid ${semantic.borderDefault}`,
+            background: semantic.bgCard,
+            padding: 0,
+            overflow: 'hidden',
+          },
+          header: {
+            background: semantic.bgCard,
+            borderBottom: `1px solid ${semantic.borderSubtle}`,
+            padding: '18px 24px',
+            margin: 0,
+          },
+          body: {
+            padding: '20px 24px',
+          },
+          footer: {
+            borderTop: `1px solid ${semantic.borderSubtle}`,
+            padding: '14px 24px',
+            margin: 0,
+          },
         }}
         footer={[
           <Button
@@ -409,44 +613,116 @@ export function IndustriesPage() {
               setIsViewModalOpen(false);
               setSelectedIndustry(null);
             }}
+            style={{ borderRadius: 8, height: 38 }}
           >
             {t('common.back')}
           </Button>,
         ]}
       >
         {selectedIndustry && (
-          <Descriptions column={1} bordered size="small" style={{ marginTop: 16 }}>
-            <Descriptions.Item label={t('configuration.industries.name')}>
-              <Text strong>{selectedIndustry.name}</Text>
-            </Descriptions.Item>
-            <Descriptions.Item label={t('configuration.industries.code')}>
-              {selectedIndustry.code ? <Tag color="blue">{selectedIndustry.code}</Tag> : '—'}
-            </Descriptions.Item>
-            <Descriptions.Item label={t('configuration.industries.parent')}>
-              {selectedIndustry.parent ? (
-                <Tag color="cyan">{selectedIndustry.parent.name}</Tag>
-              ) : (
-                <Tag color="default">{t('configuration.industries.rootLevel')}</Tag>
-              )}
-            </Descriptions.Item>
-            <Descriptions.Item label={t('common.status')}>
-              <StatusBadge status={selectedIndustry.status} />
-            </Descriptions.Item>
-            <Descriptions.Item label={t('configuration.industries.description')}>
-              {selectedIndustry.description || '—'}
-            </Descriptions.Item>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, 1fr)',
+                gap: 12,
+                padding: 16,
+                borderRadius: 10,
+                background: isDarkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+                border: `1px solid ${semantic.borderSubtle}`,
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 12, color: semantic.textSecondary, marginBottom: 4 }}>
+                  {t('configuration.industries.name')}
+                </div>
+                <Text strong style={{ fontSize: 14, color: semantic.textPrimary }}>
+                  {selectedIndustry.name}
+                </Text>
+              </div>
+
+              <div>
+                <div style={{ fontSize: 12, color: semantic.textSecondary, marginBottom: 4 }}>
+                  {t('configuration.industries.code')}
+                </div>
+                <div>
+                  {selectedIndustry.code ? (
+                    <Tag color="blue" style={{ borderRadius: 6, fontWeight: 500, margin: 0 }}>
+                      {selectedIndustry.code}
+                    </Tag>
+                  ) : (
+                    <span style={{ color: semantic.textSecondary }}>—</span>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: 12, color: semantic.textSecondary, marginBottom: 4 }}>
+                  {t('configuration.industries.parent')}
+                </div>
+                <div>
+                  {selectedIndustry.parent ? (
+                    <Tag color="cyan" style={{ borderRadius: 6, margin: 0 }}>
+                      {selectedIndustry.parent.name}
+                    </Tag>
+                  ) : (
+                    <Tag color="default" style={{ borderRadius: 6, margin: 0 }}>
+                      {t('configuration.industries.rootLevel')}
+                    </Tag>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: 12, color: semantic.textSecondary, marginBottom: 4 }}>
+                  {t('common.status')}
+                </div>
+                <div>
+                  <StatusBadge status={selectedIndustry.status} />
+                </div>
+              </div>
+            </div>
+
+            {selectedIndustry.description && (
+              <div>
+                <div style={{ fontSize: 12, color: semantic.textSecondary, marginBottom: 6 }}>
+                  {t('configuration.industries.description')}
+                </div>
+                <div
+                  style={{
+                    fontSize: 13,
+                    color: semantic.textPrimary,
+                    padding: '10px 14px',
+                    borderRadius: 8,
+                    background: isDarkMode ? 'rgba(255,255,255,0.02)' : 'rgba(0,0,0,0.01)',
+                    border: `1px solid ${semantic.borderSubtle}`,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {selectedIndustry.description}
+                </div>
+              </div>
+            )}
+
             {selectedIndustry.children && selectedIndustry.children.length > 0 && (
-              <Descriptions.Item label={t('configuration.industries.subIndustries')}>
+              <div>
+                <div style={{ fontSize: 12, color: semantic.textSecondary, marginBottom: 6 }}>
+                  {t('configuration.industries.subIndustries')} ({selectedIndustry.children.length})
+                </div>
                 <Space wrap size={6}>
                   {selectedIndustry.children.map((child) => (
-                    <Tag key={child.id} color="purple">
+                    <Tag
+                      key={child.id}
+                      color="purple"
+                      style={{ borderRadius: 6, padding: '2px 8px', fontSize: 12 }}
+                    >
                       {child.name}
                     </Tag>
                   ))}
                 </Space>
-              </Descriptions.Item>
+              </div>
             )}
-          </Descriptions>
+          </div>
         )}
       </Modal>
 

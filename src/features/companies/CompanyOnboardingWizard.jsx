@@ -40,6 +40,8 @@ import {
   CheckCircleOutlined,
   ExclamationCircleOutlined,
   CopyOutlined,
+  SaveOutlined,
+  ClockCircleOutlined,
 } from '@ant-design/icons';
 import { useNavigate, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -92,6 +94,109 @@ export function CompanyOnboardingWizard() {
   // Direct URL modal for documents
   const [urlDocModalOpen, setUrlDocModalOpen] = useState(false);
   const [activeDefForUrl, setActiveDefForUrl] = useState(null);
+
+  // Local draft management state
+  const DRAFT_STORAGE_KEY = 'recruitrain_company_onboarding_draft';
+  const [draftFound, setDraftFound] = useState(null);
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [lastSavedDraftAt, setLastSavedDraftAt] = useState(null);
+
+  // Check for existing local draft on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(DRAFT_STORAGE_KEY);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed && (parsed.values || (Array.isArray(parsed.documents) && parsed.documents.length > 0))) {
+          setDraftFound(parsed);
+        }
+      }
+    } catch (e) {
+      // Ignore corrupted local draft
+    }
+  }, []);
+
+  // Save current progress as local draft
+  const handleSaveDraft = useCallback(() => {
+    setSavingDraft(true);
+    try {
+      const currentValues = form.getFieldsValue(true);
+      const draftPayload = {
+        savedAt: new Date().toISOString(),
+        currentStep,
+        values: currentValues,
+        documents,
+        logoMode,
+        bannerMode,
+      };
+      localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draftPayload));
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      setLastSavedDraftAt(timeStr);
+      setDraftFound(null); // Dismiss prompt if visible since we just updated
+      message.success(t('companies.wizard.draftSaved', 'Onboarding progress saved as draft locally in your browser.'));
+    } catch (err) {
+      message.error(t('companies.wizard.draftSaveError', 'Failed to save draft locally.'));
+    } finally {
+      setSavingDraft(false);
+    }
+  }, [form, currentStep, documents, logoMode, bannerMode, message, t]);
+
+  // Restore previously saved draft
+  const handleRestoreDraft = () => {
+    if (!draftFound) return;
+    try {
+      if (draftFound.values) {
+        form.setFieldsValue(draftFound.values);
+      }
+      if (Array.isArray(draftFound.documents)) {
+        setDocuments(draftFound.documents);
+      }
+      if (draftFound.logoMode) {
+        setLogoMode(draftFound.logoMode);
+      }
+      if (draftFound.bannerMode) {
+        setBannerMode(draftFound.bannerMode);
+      }
+      if (typeof draftFound.currentStep === 'number' && draftFound.currentStep >= 0 && draftFound.currentStep <= 4) {
+        setCurrentStep(draftFound.currentStep);
+      }
+      const timeStr = draftFound.savedAt
+        ? new Date(draftFound.savedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+        : null;
+      if (timeStr) setLastSavedDraftAt(timeStr);
+      setDraftFound(null);
+      message.success(t('companies.wizard.draftRestored', 'Draft progress restored successfully.'));
+    } catch (err) {
+      message.error(t('companies.wizard.draftRestoreError', 'Failed to restore draft.'));
+    }
+  };
+
+  // Discard previously saved draft
+  const handleDiscardDraft = () => {
+    try {
+      localStorage.removeItem(DRAFT_STORAGE_KEY);
+    } catch (e) {
+      // ignore
+    }
+    setDraftFound(null);
+    message.info(t('companies.wizard.draftDiscarded', 'Local draft discarded.'));
+  };
+
+  // Safe cancel with confirmation if dirty
+  const handleCancel = () => {
+    if (form.isFieldsTouched() || documents.length > 0) {
+      Modal.confirm({
+        title: t('companies.wizard.cancelConfirmTitle', 'Discard onboarding changes?'),
+        content: t('companies.wizard.cancelConfirmDesc', 'You have unsaved changes. You can save as draft to continue later, or discard changes and return to the company directory.'),
+        okText: t('companies.wizard.discardAndExit', 'Discard & Exit'),
+        okButtonProps: { danger: true },
+        cancelText: t('common.stay', 'Stay on Page'),
+        onOk: () => navigate('/admin/companies'),
+      });
+    } else {
+      navigate('/admin/companies');
+    }
+  };
 
   // Load industries, active document definitions, and integrations status
   useEffect(() => {
@@ -416,6 +521,14 @@ export function CompanyOnboardingWizard() {
       const res = await companiesApi.createCompany(payload);
       message.success(t('companies.wizard.createSuccess', 'Company successfully created!'));
 
+      // Clear local draft upon successful company creation
+      try {
+        localStorage.removeItem(DRAFT_STORAGE_KEY);
+      } catch (e) {
+        // ignore
+      }
+      setDraftFound(null);
+
       if (res.activationUrl) {
         // SMTP unconfigured: display modal with direct activation URL
         setSuccessModalData({
@@ -480,7 +593,7 @@ export function CompanyOnboardingWizard() {
   const currentPromoVideoUrl = Form.useWatch('promoVideoUrl', form);
 
   return (
-    <div style={{ maxWidth: 1040, margin: '0 auto', padding: '0 12px 48px' }}>
+    <div className="rt-page-container" style={{ maxWidth: 1080, margin: '0 auto', padding: '0 12px 48px' }}>
       {/* Breadcrumb Navigation */}
       <Breadcrumb
         style={{ marginBottom: 16 }}
@@ -499,7 +612,7 @@ export function CompanyOnboardingWizard() {
           justifyContent: 'space-between',
           alignItems: 'flex-start',
           flexWrap: 'wrap',
-          gap: 12,
+          gap: 16,
         }}
       >
         <div>
@@ -514,14 +627,74 @@ export function CompanyOnboardingWizard() {
           <Title level={2} style={{ margin: 0, color: semantic.textPrimary, fontWeight: 700, letterSpacing: '-0.01em' }}>
             {t('companies.newCompanyTitle', 'Company Onboarding Wizard')}
           </Title>
-          <Text style={{ fontSize: 13, color: semantic.textSecondary }}>
+          <Text style={{ fontSize: 13, color: semantic.textSecondary, display: 'block', marginTop: 4 }}>
             {t(
               'companies.newCompanySubtitle',
               'Guide a new employer organization through compliance verification, asset branding, document collection, and initial administrative account provisioning.'
             )}
           </Text>
         </div>
+
+        {lastSavedDraftAt && (
+          <Tag icon={<ClockCircleOutlined />} color="default" style={{ padding: '6px 12px', borderRadius: 6, fontSize: 12 }}>
+            Draft saved locally at {lastSavedDraftAt}
+          </Tag>
+        )}
       </div>
+
+      {/* Unsaved Local Draft Detected Alert */}
+      {draftFound && (
+        <Alert
+          type="info"
+          showIcon
+          style={{
+            marginBottom: 20,
+            borderRadius: 12,
+            border: `1px solid ${isDarkMode ? brandTokens.teal : '#b8ced6'}`,
+            background: isDarkMode ? 'rgba(79, 168, 192, 0.08)' : '#f0f9ff',
+          }}
+          message={
+            <Text strong style={{ color: semantic.textPrimary, fontSize: 14 }}>
+              {t('companies.wizard.draftFoundTitle', 'Unsaved Onboarding Progress Found')}
+            </Text>
+          }
+          description={
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginTop: 6 }}>
+              <div>
+                <Text style={{ fontSize: 13, color: semantic.textSecondary }}>
+                  {t(
+                    'companies.wizard.draftFoundDesc',
+                    'A previously saved local draft from {{date}} was found. Would you like to restore your onboarding progress?',
+                    { date: new Date(draftFound.savedAt).toLocaleString() }
+                  )}
+                </Text>
+                <div style={{ fontSize: 11, color: semantic.textMuted, marginTop: 4 }}>
+                  {t(
+                    'companies.wizard.draftNotice',
+                    'Note: Drafts are preserved securely in your local browser storage and cleared automatically when onboarding completes.'
+                  )}
+                </div>
+              </div>
+              <Space>
+                <Button size="small" onClick={handleDiscardDraft}>
+                  {t('companies.wizard.discardDraft', 'Discard Draft')}
+                </Button>
+                <Button
+                  size="small"
+                  type="primary"
+                  style={{
+                    backgroundColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                    borderColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                  }}
+                  onClick={handleRestoreDraft}
+                >
+                  {t('companies.wizard.restoreDraft', 'Restore Draft')}
+                </Button>
+              </Space>
+            </div>
+          }
+        />
+      )}
 
       {/* Stepper Card */}
       <Card
@@ -573,12 +746,23 @@ export function CompanyOnboardingWizard() {
           {/* ================================================================ */}
           {/* STEP 0: IDENTITY & OVERVIEW                                      */}
           {/* ================================================================ */}
-          <div style={{ display: currentStep === 0 ? 'block' : 'none' }}>
-            <div style={{ marginBottom: 24 }}>
-              <Title level={4} style={{ color: brandTokens.navy, margin: 0 }}>
-                {t('companies.wizard.identityTitle', 'Company Identity & Registration')}
-              </Title>
-              <Text type="secondary">
+          <div className="rt-step-content" style={{ display: currentStep === 0 ? 'block' : 'none' }}>
+            <div style={{ marginBottom: 24, paddingBottom: 16, borderBottom: `1px solid ${semantic.borderDefault}` }}>
+              <Space align="center" style={{ marginBottom: 4 }}>
+                <span
+                  className="rt-section-badge"
+                  style={{
+                    background: isDarkMode ? 'rgba(79, 168, 192, 0.2)' : 'rgba(22, 49, 63, 0.08)',
+                    color: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                  }}
+                >
+                  1
+                </span>
+                <Title level={4} style={{ color: isDarkMode ? semantic.textPrimary : brandTokens.navy, margin: 0 }}>
+                  {t('companies.wizard.identityTitle', 'Company Identity & Registration')}
+                </Title>
+              </Space>
+              <Text type="secondary" style={{ display: 'block', marginLeft: 32 }}>
                 Configure canonical company name, commercial registration identifiers, and primary industry classification.
               </Text>
             </div>
@@ -686,32 +870,52 @@ export function CompanyOnboardingWizard() {
               <TextArea rows={3} placeholder="Brief summary of company business, sector focus, and mission..." />
             </Form.Item>
 
-            <Divider style={{ margin: '20px 0' }} />
-            <Text strong style={{ display: 'block', marginBottom: 12, color: brandTokens.navy }}>
-              {t('companies.wizard.hiringPreferences', 'Hiring Scope Preferences')}
-            </Text>
-            <Space size={32} wrap>
-              <Form.Item name="hiringDomestic" valuePropName="checked" noStyle>
-                <Checkbox>{t('companies.wizard.domesticHiring', 'Domestic Hiring')}</Checkbox>
-              </Form.Item>
-              <Form.Item name="hiringInternational" valuePropName="checked" noStyle>
-                <Checkbox>{t('companies.wizard.internationalHiring', 'International Hiring')}</Checkbox>
-              </Form.Item>
-              <Form.Item name="hiringEu" valuePropName="checked" noStyle>
-                <Checkbox>{t('companies.wizard.euHiring', 'EU-wide Hiring')}</Checkbox>
-              </Form.Item>
-            </Space>
+            <Divider style={{ margin: '24px 0 16px' }} />
+            <div
+              style={{
+                padding: '16px 20px',
+                borderRadius: 10,
+                border: `1px solid ${semantic.borderDefault}`,
+                backgroundColor: isDarkMode ? 'rgba(79, 168, 192, 0.04)' : '#f8fafc',
+              }}
+            >
+              <Text strong style={{ display: 'block', marginBottom: 12, color: isDarkMode ? semantic.textPrimary : brandTokens.navy, fontSize: 13 }}>
+                {t('companies.wizard.hiringPreferences', 'Hiring Scope Preferences')}
+              </Text>
+              <Space size={32} wrap>
+                <Form.Item name="hiringDomestic" valuePropName="checked" noStyle>
+                  <Checkbox>{t('companies.wizard.domesticHiring', 'Domestic Hiring')}</Checkbox>
+                </Form.Item>
+                <Form.Item name="hiringInternational" valuePropName="checked" noStyle>
+                  <Checkbox>{t('companies.wizard.internationalHiring', 'International Hiring')}</Checkbox>
+                </Form.Item>
+                <Form.Item name="hiringEu" valuePropName="checked" noStyle>
+                  <Checkbox>{t('companies.wizard.euHiring', 'EU-wide Hiring')}</Checkbox>
+                </Form.Item>
+              </Space>
+            </div>
           </div>
 
           {/* ================================================================ */}
           {/* STEP 1: CONTACT & ADDRESS                                        */}
           {/* ================================================================ */}
-          <div style={{ display: currentStep === 1 ? 'block' : 'none' }}>
-            <div style={{ marginBottom: 24 }}>
-              <Title level={4} style={{ color: brandTokens.navy, margin: 0 }}>
-                {t('companies.wizard.contactTitle', 'Contact Details & Address')}
-              </Title>
-              <Text type="secondary">
+          <div className="rt-step-content" style={{ display: currentStep === 1 ? 'block' : 'none' }}>
+            <div style={{ marginBottom: 24, paddingBottom: 16, borderBottom: `1px solid ${semantic.borderDefault}` }}>
+              <Space align="center" style={{ marginBottom: 4 }}>
+                <span
+                  className="rt-section-badge"
+                  style={{
+                    background: isDarkMode ? 'rgba(79, 168, 192, 0.2)' : 'rgba(22, 49, 63, 0.08)',
+                    color: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                  }}
+                >
+                  2
+                </span>
+                <Title level={4} style={{ color: isDarkMode ? semantic.textPrimary : brandTokens.navy, margin: 0 }}>
+                  {t('companies.wizard.contactTitle', 'Contact Details & Address')}
+                </Title>
+              </Space>
+              <Text type="secondary" style={{ display: 'block', marginLeft: 32 }}>
                 Official contact communication channels, headquarters location, and billing address.
               </Text>
             </div>
@@ -770,8 +974,8 @@ export function CompanyOnboardingWizard() {
               </Col>
             </Row>
 
-            <Divider style={{ margin: '20px 0' }} />
-            <Title level={5} style={{ color: brandTokens.navy }}>
+            <Divider style={{ margin: '24px 0 16px' }} />
+            <Title level={5} style={{ color: isDarkMode ? semantic.textPrimary : brandTokens.navy, marginBottom: 16 }}>
               Registered Physical Address
             </Title>
 
@@ -819,8 +1023,8 @@ export function CompanyOnboardingWizard() {
               </Col>
             </Row>
 
-            <Divider style={{ margin: '20px 0' }} />
-            <Title level={5} style={{ color: brandTokens.navy }}>
+            <Divider style={{ margin: '24px 0 16px' }} />
+            <Title level={5} style={{ color: isDarkMode ? semantic.textPrimary : brandTokens.navy, marginBottom: 16 }}>
               Billing Specifics
             </Title>
 
@@ -848,12 +1052,23 @@ export function CompanyOnboardingWizard() {
           {/* ================================================================ */}
           {/* STEP 2: BRANDING ASSETS (DUAL URL & UPLOAD MODES)                 */}
           {/* ================================================================ */}
-          <div style={{ display: currentStep === 2 ? 'block' : 'none' }}>
-            <div style={{ marginBottom: 20 }}>
-              <Title level={4} style={{ color: brandTokens.navy, margin: 0 }}>
-                {t('companies.wizard.brandingTitle', 'Branding & Visual Assets')}
-              </Title>
-              <Text type="secondary">
+          <div className="rt-step-content" style={{ display: currentStep === 2 ? 'block' : 'none' }}>
+            <div style={{ marginBottom: 24, paddingBottom: 16, borderBottom: `1px solid ${semantic.borderDefault}` }}>
+              <Space align="center" style={{ marginBottom: 4 }}>
+                <span
+                  className="rt-section-badge"
+                  style={{
+                    background: isDarkMode ? 'rgba(79, 168, 192, 0.2)' : 'rgba(22, 49, 63, 0.08)',
+                    color: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                  }}
+                >
+                  3
+                </span>
+                <Title level={4} style={{ color: isDarkMode ? semantic.textPrimary : brandTokens.navy, margin: 0 }}>
+                  {t('companies.wizard.brandingTitle', 'Branding & Visual Assets')}
+                </Title>
+              </Space>
+              <Text type="secondary" style={{ display: 'block', marginLeft: 32 }}>
                 Upload images directly or provide existing CDN / Cloudinary image URLs. All images can be previewed live.
               </Text>
             </div>
@@ -872,14 +1087,19 @@ export function CompanyOnboardingWizard() {
                   ? 'Cloudinary asset storage is operational. You can upload local files directly or supply external CDN URLs.'
                   : 'Cloudinary storage credentials are not active in this environment. Direct file uploads will be rejected with an explicit configuration error. Please provide public image URLs instead.'
               }
-              style={{ marginBottom: 28 }}
+              style={{ marginBottom: 24, borderRadius: 8 }}
             />
 
             {/* LOGO SECTION */}
             <Card
               size="small"
               variant="outlined"
-              style={{ marginBottom: 24, backgroundColor: '#fcfcfd', borderColor: '#e2e8f0' }}
+              style={{
+                marginBottom: 24,
+                backgroundColor: isDarkMode ? semantic.bgCard : '#fcfcfd',
+                borderColor: semantic.borderDefault,
+                borderRadius: 10,
+              }}
               title={
                 <Space>
                   <PictureOutlined style={{ color: brandTokens.primary }} />
@@ -994,7 +1214,12 @@ export function CompanyOnboardingWizard() {
             <Card
               size="small"
               variant="outlined"
-              style={{ marginBottom: 24, backgroundColor: '#fcfcfd', borderColor: '#e2e8f0' }}
+              style={{
+                marginBottom: 24,
+                backgroundColor: isDarkMode ? semantic.bgCard : '#fcfcfd',
+                borderColor: semantic.borderDefault,
+                borderRadius: 10,
+              }}
               title={
                 <Space>
                   <PictureOutlined style={{ color: brandTokens.primary }} />
@@ -1109,7 +1334,11 @@ export function CompanyOnboardingWizard() {
             <Card
               size="small"
               variant="outlined"
-              style={{ backgroundColor: '#fcfcfd', borderColor: '#e2e8f0' }}
+              style={{
+                backgroundColor: isDarkMode ? semantic.bgCard : '#fcfcfd',
+                borderColor: semantic.borderDefault,
+                borderRadius: 10,
+              }}
               title={
                 <Space>
                   <VideoCameraOutlined style={{ color: brandTokens.primary }} />
@@ -1166,19 +1395,30 @@ export function CompanyOnboardingWizard() {
           {/* ================================================================ */}
           {/* STEP 3: COMPLIANCE DOCUMENTS (PDF & DEFINITION CONSTRAINTS)       */}
           {/* ================================================================ */}
-          <div style={{ display: currentStep === 3 ? 'block' : 'none' }}>
-            <div style={{ marginBottom: 20 }}>
-              <Title level={4} style={{ color: brandTokens.navy, margin: 0 }}>
-                {t('companies.wizard.documentsTitle', 'Required & Optional Compliance Documents')}
-              </Title>
-              <Text type="secondary">
+          <div className="rt-step-content" style={{ display: currentStep === 3 ? 'block' : 'none' }}>
+            <div style={{ marginBottom: 24, paddingBottom: 16, borderBottom: `1px solid ${semantic.borderDefault}` }}>
+              <Space align="center" style={{ marginBottom: 4 }}>
+                <span
+                  className="rt-section-badge"
+                  style={{
+                    background: isDarkMode ? 'rgba(79, 168, 192, 0.2)' : 'rgba(22, 49, 63, 0.08)',
+                    color: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                  }}
+                >
+                  4
+                </span>
+                <Title level={4} style={{ color: isDarkMode ? semantic.textPrimary : brandTokens.navy, margin: 0 }}>
+                  {t('companies.wizard.documentsTitle', 'Required & Optional Compliance Documents')}
+                </Title>
+              </Space>
+              <Text type="secondary" style={{ display: 'block', marginLeft: 32 }}>
                 Attach company verification documents configured under Platform Configuration. Legitimate PDF files are verified with binary magic-byte inspection. Sensitive documents are stored private by default.
               </Text>
             </div>
 
             {/* List of active document definitions */}
             <div style={{ marginBottom: 28 }}>
-              <Title level={5} style={{ color: brandTokens.navy, marginBottom: 12 }}>
+              <Title level={5} style={{ color: isDarkMode ? semantic.textPrimary : brandTokens.navy, marginBottom: 12 }}>
                 Active Document Requirements
               </Title>
               {docDefinitions.length === 0 ? (
@@ -1186,7 +1426,7 @@ export function CompanyOnboardingWizard() {
                   type="info"
                   message="No active company document definitions found."
                   description="You can proceed without platform-mandated documents, or use 'Add Custom Document' below."
-                  style={{ marginBottom: 16 }}
+                  style={{ marginBottom: 16, borderRadius: 8 }}
                 />
               ) : (
                 <Space direction="vertical" style={{ width: '100%' }} size={12}>
@@ -1201,9 +1441,11 @@ export function CompanyOnboardingWizard() {
                         size="small"
                         variant="outlined"
                         style={{
-                          borderColor: def.isRequired && !isAttached ? '#f59e0b' : '#e2e8f0',
-                          backgroundColor: isAttached ? '#f0fdf4' : '#ffffff',
-                          borderRadius: 6,
+                          borderColor: def.isRequired && !isAttached ? '#f59e0b' : semantic.borderDefault,
+                          backgroundColor: isAttached
+                            ? (isDarkMode ? 'rgba(16, 185, 129, 0.08)' : '#f0fdf4')
+                            : (isDarkMode ? semantic.bgCard : '#ffffff'),
+                          borderRadius: 8,
                         }}
                       >
                         <Row justify="space-between" align="middle" gutter={16}>
@@ -1381,12 +1623,23 @@ export function CompanyOnboardingWizard() {
           {/* ================================================================ */}
           {/* STEP 4: INITIAL ADMINISTRATOR                                     */}
           {/* ================================================================ */}
-          <div style={{ display: currentStep === 4 ? 'block' : 'none' }}>
-            <div style={{ marginBottom: 20 }}>
-              <Title level={4} style={{ color: brandTokens.navy, margin: 0 }}>
-                {t('companies.wizard.adminTitle', 'Initial Company Administrator')}
-              </Title>
-              <Text type="secondary">
+          <div className="rt-step-content" style={{ display: currentStep === 4 ? 'block' : 'none' }}>
+            <div style={{ marginBottom: 24, paddingBottom: 16, borderBottom: `1px solid ${semantic.borderDefault}` }}>
+              <Space align="center" style={{ marginBottom: 4 }}>
+                <span
+                  className="rt-section-badge"
+                  style={{
+                    background: isDarkMode ? 'rgba(79, 168, 192, 0.2)' : 'rgba(22, 49, 63, 0.08)',
+                    color: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                  }}
+                >
+                  5
+                </span>
+                <Title level={4} style={{ color: isDarkMode ? semantic.textPrimary : brandTokens.navy, margin: 0 }}>
+                  {t('companies.wizard.adminTitle', 'Initial Company Administrator')}
+                </Title>
+              </Space>
+              <Text type="secondary" style={{ display: 'block', marginLeft: 32 }}>
                 Provision the primary employer account holder. An invitation email with a secure cryptographic one-time setup token will be generated.
               </Text>
             </div>
@@ -1397,7 +1650,7 @@ export function CompanyOnboardingWizard() {
               icon={<SafetyCertificateOutlined />}
               message="Zero-Knowledge Security Architecture"
               description="Administrator passwords are never set in plain text. When created, a high-entropy single-use cryptographic token is stored securely in PostgreSQL. If SMTP is unconfigured, the generated link will be presented on screen."
-              style={{ marginBottom: 24 }}
+              style={{ marginBottom: 24, borderRadius: 8 }}
             />
 
             <Row gutter={24}>
@@ -1428,27 +1681,41 @@ export function CompanyOnboardingWizard() {
               <Input placeholder="admin@company.com" size="large" />
             </Form.Item>
 
-            <Form.Item
-              name="sendInvitation"
-              valuePropName="checked"
-              style={{ marginTop: 16 }}
+            <div
+              style={{
+                padding: '14px 18px',
+                borderRadius: 10,
+                border: `1px solid ${semantic.borderDefault}`,
+                backgroundColor: isDarkMode ? 'rgba(79, 168, 192, 0.04)' : '#f8fafc',
+                marginTop: 16,
+              }}
             >
-              <Checkbox>
-                {t(
-                  'companies.wizard.sendInvitationLabel',
-                  'Send one-time activation link to this administrator via email'
-                )}
-              </Checkbox>
-            </Form.Item>
+              <Form.Item
+                name="sendInvitation"
+                valuePropName="checked"
+                noStyle
+              >
+                <Checkbox>
+                  {t(
+                    'companies.wizard.sendInvitationLabel',
+                    'Send one-time activation link to this administrator via email'
+                  )}
+                </Checkbox>
+              </Form.Item>
+            </div>
 
             {/* Summary Review Card */}
             <Divider style={{ margin: '24px 0' }} />
             <Card
               size="small"
               variant="outlined"
-              style={{ backgroundColor: '#f8fafc', borderColor: '#e2e8f0', borderRadius: 8 }}
+              style={{
+                backgroundColor: isDarkMode ? 'rgba(79, 168, 192, 0.05)' : '#f8fafc',
+                borderColor: semantic.borderDefault,
+                borderRadius: 10,
+              }}
               title={
-                <Text strong style={{ color: brandTokens.navy }}>
+                <Text strong style={{ color: isDarkMode ? semantic.textPrimary : brandTokens.navy }}>
                   Review Company Onboarding Summary
                 </Text>
               }
@@ -1501,11 +1768,24 @@ export function CompanyOnboardingWizard() {
           </div>
 
           {/* ================================================================ */}
-          {/* STEP CONTROLS (PREVIOUS / NEXT / SUBMIT)                         */}
+          {/* AUTHORITATIVE ACTION BAR (PREVIOUS / CANCEL / SAVE DRAFT / NEXT) */}
           {/* ================================================================ */}
-          <Divider style={{ margin: '32px 0 24px' }} />
-          <Row justify="space-between" align="middle">
-            <Col>
+          <Divider style={{ margin: '32px 0 20px' }} />
+          <div
+            className="rt-sticky-action-bar"
+            style={{
+              backgroundColor: isDarkMode ? 'rgba(21, 43, 56, 0.92)' : 'rgba(255, 255, 255, 0.92)',
+              border: `1px solid ${semantic.borderDefault}`,
+              boxShadow: isDarkMode ? '0 8px 32px rgba(0,0,0,0.5)' : '0 4px 20px rgba(22,49,63,0.08)',
+              padding: '14px 20px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: 16,
+            }}
+          >
+            <Space wrap>
               {currentStep > 0 && (
                 <Button
                   icon={<ArrowLeftOutlined />}
@@ -1515,8 +1795,23 @@ export function CompanyOnboardingWizard() {
                   {t('companies.wizard.prev', 'Previous')}
                 </Button>
               )}
-            </Col>
-            <Col>
+              <Button
+                onClick={handleCancel}
+                style={{ borderRadius: 8, height: 40 }}
+              >
+                {t('common.cancel', 'Cancel')}
+              </Button>
+            </Space>
+
+            <Space wrap align="center">
+              <Button
+                icon={<SaveOutlined />}
+                loading={savingDraft}
+                onClick={handleSaveDraft}
+                style={{ borderRadius: 8, height: 40, fontWeight: 500 }}
+              >
+                {t('companies.wizard.saveDraft', 'Save as Draft')}
+              </Button>
               {currentStep < steps.length - 1 ? (
                 <Button
                   type="primary"
@@ -1551,8 +1846,8 @@ export function CompanyOnboardingWizard() {
                   {t('companies.wizard.submit', 'Complete Onboarding')}
                 </Button>
               )}
-            </Col>
-          </Row>
+            </Space>
+          </div>
         </Form>
       </Card>
 
@@ -1828,15 +2123,21 @@ function AttachDocumentModal({ open, activeDef, onCancel, onAttach }) {
           }
         </Form.Item>
 
-        <Space style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 20 }}>
-          <Button onClick={handleClose} disabled={uploading}>
+        <Space style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 24, gap: 10 }}>
+          <Button onClick={handleClose} disabled={uploading} style={{ borderRadius: 8, height: 38 }}>
             Cancel
           </Button>
           <Button
             type="primary"
             htmlType="submit"
             loading={uploading}
-            style={{ backgroundColor: brandTokens.navy, borderColor: brandTokens.navy }}
+            style={{
+              backgroundColor: brandTokens.navy,
+              borderColor: brandTokens.navy,
+              borderRadius: 8,
+              height: 38,
+              fontWeight: 500,
+            }}
           >
             {attachType === 'file' ? 'Upload & Attach' : 'Attach URL'}
           </Button>

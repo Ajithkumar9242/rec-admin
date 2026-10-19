@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Row,
   Col,
@@ -15,6 +15,8 @@ import {
   Badge,
   Tooltip,
   Breadcrumb,
+  Input,
+  Modal,
 } from 'antd';
 import {
   DashboardOutlined,
@@ -33,6 +35,12 @@ import {
   LockOutlined,
   DatabaseOutlined,
   ApiOutlined,
+  SearchOutlined,
+  EyeOutlined,
+  ShopOutlined,
+  AppstoreOutlined,
+  DollarOutlined,
+  SettingOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import { useSelector } from 'react-redux';
@@ -47,6 +55,40 @@ import { DataTable } from '../../components/common/DataTable.jsx';
 
 const { Title, Paragraph, Text } = Typography;
 const { RangePicker } = DatePicker;
+
+/**
+ * Aggregates database records into time-series buckets (day, month, or year) within a date range.
+ */
+function aggregateTimeSeries(items, dateField = 'createdAt', groupBy = 'day', fromDate = null, toDate = null) {
+  if (!Array.isArray(items) || items.length === 0) return [];
+
+  const buckets = {};
+
+  items.forEach((item) => {
+    const rawDate = item[dateField];
+    if (!rawDate) return;
+    const d = new Date(rawDate);
+    if (isNaN(d.getTime())) return;
+
+    if (fromDate && d < fromDate) return;
+    if (toDate && d > toDate) return;
+
+    let key;
+    if (groupBy === 'month') {
+      key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-01`;
+    } else if (groupBy === 'year') {
+      key = `${d.getUTCFullYear()}-01-01`;
+    } else {
+      key = d.toISOString().slice(0, 10);
+    }
+
+    buckets[key] = (buckets[key] || 0) + 1;
+  });
+
+  return Object.keys(buckets)
+    .sort()
+    .map((bucket) => ({ bucket, count: buckets[bucket] }));
+}
 
 export function DashboardPage() {
   const { user } = useSelector((state) => state.auth);
@@ -68,10 +110,43 @@ export function DashboardPage() {
   const [fetchError, setFetchError] = useState(null);
   const [exporting, setExporting] = useState(false);
 
-  // Module Live KPI states
-  const [jobStats, setJobStats] = useState({ loading: true, error: null, active: null, inactive: null, connected: false });
-  const [companyStats, setCompanyStats] = useState({ loading: true, error: null, total: null, connected: false });
-  const [candidateStats, setCandidateStats] = useState({ loading: true, error: null, total: null, connected: false });
+  // Module Live KPI & Analytics states
+  const [jobStats, setJobStats] = useState({
+    loading: true,
+    error: null,
+    total: 0,
+    active: 0,
+    inactive: 0,
+    counts: {},
+    series: [],
+    connected: false,
+  });
+
+  const [companyStats, setCompanyStats] = useState({
+    loading: true,
+    error: null,
+    total: 0,
+    counts: {},
+    series: [],
+    connected: false,
+  });
+
+  const [candidateStats, setCandidateStats] = useState({
+    loading: true,
+    error: null,
+    total: 0,
+    active: 0,
+    pending: 0,
+    inactive: 0,
+    series: [],
+    connected: false,
+  });
+
+  // Recent Activity Feed State
+  const [activityCategory, setActivityCategory] = useState('ALL');
+  const [activitySearch, setActivitySearch] = useState('');
+  const [selectedEvent, setSelectedEvent] = useState(null);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
 
   const fetchDashboard = useCallback(async (customRange = dateRange, customGroup = groupBy) => {
     // Validate range
@@ -85,6 +160,9 @@ export function DashboardPage() {
     setLoading(true);
     setFetchError(null);
 
+    const fromDateObj = customRange && customRange[0] ? customRange[0].toDate() : null;
+    const toDateObj = customRange && customRange[1] ? customRange[1].toDate() : null;
+
     try {
       const params = {};
       if (customRange && customRange[0] && customRange[1]) {
@@ -96,11 +174,12 @@ export function DashboardPage() {
       }
 
       // Concurrently query dashboard endpoint and module data sources
-      const [dashRes, jobsRes, compRes, candRes] = await Promise.allSettled([
+      const [dashRes, jobsRes, compSummaryRes, compListRes, candRes] = await Promise.allSettled([
         api.get('/admin/dashboard', { params }),
-        jobsApi.getJobs({ limit: 1 }),
+        jobsApi.getJobs({ limit: 100 }),
         companiesApi.getStatusSummary(),
-        candidateApi.getCandidates({ limit: 1 }),
+        companiesApi.getCompanies({ limit: 100 }),
+        candidateApi.getCandidates({ limit: 100 }),
       ]);
 
       if (dashRes.status === 'fulfilled') {
@@ -109,33 +188,80 @@ export function DashboardPage() {
         setFetchError(dashRes.reason?.response?.data?.error || 'Failed to load dashboard data.');
       }
 
-      // 1 & 2: Process Jobs stats (PUBLISHED = active, non-published non-trashed = inactive)
-      if (jobsRes.status === 'fulfilled' && jobsRes.value?.counts) {
-        const counts = jobsRes.value.counts;
+      // 1. Process Jobs Analytics & Stats
+      if (jobsRes.status === 'fulfilled') {
+        const jobsPayload = jobsRes.value;
+        const counts = jobsPayload?.counts || {};
         const active = typeof counts.PUBLISHED === 'number' ? counts.PUBLISHED : 0;
         const inactive = (counts.DRAFT || 0) + (counts.PENDING_APPROVAL || 0) + (counts.CLOSED || 0) + (counts.ARCHIVED || 0);
-        setJobStats({ loading: false, error: null, active, inactive, connected: true });
+        const total = typeof jobsPayload?.pagination?.total === 'number'
+          ? jobsPayload.pagination.total
+          : (active + inactive);
+
+        const jobsList = Array.isArray(jobsPayload?.data) ? jobsPayload.data : [];
+        const series = aggregateTimeSeries(jobsList, 'createdAt', customGroup, fromDateObj, toDateObj);
+
+        setJobStats({
+          loading: false,
+          error: null,
+          total,
+          active,
+          inactive,
+          counts,
+          series,
+          connected: true,
+        });
       } else {
-        const err = jobsRes.status === 'rejected' ? (jobsRes.reason?.response?.data?.error || jobsRes.reason?.message) : null;
-        setJobStats({ loading: false, error: err, active: null, inactive: null, connected: false });
+        const err = jobsRes.reason?.response?.data?.error || jobsRes.reason?.message;
+        setJobStats((prev) => ({ ...prev, loading: false, error: err, connected: false }));
       }
 
-      // 3: Process Employers stats (ALL non-trashed companies)
-      if (compRes.status === 'fulfilled' && compRes.value?.success && compRes.value?.data) {
-        const total = typeof compRes.value.data.ALL === 'number' ? compRes.value.data.ALL : 0;
-        setCompanyStats({ loading: false, error: null, total, connected: true });
+      // 2. Process Companies / Employers Analytics & Stats
+      if (compSummaryRes.status === 'fulfilled' && compSummaryRes.value?.success) {
+        const summary = compSummaryRes.value?.data || {};
+        const total = typeof summary.ALL === 'number' ? summary.ALL : 0;
+        const compList = compListRes.status === 'fulfilled' && Array.isArray(compListRes.value?.data)
+          ? compListRes.value.data
+          : [];
+        const series = aggregateTimeSeries(compList, 'createdAt', customGroup, fromDateObj, toDateObj);
+
+        setCompanyStats({
+          loading: false,
+          error: null,
+          total,
+          counts: summary,
+          series,
+          connected: true,
+        });
       } else {
-        const err = compRes.status === 'rejected' ? (compRes.reason?.response?.data?.error || compRes.reason?.message) : null;
-        setCompanyStats({ loading: false, error: err, total: null, connected: false });
+        const err = compSummaryRes.reason?.response?.data?.error || compSummaryRes.reason?.message;
+        setCompanyStats((prev) => ({ ...prev, loading: false, error: err, connected: false }));
       }
 
-      // 4: Process Candidates stats (canonical non-trashed candidate records)
-      if (candRes.status === 'fulfilled' && candRes.value?.pagination && typeof candRes.value.pagination.total === 'number') {
-        const total = candRes.value.pagination.total;
-        setCandidateStats({ loading: false, error: null, total, connected: true });
+      // 3. Process Candidates Analytics & Stats
+      if (candRes.status === 'fulfilled' && candRes.value?.pagination) {
+        const candPayload = candRes.value;
+        const total = typeof candPayload.pagination.total === 'number' ? candPayload.pagination.total : 0;
+        const candList = Array.isArray(candPayload.data) ? candPayload.data : [];
+        const series = aggregateTimeSeries(candList, 'createdAt', customGroup, fromDateObj, toDateObj);
+
+        const active = candList.filter((c) => (c.status || '').toUpperCase() === 'ACTIVE').length;
+        const pending = candList.filter((c) => ['PENDING', 'UNVERIFIED', 'IN_REVIEW'].includes((c.status || '').toUpperCase())).length;
+        const inactive = candList.filter((c) => (c.status || '').toUpperCase() === 'INACTIVE').length;
+
+        setCandidateStats({
+          loading: false,
+          error: null,
+          total,
+          active,
+          pending,
+          inactive,
+          series,
+          connected: true,
+        });
       } else {
-        const err = candRes.status === 'rejected' ? (candRes.reason?.response?.data?.error || candRes.reason?.message) : null;
-        setCandidateStats({ loading: false, error: err, total: null, connected: false });
+        const err = candRes.reason?.response?.data?.error || candRes.reason?.message;
+        setCandidateStats((prev) => ({ ...prev, loading: false, error: err, connected: false }));
       }
     } catch (err) {
       setFetchError(err.response?.data?.error || 'Failed to load dashboard data.');
@@ -196,54 +322,163 @@ export function DashboardPage() {
     }
   };
 
-  const getEventTag = (type) => {
-    switch (type) {
-      case 'LOGIN_SUCCESS':
-        return <Tag color="success">LOGIN SUCCESS</Tag>;
-      case 'LOGIN_FAILURE':
-        return <Tag color="error">LOGIN FAILURE</Tag>;
-      case 'TWO_FACTOR_VERIFIED':
-        return <Tag color="cyan">2FA VERIFIED</Tag>;
-      case 'TWO_FACTOR_ENROLLED':
-        return <Tag color="blue">2FA ENROLLED</Tag>;
-      case 'BACKUP_CODE_USED':
-        return <Tag color="warning">BACKUP CODE USED</Tag>;
-      case 'PASSWORD_RESET_COMPLETED':
-        return <Tag color="purple">PASSWORD RESET</Tag>;
-      case 'ACCOUNT_LOCKED':
-        return <Tag color="red">ACCOUNT LOCKED</Tag>;
-      case 'LOGOUT':
-        return <Tag color="default">LOGOUT</Tag>;
+  const getCategoryBadge = (category = 'SECURITY') => {
+    switch (category.toUpperCase()) {
+      case 'SECURITY':
+        return <Tag color="gold" style={{ borderRadius: 6, fontWeight: 500, margin: 0 }}>Security</Tag>;
+      case 'COMPANY':
+        return <Tag color="purple" style={{ borderRadius: 6, fontWeight: 500, margin: 0 }}>Company</Tag>;
+      case 'BILLING':
+        return <Tag color="green" style={{ borderRadius: 6, fontWeight: 500, margin: 0 }}>Billing</Tag>;
+      case 'CONFIGURATION':
+        return <Tag color="blue" style={{ borderRadius: 6, fontWeight: 500, margin: 0 }}>Config</Tag>;
       default:
-        return <Tag>{type}</Tag>;
+        return <Tag style={{ borderRadius: 6, margin: 0 }}>{category}</Tag>;
     }
   };
+
+  const getOutcomeBadge = (outcome = 'SUCCESS') => {
+    switch (outcome.toUpperCase()) {
+      case 'SUCCESS':
+        return <Tag color="success" style={{ borderRadius: 6, margin: 0 }}>Success</Tag>;
+      case 'WARNING':
+        return <Tag color="warning" style={{ borderRadius: 6, margin: 0 }}>Warning</Tag>;
+      case 'FAILURE':
+        return <Tag color="error" style={{ borderRadius: 6, margin: 0 }}>Failure</Tag>;
+      default:
+        return <Tag color="default" style={{ borderRadius: 6, margin: 0 }}>{outcome}</Tag>;
+    }
+  };
+
+  const getEventTag = (type = '') => {
+    const formatted = type.replace(/_/g, ' ');
+    if (type.includes('SUCCESS') || type.includes('CREATED') || type.includes('APPROVED')) {
+      return <Tag color="success" style={{ borderRadius: 6, fontSize: 11 }}>{formatted}</Tag>;
+    }
+    if (type.includes('FAILURE') || type.includes('ERROR') || type.includes('LOCKED')) {
+      return <Tag color="error" style={{ borderRadius: 6, fontSize: 11 }}>{formatted}</Tag>;
+    }
+    if (type.includes('WARNING') || type.includes('SUSPEND') || type.includes('REJECT') || type.includes('BACKUP')) {
+      return <Tag color="warning" style={{ borderRadius: 6, fontSize: 11 }}>{formatted}</Tag>;
+    }
+    if (type.includes('2FA') || type.includes('PASSWORD')) {
+      return <Tag color="cyan" style={{ borderRadius: 6, fontSize: 11 }}>{formatted}</Tag>;
+    }
+    return <Tag color="blue" style={{ borderRadius: 6, fontSize: 11 }}>{formatted}</Tag>;
+  };
+
+  // Filtered recent activities
+  const recentActivities = dashboardData?.recentActivity || [];
+  const filteredActivities = useMemo(() => {
+    return recentActivities.filter((act) => {
+      // Category filter
+      if (activityCategory !== 'ALL') {
+        const cat = (act.category || 'SECURITY').toUpperCase();
+        if (cat !== activityCategory) return false;
+      }
+      // Search filter
+      if (activitySearch.trim()) {
+        const q = activitySearch.toLowerCase();
+        const actor = String(act.actor || act.admin?.name || act.admin?.email || '').toLowerCase();
+        const action = String(act.eventType || act.action || '').toLowerCase();
+        const resource = String(act.resourceName || '').toLowerCase();
+        const ip = String(act.ipAddress || '').toLowerCase();
+        if (!actor.includes(q) && !action.includes(q) && !resource.includes(q) && !ip.includes(q)) {
+          return false;
+        }
+      }
+      return true;
+    });
+  }, [recentActivities, activityCategory, activitySearch]);
 
   const activityColumns = [
     {
       title: t('shell.eventTime'),
       dataIndex: 'createdAt',
       key: 'createdAt',
-      render: (val) => new Date(val).toLocaleString(),
+      width: 170,
+      render: (val) => {
+        const d = new Date(val);
+        return (
+          <Tooltip title={d.toISOString()}>
+            <span style={{ fontSize: 12, color: semantic.textPrimary }}>
+              {d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}{' '}
+              <span style={{ color: semantic.textSecondary }}>{d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+            </span>
+          </Tooltip>
+        );
+      },
+    },
+    {
+      title: 'Category',
+      dataIndex: 'category',
+      key: 'category',
+      width: 110,
+      render: (cat) => getCategoryBadge(cat),
     },
     {
       title: t('shell.eventType'),
       dataIndex: 'eventType',
       key: 'eventType',
-      render: (type) => getEventTag(type),
+      render: (type, record) => getEventTag(type || record.action),
     },
     {
       title: t('shell.adminUser'),
-      key: 'admin',
-      render: (_, record) => (
-        <span>{record.admin ? `${record.admin.name} (${record.admin.email})` : 'System'}</span>
-      ),
+      key: 'actor',
+      render: (_, record) => {
+        const name = record.admin ? `${record.admin.name} (${record.admin.email})` : (record.actor || 'System');
+        return <span style={{ fontSize: 13, color: semantic.textPrimary }}>{name}</span>;
+      },
+    },
+    {
+      title: 'Affected Resource',
+      key: 'resourceName',
+      render: (_, record) => {
+        const resName = record.resourceName || record.company?.name || record.details?.entityType || '—';
+        return (
+          <Space size={6}>
+            <span style={{ fontWeight: 500, fontSize: 13, color: semantic.textPrimary }}>{resName}</span>
+            {record.resourceType && record.resourceType !== 'AUTHENTICATION' && (
+              <Tag style={{ fontSize: 10, borderRadius: 4, margin: 0, padding: '0 4px' }}>
+                {record.resourceType}
+              </Tag>
+            )}
+          </Space>
+        );
+      },
+    },
+    {
+      title: 'Outcome',
+      dataIndex: 'outcome',
+      key: 'outcome',
+      width: 95,
+      render: (outcome) => getOutcomeBadge(outcome),
     },
     {
       title: t('shell.ipAddress'),
       dataIndex: 'ipAddress',
       key: 'ipAddress',
-      render: (ip) => ip || 'Unknown',
+      width: 130,
+      render: (ip) => <span style={{ fontSize: 12, fontFamily: 'monospace', color: semantic.textSecondary }}>{ip || '—'}</span>,
+    },
+    {
+      title: 'Details',
+      key: 'action',
+      width: 80,
+      render: (_, record) => (
+        <Button
+          type="text"
+          size="small"
+          icon={<EyeOutlined />}
+          onClick={() => {
+            setSelectedEvent(record);
+            setIsDetailsModalOpen(true);
+          }}
+          style={{ borderRadius: 6 }}
+        >
+          View
+        </Button>
+      ),
     },
   ];
 
@@ -521,9 +756,9 @@ export function DashboardPage() {
               return renderKpiCard({
                 title: t('dashboard.totalCompanies'),
                 value: val,
-                icon: <SolutionOutlined style={{ color: brandTokens.navySoft }} />,
+                icon: <ShopOutlined style={{ color: '#8b5cf6' }} />,
                 badge: isConnected ? (
-                  <Tag color="blue" style={{ margin: 0, fontSize: 11, borderRadius: 4 }}>
+                  <Tag color="success" style={{ margin: 0, fontSize: 11, borderRadius: 4 }}>
                     Live Data
                   </Tag>
                 ) : (
@@ -556,9 +791,9 @@ export function DashboardPage() {
               return renderKpiCard({
                 title: t('dashboard.totalCandidates'),
                 value: val,
-                icon: <UsergroupAddOutlined style={{ color: brandTokens.amber }} />,
+                icon: <UsergroupAddOutlined style={{ color: '#3b82f6' }} />,
                 badge: isConnected ? (
-                  <Tag color="purple" style={{ margin: 0, fontSize: 11, borderRadius: 4 }}>
+                  <Tag color="success" style={{ margin: 0, fontSize: 11, borderRadius: 4 }}>
                     Live Data
                   </Tag>
                 ) : (
@@ -659,7 +894,12 @@ export function DashboardPage() {
               items={[
                 {
                   key: 'audit',
-                  label: t('dashboard.chartAudit'),
+                  label: (
+                    <Space size={6}>
+                      <AuditOutlined />
+                      <span>{t('dashboard.chartAudit')}</span>
+                    </Space>
+                  ),
                   children: (
                     <AnalyticsChart
                       title={t('dashboard.chartAudit')}
@@ -667,38 +907,86 @@ export function DashboardPage() {
                       connected={true}
                       groupBy={groupBy}
                       color={brandTokens.teal}
+                      unitLabel="security event"
                     />
                   ),
                 },
                 {
                   key: 'jobs',
-                  label: t('dashboard.chartJobs'),
+                  label: (
+                    <Space size={6}>
+                      <FileTextOutlined />
+                      <span>{t('dashboard.chartJobs')}</span>
+                    </Space>
+                  ),
                   children: (
                     <AnalyticsChart
-                      title={t('dashboard.chartJobs')}
-                      connected={false}
+                      title="Job Postings Trend & Volume"
+                      data={jobStats.series}
+                      connected={jobStats.connected}
+                      groupBy={groupBy}
+                      color="#0284c7"
+                      unitLabel="job"
+                      metricsSummary={[
+                        { label: 'Total Jobs', value: jobStats.total, color: 'blue' },
+                        { label: 'Published', value: jobStats.counts?.PUBLISHED || 0, color: 'success' },
+                        { label: 'Draft', value: jobStats.counts?.DRAFT || 0, color: 'default' },
+                        { label: 'Pending Approval', value: jobStats.counts?.PENDING_APPROVAL || 0, color: 'warning' },
+                        { label: 'Closed / Archived', value: (jobStats.counts?.CLOSED || 0) + (jobStats.counts?.ARCHIVED || 0), color: 'purple' },
+                      ]}
                       pendingMessage="Job Postings analytics will display here when connected."
                     />
                   ),
                 },
                 {
                   key: 'candidates',
-                  label: t('dashboard.chartCandidates'),
+                  label: (
+                    <Space size={6}>
+                      <UsergroupAddOutlined />
+                      <span>{t('dashboard.chartCandidates')}</span>
+                    </Space>
+                  ),
                   children: (
                     <AnalyticsChart
-                      title={t('dashboard.chartCandidates')}
-                      connected={false}
+                      title="Candidate Registrations Trend"
+                      data={candidateStats.series}
+                      connected={candidateStats.connected}
+                      groupBy={groupBy}
+                      color="#3b82f6"
+                      unitLabel="candidate"
+                      metricsSummary={[
+                        { label: 'Total Candidates', value: candidateStats.total, color: 'blue' },
+                        { label: 'Active', value: candidateStats.active, color: 'success' },
+                        { label: 'Pending Verification', value: candidateStats.pending, color: 'warning' },
+                        { label: 'Inactive', value: candidateStats.inactive, color: 'default' },
+                      ]}
                       pendingMessage="Candidate Registrations analytics will display here when connected."
                     />
                   ),
                 },
                 {
                   key: 'employers',
-                  label: t('dashboard.chartEmployers'),
+                  label: (
+                    <Space size={6}>
+                      <ShopOutlined />
+                      <span>{t('dashboard.chartEmployers')}</span>
+                    </Space>
+                  ),
                   children: (
                     <AnalyticsChart
-                      title={t('dashboard.chartEmployers')}
-                      connected={false}
+                      title="Employer Registrations Trend"
+                      data={companyStats.series}
+                      connected={companyStats.connected}
+                      groupBy={groupBy}
+                      color="#8b5cf6"
+                      unitLabel="employer"
+                      metricsSummary={[
+                        { label: 'Total Employers', value: companyStats.total, color: 'blue' },
+                        { label: 'Active', value: companyStats.counts?.ACTIVE || 0, color: 'success' },
+                        { label: 'In Review', value: companyStats.counts?.IN_REVIEW || 0, color: 'processing' },
+                        { label: 'Inactive', value: companyStats.counts?.INACTIVE || 0, color: 'default' },
+                        { label: 'Suspended', value: companyStats.counts?.SUSPENDED || 0, color: 'error' },
+                      ]}
                       pendingMessage="Employer Registrations analytics will display here when connected."
                     />
                   ),
@@ -818,12 +1106,58 @@ export function DashboardPage() {
         </Col>
       </Row>
 
+      {/* Recent Activity Table Toolbar & Component */}
+      <Card
+        style={{
+          borderRadius: 12,
+          border: `1px solid ${semantic.borderDefault}`,
+          background: semantic.bgCard,
+          marginBottom: 24,
+        }}
+        styles={{ body: { padding: '16px 20px' } }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 12,
+          }}
+        >
+          <Space wrap size={10} align="center">
+            <span style={{ fontSize: 13, fontWeight: 500, color: semantic.textSecondary }}>Filter Activity:</span>
+            <Select
+              value={activityCategory}
+              onChange={(val) => setActivityCategory(val)}
+              style={{ width: 150, height: 36 }}
+              options={[
+                { label: 'All Activities', value: 'ALL' },
+                { label: 'Security', value: 'SECURITY' },
+                { label: 'Company', value: 'COMPANY' },
+                { label: 'Billing', value: 'BILLING' },
+                { label: 'Configuration', value: 'CONFIGURATION' },
+              ]}
+            />
+          </Space>
+
+          <Input
+            placeholder="Search activity by actor, action, resource, IP..."
+            prefix={<SearchOutlined style={{ color: semantic.textSecondary }} />}
+            value={activitySearch}
+            onChange={(e) => setActivitySearch(e.target.value)}
+            allowClear
+            style={{ width: 300, borderRadius: 8, height: 36 }}
+          />
+        </div>
+      </Card>
+
       {/* Recent Activity Table using Reusable DataTable Component */}
       <DataTable
         title={t('dashboard.recentActivity')}
-        subtitle="Chronological security audit events recorded by the platform."
+        subtitle="Chronological platform administrative and security events recorded across all integrated modules."
         columns={activityColumns}
-        dataSource={dashboardData?.recentActivity || []}
+        dataSource={filteredActivities}
         loading={loading}
         exportable={true}
         exportFilename="audit_activity_export"
@@ -838,6 +1172,169 @@ export function DashboardPage() {
           </Button>
         }
       />
+
+      {/* Event Details Inspector Modal */}
+      <Modal
+        title={
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <div
+              style={{
+                width: 36,
+                height: 36,
+                borderRadius: 10,
+                background: isDarkMode ? 'rgba(59, 130, 246, 0.16)' : 'rgba(30, 58, 138, 0.08)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 18,
+                color: brandTokens.navy,
+              }}
+            >
+              <AuditOutlined />
+            </div>
+            <div>
+              <div style={{ fontWeight: 600, fontSize: 16, color: semantic.textPrimary, lineHeight: 1.3 }}>
+                Activity Audit Event
+              </div>
+              <div style={{ fontSize: 12, color: semantic.textSecondary, fontWeight: 400 }}>
+                {selectedEvent?.id || 'Event Record Details'}
+              </div>
+            </div>
+          </div>
+        }
+        open={isDetailsModalOpen}
+        onCancel={() => {
+          setIsDetailsModalOpen(false);
+          setSelectedEvent(null);
+        }}
+        footer={[
+          <Button
+            key="close"
+            onClick={() => {
+              setIsDetailsModalOpen(false);
+              setSelectedEvent(null);
+            }}
+            style={{ borderRadius: 8, height: 36 }}
+          >
+            {t('common.close') || 'Close'}
+          </Button>,
+        ]}
+        styles={{
+          content: {
+            borderRadius: 14,
+            border: `1px solid ${semantic.borderDefault}`,
+            background: semantic.bgCard,
+            padding: 0,
+            overflow: 'hidden',
+          },
+          header: {
+            background: semantic.bgCard,
+            borderBottom: `1px solid ${semantic.borderSubtle}`,
+            padding: '18px 24px',
+            margin: 0,
+          },
+          body: {
+            padding: '20px 24px',
+            maxHeight: 'calc(80vh - 120px)',
+            overflowY: 'auto',
+          },
+          footer: {
+            borderTop: `1px solid ${semantic.borderSubtle}`,
+            padding: '14px 24px',
+            margin: 0,
+          },
+        }}
+      >
+        {selectedEvent && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(2, 1fr)',
+                gap: 12,
+                padding: 16,
+                borderRadius: 10,
+                background: isDarkMode ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+                border: `1px solid ${semantic.borderSubtle}`,
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 12, color: semantic.textSecondary, marginBottom: 4 }}>Timestamp</div>
+                <div style={{ fontSize: 13, fontWeight: 500, color: semantic.textPrimary }}>
+                  {new Date(selectedEvent.createdAt).toLocaleString()}
+                </div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: 12, color: semantic.textSecondary, marginBottom: 4 }}>Category</div>
+                <div>{getCategoryBadge(selectedEvent.category)}</div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: 12, color: semantic.textSecondary, marginBottom: 4 }}>Event / Action</div>
+                <div>{getEventTag(selectedEvent.eventType || selectedEvent.action)}</div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: 12, color: semantic.textSecondary, marginBottom: 4 }}>Outcome</div>
+                <div>{getOutcomeBadge(selectedEvent.outcome)}</div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: 12, color: semantic.textSecondary, marginBottom: 4 }}>Administrator / Actor</div>
+                <div style={{ fontSize: 13, color: semantic.textPrimary }}>
+                  {selectedEvent.admin ? `${selectedEvent.admin.name} (${selectedEvent.admin.email})` : (selectedEvent.actor || 'System')}
+                </div>
+              </div>
+
+              <div>
+                <div style={{ fontSize: 12, color: semantic.textSecondary, marginBottom: 4 }}>IP Address</div>
+                <div style={{ fontSize: 13, fontFamily: 'monospace', color: semantic.textPrimary }}>
+                  {selectedEvent.ipAddress || '—'}
+                </div>
+              </div>
+
+              {selectedEvent.resourceName && (
+                <div style={{ gridColumn: 'span 2' }}>
+                  <div style={{ fontSize: 12, color: semantic.textSecondary, marginBottom: 4 }}>Target Resource</div>
+                  <Space size={6}>
+                    <Text strong style={{ fontSize: 13, color: semantic.textPrimary }}>{selectedEvent.resourceName}</Text>
+                    {selectedEvent.resourceType && (
+                      <Tag style={{ fontSize: 11, borderRadius: 4, margin: 0 }}>{selectedEvent.resourceType}</Tag>
+                    )}
+                  </Space>
+                </div>
+              )}
+            </div>
+
+            {selectedEvent.details && (
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 600, color: semantic.textSecondary, marginBottom: 6 }}>
+                  Event Payload & Metadata
+                </div>
+                <pre
+                  style={{
+                    background: isDarkMode ? 'rgba(0,0,0,0.3)' : '#f8fafc',
+                    border: `1px solid ${semantic.borderSubtle}`,
+                    padding: 12,
+                    borderRadius: 8,
+                    fontSize: 12,
+                    fontFamily: 'Consolas, Monaco, monospace',
+                    color: semantic.textPrimary,
+                    maxHeight: 200,
+                    overflowY: 'auto',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-all',
+                    margin: 0,
+                  }}
+                >
+                  {JSON.stringify(selectedEvent.details, null, 2)}
+                </pre>
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

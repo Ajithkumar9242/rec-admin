@@ -41,6 +41,7 @@ import {
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useSelector } from 'react-redux';
+import { usePermissions } from '../../hooks/usePermissions.js';
 import { teamsApi } from '../../services/teamsApi.js';
 import { companiesApi } from '../../services/companiesApi.js';
 import { brandTokens, lightSemanticTokens, darkSemanticTokens } from '../../theme/tokens.js';
@@ -53,7 +54,7 @@ export function TeamsPage() {
   const { user } = useSelector((state) => state.auth);
   const isDarkMode = useSelector((state) => state.theme?.isDarkMode);
   const semantic = isDarkMode ? darkSemanticTokens : lightSemanticTokens;
-  const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+  const { can, isSuperAdmin, refreshPermissions } = usePermissions();
 
   const [activeTab, setActiveTab] = useState('teams');
 
@@ -313,6 +314,7 @@ export function TeamsPage() {
       setIsMemberRoleModalOpen(false);
       fetchMembers();
       fetchTeams();
+      refreshPermissions();
     } catch (err) {
       if (err.errorFields) return;
       message.error(err.response?.data?.error || t('teams.roleUpdateFailed', 'Failed to update member role'));
@@ -349,6 +351,7 @@ export function TeamsPage() {
 
   const handlePermissionToggle = (moduleKey, actionKey, checked) => {
     if (editingRole?.code === 'SUPER_ADMIN') return;
+    if (editingRole?.isSystem && !isSuperAdmin) return;
     setRolePermissions((prev) => ({
       ...prev,
       [moduleKey]: {
@@ -360,6 +363,7 @@ export function TeamsPage() {
 
   const handleToggleAllForModule = (moduleKey, checkAll) => {
     if (editingRole?.code === 'SUPER_ADMIN') return;
+    if (editingRole?.isSystem && !isSuperAdmin) return;
     setRolePermissions((prev) => {
       const updatedModule = {};
       (permissionSchema.actions || []).forEach((a) => {
@@ -374,6 +378,7 @@ export function TeamsPage() {
 
   const handleToggleAllAction = (actionKey, checkAll) => {
     if (editingRole?.code === 'SUPER_ADMIN') return;
+    if (editingRole?.isSystem && !isSuperAdmin) return;
     setRolePermissions((prev) => {
       const updated = { ...prev };
       (permissionSchema.modules || []).forEach((m) => {
@@ -425,6 +430,7 @@ export function TeamsPage() {
 
       setIsRoleModalOpen(false);
       fetchRoles();
+      refreshPermissions();
     } catch (err) {
       if (err.errorFields) return;
       message.error(err.response?.data?.error || t('roles.saveFailed', 'Failed to save role'));
@@ -518,25 +524,29 @@ export function TeamsPage() {
       key: 'actions',
       render: (_, record) => (
         <Space size={8}>
-          <Button
-            size="small"
-            icon={<EditOutlined style={{ color: isDarkMode ? brandTokens.teal : brandTokens.navySoft }} />}
-            onClick={() => handleOpenEditTeam(record)}
-            style={{ borderRadius: 6, fontSize: 12 }}
-          >
-            {t('common.edit', 'Edit')}
-          </Button>
-          <Popconfirm
-            title={t('teams.deleteConfirm', 'Are you sure you want to delete this team?')}
-            description={t('teams.deleteWarning', 'Members will remain in the company directory.')}
-            onConfirm={() => handleDeleteTeam(record.id)}
-            okText={t('common.yes', 'Yes')}
-            cancelText={t('common.no', 'No')}
-          >
-            <Button size="small" danger icon={<DeleteOutlined />} style={{ borderRadius: 6, fontSize: 12 }}>
-              {t('common.delete', 'Delete')}
+          {can('TEAMS', 'EDIT') && (
+            <Button
+              size="small"
+              icon={<EditOutlined style={{ color: isDarkMode ? brandTokens.teal : brandTokens.navySoft }} />}
+              onClick={() => handleOpenEditTeam(record)}
+              style={{ borderRadius: 6, fontSize: 12 }}
+            >
+              {t('common.edit', 'Edit')}
             </Button>
-          </Popconfirm>
+          )}
+          {can('TEAMS', 'DELETE') && (
+            <Popconfirm
+              title={t('teams.deleteConfirm', 'Are you sure you want to delete this team?')}
+              description={t('teams.deleteWarning', 'Members will remain in the company directory.')}
+              onConfirm={() => handleDeleteTeam(record.id)}
+              okText={t('common.yes', 'Yes')}
+              cancelText={t('common.no', 'No')}
+            >
+              <Button size="small" danger icon={<DeleteOutlined />} style={{ borderRadius: 6, fontSize: 12 }}>
+                {t('common.delete', 'Delete')}
+              </Button>
+            </Popconfirm>
+          )}
         </Space>
       ),
     },
@@ -629,7 +639,7 @@ export function TeamsPage() {
             <Tag color={colorMap[s] || 'default'} style={{ borderRadius: 4, fontWeight: 500, fontSize: 11.5 }}>
               {s}
             </Tag>
-            {s === 'INVITED' && record.pendingInvitation && (
+            {s === 'INVITED' && record.pendingInvitation && can('TEAMS', 'CREATE') && (
               <Button
                 type="link"
                 size="small"
@@ -647,45 +657,47 @@ export function TeamsPage() {
     {
       title: t('common.actions', 'Actions'),
       key: 'actions',
-      render: (_, record) => (
-        <Dropdown
-          menu={{
-            items: [
-              {
-                key: 'role',
-                label: t('teams.changeRole', 'Change Role'),
-                icon: <KeyOutlined />,
-                onClick: () => handleOpenChangeRole(record),
-              },
-              record.status !== 'ACTIVE' && {
-                key: 'activate',
-                label: t('teams.activate', 'Activate Member'),
-                icon: <CheckCircleOutlined />,
-                onClick: () => handleStatusChange(record.id, 'ACTIVE'),
-              },
-              record.status !== 'SUSPENDED' && {
-                key: 'suspend',
-                label: t('teams.suspend', 'Suspend Access'),
-                icon: <StopOutlined />,
-                danger: true,
-                onClick: () => handleStatusChange(record.id, 'SUSPENDED'),
-              },
-              record.status !== 'DEACTIVATED' && {
-                key: 'deactivate',
-                label: t('teams.deactivate', 'Deactivate'),
-                icon: <CloseCircleOutlined />,
-                danger: true,
-                onClick: () => handleStatusChange(record.id, 'DEACTIVATED'),
-              },
-            ].filter(Boolean),
-          }}
-          trigger={['click']}
-        >
-          <Button size="small" icon={<MoreOutlined />} style={{ borderRadius: 6, fontSize: 12 }}>
-            {t('common.manage', 'Manage')}
-          </Button>
-        </Dropdown>
-      ),
+      render: (_, record) => {
+        const canEditMember = can('TEAMS', 'EDIT');
+        const items = [
+          canEditMember && {
+            key: 'role',
+            label: t('teams.changeRole', 'Change Role'),
+            icon: <KeyOutlined />,
+            onClick: () => handleOpenChangeRole(record),
+          },
+          canEditMember && record.status !== 'ACTIVE' && {
+            key: 'activate',
+            label: t('teams.activate', 'Activate Member'),
+            icon: <CheckCircleOutlined />,
+            onClick: () => handleStatusChange(record.id, 'ACTIVE'),
+          },
+          canEditMember && record.status !== 'SUSPENDED' && {
+            key: 'suspend',
+            label: t('teams.suspend', 'Suspend Access'),
+            icon: <StopOutlined />,
+            danger: true,
+            onClick: () => handleStatusChange(record.id, 'SUSPENDED'),
+          },
+          canEditMember && record.status !== 'DEACTIVATED' && {
+            key: 'deactivate',
+            label: t('teams.deactivate', 'Deactivate'),
+            icon: <CloseCircleOutlined />,
+            danger: true,
+            onClick: () => handleStatusChange(record.id, 'DEACTIVATED'),
+          },
+        ].filter(Boolean);
+
+        if (items.length === 0) return null;
+
+        return (
+          <Dropdown menu={{ items }} trigger={['click']}>
+            <Button size="small" icon={<MoreOutlined />} style={{ borderRadius: 6, fontSize: 12 }}>
+              {t('common.manage', 'Manage')}
+            </Button>
+          </Dropdown>
+        );
+      },
     },
   ];
 
@@ -755,26 +767,30 @@ export function TeamsPage() {
         </div>
 
         <Space size={10}>
-          <Button
-            type="primary"
-            icon={<UserAddOutlined />}
-            onClick={handleOpenInviteModal}
-            style={{
-              backgroundColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
-              borderColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
-              fontWeight: 600,
-              borderRadius: 8,
-            }}
-          >
-            {t('teams.inviteMember', 'Invite Member')}
-          </Button>
-          <Button
-            icon={<PlusOutlined />}
-            onClick={handleOpenCreateTeam}
-            style={{ borderRadius: 8, fontWeight: 500 }}
-          >
-            {t('teams.createTeam', 'Create Team')}
-          </Button>
+          {can('TEAMS', 'CREATE') && (
+            <Button
+              type="primary"
+              icon={<UserAddOutlined />}
+              onClick={handleOpenInviteModal}
+              style={{
+                backgroundColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                borderColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                fontWeight: 600,
+                borderRadius: 8,
+              }}
+            >
+              {t('teams.inviteMember', 'Invite Member')}
+            </Button>
+          )}
+          {can('TEAMS', 'CREATE') && (
+            <Button
+              icon={<PlusOutlined />}
+              onClick={handleOpenCreateTeam}
+              style={{ borderRadius: 8, fontWeight: 500 }}
+            >
+              {t('teams.createTeam', 'Create Team')}
+            </Button>
+          )}
         </Space>
       </div>
 
@@ -943,19 +959,21 @@ export function TeamsPage() {
                       </Text>
                     </div>
                     <Space size={8}>
-                      <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        onClick={handleOpenCreateRole}
-                        style={{
-                          backgroundColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
-                          borderColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
-                          fontWeight: 600,
-                          borderRadius: 8,
-                        }}
-                      >
-                        {t('roles.createCustomRole', 'Create Custom Role')}
-                      </Button>
+                      {can('TEAMS', 'CREATE') && (
+                        <Button
+                          type="primary"
+                          icon={<PlusOutlined />}
+                          onClick={handleOpenCreateRole}
+                          style={{
+                            backgroundColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                            borderColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                            fontWeight: 600,
+                            borderRadius: 8,
+                          }}
+                        >
+                          {t('roles.createCustomRole', 'Create Custom Role')}
+                        </Button>
+                      )}
                       <Button icon={<ReloadOutlined />} onClick={fetchRoles} style={{ borderRadius: 6 }} />
                     </Space>
                   </div>
@@ -1022,7 +1040,7 @@ export function TeamsPage() {
                               {role.isSystem ? t('roles.viewPermissions', 'View Permissions') : t('roles.editPermissions', 'Configure Matrix')}
                             </Button>
 
-                            {!role.isSystem && (
+                            {!role.isSystem && can('TEAMS', 'DELETE') && (
                               <Popconfirm
                                 title={t('roles.deleteConfirm', 'Delete this custom role?')}
                                 description={t('roles.deleteWarning', 'Role must have 0 assigned members.')}
@@ -1244,6 +1262,13 @@ export function TeamsPage() {
         onCancel={() => setIsRoleModalOpen(false)}
         width={920}
         confirmLoading={savingRole}
+        okButtonProps={
+          (editingRole?.isSystem && !isSuperAdmin) ||
+          (editingRole && !can('TEAMS', 'EDIT')) ||
+          (!editingRole && !can('TEAMS', 'CREATE'))
+            ? { style: { display: 'none' } }
+            : undefined
+        }
         okText={t('common.save', 'Save Matrix')}
         cancelText={t('common.cancel', 'Cancel')}
         centered

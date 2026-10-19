@@ -6,6 +6,33 @@ import { brandTokens, lightSemanticTokens, darkSemanticTokens } from '../../../t
 
 const { Text } = Typography;
 
+/**
+ * Creates a smooth cubic Bezier curve path string from an array of 2D coordinates.
+ */
+function createSmoothPath(points) {
+  if (!points || points.length === 0) return '';
+  if (points.length === 1) return `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
+  if (points.length === 2) {
+    return `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)} L ${points[1].x.toFixed(1)} ${points[1].y.toFixed(1)}`;
+  }
+
+  let path = `M ${points[0].x.toFixed(1)} ${points[0].y.toFixed(1)}`;
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[i === 0 ? 0 : i - 1];
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const p3 = points[i + 2 < points.length ? i + 2 : i + 1];
+
+    const cp1x = p1.x + (p2.x - p0.x) / 6;
+    const cp1y = p1.y + (p2.y - p0.y) / 6;
+    const cp2x = p2.x - (p3.x - p1.x) / 6;
+    const cp2y = p2.y - (p3.y - p1.y) / 6;
+
+    path += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2.y.toFixed(1)}`;
+  }
+  return path;
+}
+
 export function AnalyticsChart({
   title,
   data = [],
@@ -15,9 +42,11 @@ export function AnalyticsChart({
   groupBy = 'day',
   color = brandTokens.teal,
   height = 220,
+  metricsSummary = [],
+  unitLabel = 'event',
 }) {
   const [hoveredPoint, setHoveredPoint] = useState(null);
-  const isDarkMode = useSelector((state) => state.theme.isDarkMode);
+  const isDarkMode = useSelector((state) => state?.theme?.isDarkMode ?? false);
   const semantic = isDarkMode ? darkSemanticTokens : lightSemanticTokens;
 
   // Unconnected State (Minimalist, restrained)
@@ -94,6 +123,19 @@ export function AnalyticsChart({
         }}
         styles={{ body: { padding: '40px 20px', textAlign: 'center' } }}
       >
+        {metricsSummary && metricsSummary.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 20, justifyContent: 'center' }}>
+            {metricsSummary.map((m, idx) => (
+              <Tag
+                key={idx}
+                color={m.color || 'default'}
+                style={{ borderRadius: 6, padding: '4px 10px', fontSize: 12 }}
+              >
+                <span style={{ opacity: 0.85 }}>{m.label}:</span> <strong>{m.value}</strong>
+              </Tag>
+            ))}
+          </div>
+        )}
         <Empty
           image={Empty.PRESENTED_IMAGE_SIMPLE}
           description={
@@ -125,28 +167,22 @@ export function AnalyticsChart({
     return { ...d, x, y };
   });
 
-  const pathD =
-    data.length === 1
-      ? ''
-      : points.reduce(
-          (acc, p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `${acc} L ${p.x} ${p.y}`),
-          ''
-        );
-
-  const areaD =
-    data.length === 1
-      ? ''
-      : `${pathD} L ${points[points.length - 1].x} ${paddingTop + chartHeight} L ${points[0].x} ${paddingTop + chartHeight} Z`;
+  const smoothPathD = createSmoothPath(points);
+  const smoothAreaD =
+    points.length > 1
+      ? `${smoothPathD} L ${points[points.length - 1].x.toFixed(1)} ${paddingTop + chartHeight} L ${points[0].x.toFixed(1)} ${paddingTop + chartHeight} Z`
+      : '';
 
   const gridLineColor = isDarkMode ? 'rgba(255, 255, 255, 0.08)' : '#e2e8f0';
   const axisTextColor = isDarkMode ? '#8fa9b5' : '#64748b';
+  const gradId = `gradient-${title.replace(/[^a-zA-Z0-9]/g, '')}`;
 
   return (
     <Card
       title={
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', flexWrap: 'wrap', gap: 8 }}>
           <Space size={8}>
-            <LineChartOutlined style={{ color: brandTokens.teal, fontSize: 16 }} />
+            <LineChartOutlined style={{ color, fontSize: 16 }} />
             <span style={{ fontSize: 14, fontWeight: 600, color: semantic.textPrimary }}>{title}</span>
           </Space>
           <Space size={6}>
@@ -170,7 +206,7 @@ export function AnalyticsChart({
                 fontWeight: 600,
               }}
             >
-              {totalCount} Total Events
+              {totalCount} Total {unitLabel}{totalCount === 1 ? '' : 's'}
             </Tag>
           </Space>
         </div>
@@ -182,7 +218,33 @@ export function AnalyticsChart({
       }}
       styles={{ body: { padding: '16px 20px 20px 20px' } }}
     >
-      <div style={{ width: '100%', overflowX: 'auto' }}>
+      {/* Optional Metrics Summary Badges Bar */}
+      {metricsSummary && metricsSummary.length > 0 && (
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 8,
+            marginBottom: 16,
+            padding: '10px 14px',
+            borderRadius: 8,
+            background: isDarkMode ? 'rgba(255, 255, 255, 0.02)' : 'rgba(0, 0, 0, 0.015)',
+            border: `1px solid ${semantic.borderSubtle}`,
+          }}
+        >
+          {metricsSummary.map((m, idx) => (
+            <Tag
+              key={idx}
+              color={m.color || 'default'}
+              style={{ borderRadius: 6, padding: '2px 8px', fontSize: 11, margin: 0 }}
+            >
+              <span style={{ opacity: 0.85 }}>{m.label}:</span> <strong>{m.value}</strong>
+            </Tag>
+          ))}
+        </div>
+      )}
+
+      <div style={{ width: '100%', overflowX: 'auto', position: 'relative' }}>
         <svg
           viewBox={`0 0 ${svgWidth} ${svgHeight}`}
           style={{ width: '100%', height: 'auto', display: 'block' }}
@@ -190,10 +252,22 @@ export function AnalyticsChart({
           aria-label={`${title} chart`}
         >
           <defs>
-            <linearGradient id={`gradient-${title}`} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={color} stopOpacity={isDarkMode ? 0.45 : 0.28} />
+            <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity={isDarkMode ? 0.42 : 0.25} />
               <stop offset="100%" stopColor={color} stopOpacity="0.01" />
             </linearGradient>
+            <style>{`
+              @media (prefers-reduced-motion: no-preference) {
+                .chart-smooth-path {
+                  transition: d 0.3s ease, stroke 0.2s ease;
+                }
+              }
+              @media (prefers-reduced-motion: reduce) {
+                .chart-smooth-path {
+                  transition: none !important;
+                }
+              }
+            `}</style>
           </defs>
 
           {/* Grid lines */}
@@ -225,12 +299,13 @@ export function AnalyticsChart({
           })}
 
           {/* Area fill */}
-          {areaD && <path d={areaD} fill={`url(#gradient-${title})`} />}
+          {smoothAreaD && <path d={smoothAreaD} fill={`url(#${gradId})`} />}
 
-          {/* Line stroke */}
-          {pathD && (
+          {/* Smooth Line stroke */}
+          {smoothPathD && (
             <path
-              d={pathD}
+              className="chart-smooth-path"
+              d={smoothPathD}
               fill="none"
               stroke={color}
               strokeWidth="2.5"
@@ -239,14 +314,32 @@ export function AnalyticsChart({
             />
           )}
 
+          {/* Hover guideline */}
+          {hoveredPoint !== null && points[hoveredPoint] && (
+            <line
+              x1={points[hoveredPoint].x}
+              y1={paddingTop}
+              x2={points[hoveredPoint].x}
+              y2={paddingTop + chartHeight}
+              stroke={isDarkMode ? 'rgba(255, 255, 255, 0.25)' : 'rgba(0, 0, 0, 0.15)'}
+              strokeDasharray="3 3"
+              strokeWidth="1.5"
+            />
+          )}
+
           {/* Data Points / Columns */}
           {points.map((p, i) => {
             const isHovered = hoveredPoint === i;
-            const dateLabel = new Date(p.bucket).toLocaleDateString(undefined, {
-              month: 'short',
-              day: groupBy === 'month' ? undefined : 'numeric',
-              year: groupBy === 'year' ? 'numeric' : undefined,
-            });
+            let dateLabel = '';
+            try {
+              dateLabel = new Date(p.bucket).toLocaleDateString(undefined, {
+                month: 'short',
+                day: groupBy === 'month' ? undefined : 'numeric',
+                year: groupBy === 'year' ? 'numeric' : undefined,
+              });
+            } catch {
+              dateLabel = String(p.bucket);
+            }
 
             return (
               <g
@@ -264,11 +357,22 @@ export function AnalyticsChart({
                   fill="transparent"
                 />
 
+                {/* Outer halo when hovered */}
+                {isHovered && (
+                  <circle
+                    cx={p.x}
+                    cy={p.y}
+                    r={8}
+                    fill={color}
+                    opacity="0.25"
+                  />
+                )}
+
                 {/* Point circle */}
                 <circle
                   cx={p.x}
                   cy={p.y}
-                  r={isHovered ? 6 : 4}
+                  r={isHovered ? 5.5 : 3.5}
                   fill={isHovered ? (isDarkMode ? '#ffffff' : brandTokens.navy) : color}
                   stroke={isDarkMode ? '#0d1820' : '#ffffff'}
                   strokeWidth="2"
@@ -291,33 +395,68 @@ export function AnalyticsChart({
             );
           })}
 
-          {/* Hover Tooltip Overlay */}
-          {hoveredPoint !== null && points[hoveredPoint] && (
-            <g>
-              <rect
-                x={points[hoveredPoint].x - 55}
-                y={points[hoveredPoint].y - 36}
-                width="110"
-                height="26"
-                rx="6"
-                fill={isDarkMode ? '#1e3341' : brandTokens.navy}
-                stroke={isDarkMode ? 'rgba(79, 168, 192, 0.4)' : 'transparent'}
-                strokeWidth="1"
-                opacity="0.95"
-              />
-              <text
-                x={points[hoveredPoint].x}
-                y={points[hoveredPoint].y - 19}
-                textAnchor="middle"
-                fill="#ffffff"
-                fontSize="11"
-                fontWeight="600"
-                fontFamily="sans-serif"
-              >
-                {points[hoveredPoint].count} event{points[hoveredPoint].count === 1 ? '' : 's'}
-              </text>
-            </g>
-          )}
+          {/* Modern Floating Hover Tooltip Overlay */}
+          {hoveredPoint !== null && points[hoveredPoint] && (() => {
+            const pt = points[hoveredPoint];
+            let formattedDate = '';
+            try {
+              formattedDate = new Date(pt.bucket).toLocaleDateString(undefined, {
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+              });
+            } catch {
+              formattedDate = String(pt.bucket);
+            }
+
+            const tooltipWidth = 140;
+            const tooltipHeight = 44;
+            let tooltipX = pt.x - tooltipWidth / 2;
+            if (tooltipX < paddingLeft) tooltipX = paddingLeft;
+            if (tooltipX + tooltipWidth > svgWidth - paddingRight) {
+              tooltipX = svgWidth - paddingRight - tooltipWidth;
+            }
+            let tooltipY = pt.y - tooltipHeight - 10;
+            if (tooltipY < 5) tooltipY = pt.y + 12;
+
+            return (
+              <g>
+                <rect
+                  x={tooltipX}
+                  y={tooltipY}
+                  width={tooltipWidth}
+                  height={tooltipHeight}
+                  rx="8"
+                  fill={isDarkMode ? '#1e3341' : brandTokens.navy}
+                  stroke={isDarkMode ? 'rgba(79, 168, 192, 0.4)' : 'rgba(0,0,0,0.1)'}
+                  strokeWidth="1"
+                  opacity="0.96"
+                  filter="drop-shadow(0 4px 6px rgba(0,0,0,0.15))"
+                />
+                <text
+                  x={tooltipX + tooltipWidth / 2}
+                  y={tooltipY + 18}
+                  textAnchor="middle"
+                  fill="#ffffff"
+                  fontSize="12"
+                  fontWeight="600"
+                  fontFamily="sans-serif"
+                >
+                  {pt.count} {unitLabel}{pt.count === 1 ? '' : 's'}
+                </text>
+                <text
+                  x={tooltipX + tooltipWidth / 2}
+                  y={tooltipY + 34}
+                  textAnchor="middle"
+                  fill={isDarkMode ? '#8fa9b5' : 'rgba(255,255,255,0.7)'}
+                  fontSize="10"
+                  fontFamily="sans-serif"
+                >
+                  {formattedDate}
+                </text>
+              </g>
+            );
+          })()}
         </svg>
       </div>
     </Card>

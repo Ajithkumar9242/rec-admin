@@ -33,6 +33,7 @@ import { useNavigate, useLocation, Outlet } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import { logoutUser } from '../store/authSlice.js';
+import { usePermissions } from '../hooks/usePermissions.js';
 import { LanguageSwitcher } from './LanguageSwitcher.jsx';
 import { ThemeSwitcher } from './ThemeSwitcher.jsx';
 import { BrandLogo } from './BrandLogo.jsx';
@@ -59,21 +60,26 @@ export function AdminShell() {
     navigate('/login');
   };
 
-  const menuItems = [
+  const { can, isSuperAdmin } = usePermissions();
+
+  const allMenuItems = [
     {
       key: '/admin',
       icon: <DashboardOutlined style={{ fontSize: 16 }} />,
       label: t('shell.dashboard'),
+      visible: can('DASHBOARD', 'READ'),
     },
     {
       key: '/admin/security',
       icon: <SafetyCertificateOutlined style={{ fontSize: 16 }} />,
       label: t('shell.securitySettings'),
+      visible: true,
     },
     {
       key: 'configuration-group',
       icon: <SettingOutlined style={{ fontSize: 16 }} />,
       label: t('shell.platformConfiguration'),
+      visible: isSuperAdmin || can('DASHBOARD', 'READ'),
       children: [
         {
           key: '/admin/configuration/industries',
@@ -107,57 +113,68 @@ export function AdminShell() {
     },
     {
       type: 'divider',
+      visible: true,
     },
     {
       key: 'companies-group',
       icon: <SolutionOutlined style={{ fontSize: 16 }} />,
       label: t('shell.companies', 'Companies'),
+      visible: can('COMPANIES', 'READ'),
       children: [
         {
           key: '/admin/companies',
           label: t('companies.companyList', 'Company Directory'),
+          visible: can('COMPANIES', 'READ'),
         },
         {
           key: '/admin/companies/new',
           label: t('companies.onboardingWizard', 'Onboard Company'),
+          visible: can('COMPANIES', 'CREATE'),
         },
-      ],
+      ].filter((c) => c.visible !== false),
     },
     {
       key: 'jobs-group',
       icon: <FileTextOutlined style={{ fontSize: 16 }} />,
       label: t('shell.jobs', 'Job Postings'),
+      visible: can('JOBS', 'READ'),
       children: [
         {
           key: '/admin/jobs',
           label: t('jobs.directory', 'Job Postings'),
+          visible: can('JOBS', 'READ'),
         },
         {
           key: '/admin/jobs/new',
           label: t('jobs.createJob', 'Create New Job Opening'),
+          visible: can('JOBS', 'CREATE'),
         },
-      ],
+      ].filter((c) => c.visible !== false),
     },
     {
       key: '/admin/candidates',
       icon: <UsergroupAddOutlined style={{ fontSize: 16 }} />,
       label: t('shell.candidates', 'Candidates'),
+      visible: can('CANDIDATES', 'READ'),
     },
     {
       key: '/admin/teams',
       icon: <TeamOutlined style={{ fontSize: 16 }} />,
       label: t('shell.teams', 'Teams & Permissions'),
+      visible: can('TEAMS', 'READ'),
     },
     {
       key: 'pipeline-future',
       icon: <ProjectOutlined style={{ fontSize: 16 }} />,
       label: t('shell.pipeline'),
       disabled: true,
+      visible: can('APPLICATIONS', 'READ'),
     },
     {
       key: 'billing-group',
       icon: <CreditCardOutlined style={{ fontSize: 16 }} />,
       label: t('shell.billing'),
+      visible: can('BILLING', 'READ'),
       children: [
         {
           key: '/admin/billing/plans',
@@ -178,6 +195,8 @@ export function AdminShell() {
       ],
     },
   ];
+
+  const menuItems = allMenuItems.filter((item) => item.visible !== false);
 
   const handleMenuClick = ({ key }) => {
     if (key.startsWith('/admin')) {

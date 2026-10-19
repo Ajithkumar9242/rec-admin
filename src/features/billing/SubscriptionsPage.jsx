@@ -31,6 +31,7 @@ import {
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useSelector } from 'react-redux';
+import { usePermissions } from '../../hooks/usePermissions.js';
 import { DataTable } from '../../components/common/DataTable.jsx';
 import { billingApi, formatBillingError } from '../../services/billingApi.js';
 import { brandTokens, lightSemanticTokens, darkSemanticTokens } from '../../theme/tokens.js';
@@ -42,6 +43,7 @@ export function SubscriptionsPage() {
   const { t } = useTranslation();
   const isDarkMode = useSelector((state) => state.theme?.isDarkMode);
   const semantic = isDarkMode ? darkSemanticTokens : lightSemanticTokens;
+  const { can, isSuperAdmin } = usePermissions();
 
   const [subscriptions, setSubscriptions] = useState([]);
   const [companies, setCompanies] = useState([]);
@@ -349,14 +351,27 @@ export function SubscriptionsPage() {
     {
       title: t('billing.subscriptions.candidateAccess', 'Candidate Access'),
       key: 'candidateUsage',
-      render: (_, record) => (
-        <div>
-          <span style={{ fontWeight: 500, color: semantic.textPrimary }}>{record.candidateAccessUsage ?? 0} / {record.candidateAccessLimit}</span>
-          <div style={{ fontSize: 11, color: semantic.textSecondary }}>
-            {Math.max(0, record.candidateAccessLimit - (record.candidateAccessUsage ?? 0))} remaining
+      render: (_, record) => {
+        const usage = record.candidateAccessUsage ?? 0;
+        const limit = record.candidateAccessLimit;
+        const isOverQuota = usage > limit;
+        return (
+          <div>
+            <span style={{ fontWeight: 500, color: isOverQuota ? '#ef4444' : semantic.textPrimary }}>
+              {usage} / {limit}
+            </span>
+            {isOverQuota ? (
+              <div style={{ fontSize: 11, color: '#ef4444', fontWeight: 600 }}>
+                ({usage - limit} over quota)
+              </div>
+            ) : (
+              <div style={{ fontSize: 11, color: semantic.textSecondary }}>
+                {Math.max(0, limit - usage)} remaining
+              </div>
+            )}
           </div>
-        </div>
-      ),
+        );
+      },
     },
     {
       title: t('billing.subscriptions.jobPostings', 'Job Postings'),
@@ -365,12 +380,21 @@ export function SubscriptionsPage() {
         if (record.jobPostingUsage !== undefined) {
           const usage = record.jobPostingUsage;
           const limit = record.jobPostingLimit;
+          const isOverQuota = usage > limit;
           return (
             <div>
-              <span style={{ fontWeight: 500, color: semantic.textPrimary }}>{usage} / {limit} {t('billing.subscriptions.jobsUsed', 'jobs used')}</span>
-              <div style={{ fontSize: 11, color: semantic.textSecondary }}>
-                {Math.max(0, limit - usage)} {t('billing.subscriptions.remaining', 'remaining')}
-              </div>
+              <span style={{ fontWeight: 500, color: isOverQuota ? '#ef4444' : semantic.textPrimary }}>
+                {usage} / {limit} {t('billing.subscriptions.jobsUsed', 'jobs used')}
+              </span>
+              {isOverQuota ? (
+                <div style={{ fontSize: 11, color: '#ef4444', fontWeight: 600 }}>
+                  ({usage - limit} over quota)
+                </div>
+              ) : (
+                <div style={{ fontSize: 11, color: semantic.textSecondary }}>
+                  {Math.max(0, limit - usage)} {t('billing.subscriptions.remaining', 'remaining')}
+                </div>
+              )}
             </div>
           );
         }
@@ -389,12 +413,21 @@ export function SubscriptionsPage() {
         if (record.teamMemberUsage !== undefined) {
           const usage = record.teamMemberUsage;
           const limit = record.teamMemberLimit;
+          const isOverQuota = usage > limit;
           return (
             <div>
-              <span style={{ fontWeight: 500, color: semantic.textPrimary }}>{usage} / {limit} {t('billing.subscriptions.seatsUsed', 'seats used')}</span>
-              <div style={{ fontSize: 11, color: semantic.textSecondary }}>
-                {Math.max(0, limit - usage)} {t('billing.subscriptions.remaining', 'remaining')}
-              </div>
+              <span style={{ fontWeight: 500, color: isOverQuota ? '#ef4444' : semantic.textPrimary }}>
+                {usage} / {limit} {t('billing.subscriptions.seatsUsed', 'seats used')}
+              </span>
+              {isOverQuota ? (
+                <div style={{ fontSize: 11, color: '#ef4444', fontWeight: 600 }}>
+                  ({usage - limit} over quota)
+                </div>
+              ) : (
+                <div style={{ fontSize: 11, color: semantic.textSecondary }}>
+                  {Math.max(0, limit - usage)} {t('billing.subscriptions.remaining', 'remaining')}
+                </div>
+              )}
             </div>
           );
         }
@@ -456,7 +489,7 @@ export function SubscriptionsPage() {
             title={t('billing.subscriptions.viewDetails')}
             style={{ borderRadius: 6 }}
           />
-          {record.status === 'ACTIVE' && (
+          {record.status === 'ACTIVE' && can('BILLING', 'EDIT') && (
             <>
               <Button
                 type="text"
@@ -540,11 +573,15 @@ export function SubscriptionsPage() {
         loading={loading}
         error={error}
         onRefresh={fetchSubscriptions}
-        onCreate={() => {
-          fetchDropdownData();
-          setIsCreateModalOpen(true);
-        }}
-        createButtonText={t('billing.subscriptions.createSubscription')}
+        onCreate={
+          can('BILLING', 'CREATE')
+            ? () => {
+                fetchDropdownData();
+                setIsCreateModalOpen(true);
+              }
+            : undefined
+        }
+        createButtonText={can('BILLING', 'CREATE') ? t('billing.subscriptions.createSubscription') : undefined}
         exportFilename="billing_subscriptions"
       />
 

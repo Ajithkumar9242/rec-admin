@@ -28,6 +28,7 @@ import {
 } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useSelector } from 'react-redux';
+import { usePermissions } from '../../hooks/usePermissions.js';
 import { DataTable } from '../../components/common/DataTable.jsx';
 import { DeleteConfirmationModal } from '../../components/common/DeleteConfirmationModal.jsx';
 import { billingApi, formatBillingError } from '../../services/billingApi.js';
@@ -40,6 +41,7 @@ export function PlansPage() {
   const { t } = useTranslation();
   const isDarkMode = useSelector((state) => state.theme?.isDarkMode);
   const semantic = isDarkMode ? darkSemanticTokens : lightSemanticTokens;
+  const { can, isSuperAdmin } = usePermissions();
 
   const [activeTab, setActiveTab] = useState('active');
   const [plans, setPlans] = useState([]);
@@ -241,9 +243,9 @@ export function PlansPage() {
       key: 'offerPrice',
       render: (offerPrice, record) =>
         offerPrice ? (
-          <Tag color="orange" style={{ fontWeight: 600, borderRadius: 4 }}>
-            {t('billing.plans.offerPrice')}: {Number(offerPrice).toFixed(2)} {record.currency}
-          </Tag>
+          <span style={{ fontWeight: 600, fontSize: 13.5, color: '#f59e0b' }}>
+            {Number(offerPrice).toFixed(2)} {record.currency}
+          </span>
         ) : (
           <span style={{ color: semantic.textDisabled }}>—</span>
         ),
@@ -269,25 +271,25 @@ export function PlansPage() {
       ),
     },
     {
-      title: t('billing.plans.candidateAccess'),
+      title: t('billing.plans.candidateAccess', 'Candidate Access Quota'),
       dataIndex: 'candidateAccessLimit',
       key: 'candidateAccessLimit',
-      render: (limit) => <span style={{ fontSize: 13, color: semantic.textPrimary }}>{limit}</span>,
+      render: (limit) => <span style={{ fontSize: 13, fontWeight: 500, color: semantic.textPrimary }}>{limit}</span>,
     },
     {
-      title: t('billing.plans.jobPostings'),
+      title: t('billing.plans.jobPostings', 'Job Postings Quota'),
       dataIndex: 'jobPostingLimit',
       key: 'jobPostingLimit',
-      render: (limit) => <span style={{ fontSize: 13, color: semantic.textPrimary }}>{limit}</span>,
+      render: (limit) => <span style={{ fontSize: 13, fontWeight: 500, color: semantic.textPrimary }}>{limit}</span>,
     },
     {
-      title: t('billing.plans.teamMembers'),
+      title: t('billing.plans.teamMembers', 'Team Members Quota'),
       dataIndex: 'teamMemberLimit',
       key: 'teamMemberLimit',
-      render: (limit) => <span style={{ fontSize: 13, color: semantic.textPrimary }}>{limit}</span>,
+      render: (limit) => <span style={{ fontSize: 13, fontWeight: 500, color: semantic.textPrimary }}>{limit}</span>,
     },
     {
-      title: t('billing.plans.activeSubscriptions'),
+      title: t('billing.plans.activeSubscriptions', 'Active Subscriptions'),
       key: 'activeSubs',
       render: (_, record) => (
         <Badge
@@ -333,37 +335,43 @@ export function PlansPage() {
           />
           {record.status !== 'ARCHIVED' && (
             <>
-              <Button
-                type="text"
-                size="small"
-                icon={<EditOutlined style={{ color: brandTokens.teal }} />}
-                onClick={() => openEditModal(record)}
-                title={t('billing.plans.editPlan')}
-                style={{ borderRadius: 6 }}
-              />
-              <Button
-                type="text"
-                size="small"
-                icon={
-                  record.status === 'ACTIVE' ? (
-                    <StopOutlined style={{ color: brandTokens.amber }} />
-                  ) : (
-                    <CheckCircleOutlined style={{ color: brandTokens.success }} />
-                  )
-                }
-                onClick={() => handleToggleStatus(record)}
-                title={record.status === 'ACTIVE' ? t('billing.plans.deactivate') : t('billing.plans.activate')}
-                style={{ borderRadius: 6 }}
-              />
-              <Button
-                type="text"
-                size="small"
-                danger
-                icon={<DeleteOutlined />}
-                onClick={() => handleOpenDelete(record, false)}
-                title={t('billing.plans.archivePlan')}
-                style={{ borderRadius: 6 }}
-              />
+              {can('BILLING', 'EDIT') && (
+                <Button
+                  type="text"
+                  size="small"
+                  icon={<EditOutlined style={{ color: brandTokens.teal }} />}
+                  onClick={() => openEditModal(record)}
+                  title={t('billing.plans.editPlan')}
+                  style={{ borderRadius: 6 }}
+                />
+              )}
+              {can('BILLING', 'EDIT') && (
+                <Button
+                  type="text"
+                  size="small"
+                  icon={
+                    record.status === 'ACTIVE' ? (
+                      <StopOutlined style={{ color: brandTokens.amber }} />
+                    ) : (
+                      <CheckCircleOutlined style={{ color: brandTokens.success }} />
+                    )
+                  }
+                  onClick={() => handleToggleStatus(record)}
+                  title={record.status === 'ACTIVE' ? t('billing.plans.deactivate') : t('billing.plans.activate')}
+                  style={{ borderRadius: 6 }}
+                />
+              )}
+              {can('BILLING', 'EDIT') && (
+                <Button
+                  type="text"
+                  size="small"
+                  danger
+                  icon={<DeleteOutlined />}
+                  onClick={() => handleOpenDelete(record, false)}
+                  title={t('billing.plans.archivePlan')}
+                  style={{ borderRadius: 6 }}
+                />
+              )}
             </>
           )}
         </Space>
@@ -448,40 +456,44 @@ export function PlansPage() {
         const hasSubscriptions = (record._count?.subscriptions || 0) > 0;
         return (
           <Space size={6}>
-            <Popconfirm
-              title={t('billing.plans.restoreConfirm', 'Restore this plan as Inactive?')}
-              onConfirm={() => handleRestore(record)}
-              okText={t('common.submit')}
-              cancelText={t('common.cancel')}
-            >
-              <Button
-                type="text"
-                size="small"
-                icon={<UndoOutlined style={{ color: brandTokens.teal }} />}
-                title={t('billing.plans.restore', 'Restore Plan')}
-                style={{ borderRadius: 6 }}
-              />
-            </Popconfirm>
-            {hasSubscriptions ? (
-              <Tooltip title={t('billing.plans.cannotPermanentDeleteWithSubs', 'Cannot permanently delete plan because historical or active subscriptions exist.')}>
+            {can('BILLING', 'EDIT') && (
+              <Popconfirm
+                title={t('billing.plans.restoreConfirm', 'Restore this plan as Inactive?')}
+                onConfirm={() => handleRestore(record)}
+                okText={t('common.submit')}
+                cancelText={t('common.cancel')}
+              >
                 <Button
                   type="text"
                   size="small"
-                  disabled
-                  icon={<DeleteOutlined style={{ color: semantic.textDisabled }} />}
+                  icon={<UndoOutlined style={{ color: brandTokens.teal }} />}
+                  title={t('billing.plans.restore', 'Restore Plan')}
                   style={{ borderRadius: 6 }}
                 />
-              </Tooltip>
-            ) : (
-              <Button
-                type="text"
-                size="small"
-                danger
-                icon={<DeleteOutlined />}
-                onClick={() => handleOpenDelete(record, true)}
-                title={t('trash.permanentDelete', 'Permanent Delete')}
-                style={{ borderRadius: 6 }}
-              />
+              </Popconfirm>
+            )}
+            {isSuperAdmin && can('BILLING', 'DELETE') && (
+              hasSubscriptions ? (
+                <Tooltip title={t('billing.plans.cannotPermanentDeleteWithSubs', 'Cannot permanently delete plan because historical or active subscriptions exist.')}>
+                  <Button
+                    type="text"
+                    size="small"
+                    disabled
+                    icon={<DeleteOutlined style={{ color: semantic.textDisabled }} />}
+                    style={{ borderRadius: 6 }}
+                  />
+                </Tooltip>
+              ) : (
+                <Button
+                  type="text"
+                  size="small"
+                  danger
+                  icon={<DeleteOutlined />}
+                  onClick={() => handleOpenDelete(record, true)}
+                  title={t('trash.permanentDelete', 'Permanent Delete')}
+                  style={{ borderRadius: 6 }}
+                />
+              )
             )}
           </Space>
         );
@@ -520,8 +532,8 @@ export function PlansPage() {
         loading={loading}
         error={error}
         onRefresh={fetchPlans}
-        onCreate={activeTab === 'active' ? () => setIsCreateModalOpen(true) : undefined}
-        createButtonText={t('billing.plans.createPlan')}
+        onCreate={activeTab === 'active' && can('BILLING', 'CREATE') ? () => setIsCreateModalOpen(true) : undefined}
+        createButtonText={can('BILLING', 'CREATE') ? t('billing.plans.createPlan') : undefined}
         exportFilename={`billing_plans_${activeTab}`}
       />
 
