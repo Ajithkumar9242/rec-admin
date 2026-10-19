@@ -301,7 +301,12 @@ export function TeamsPage() {
       if (targetMember?.teams?.[0]?.teamId) {
         const teamId = targetMember.teams[0].teamId;
         const teamObj = teams.find((t) => t.id === teamId);
-        const tm = teamObj?.members?.find((m) => m.companyUser?.id === targetMember.id || m.admin?.id === targetMember.id);
+        let tm = teamObj?.members?.find((m) => m.companyUser?.id === targetMember.id || m.admin?.id === targetMember.id);
+        if (!tm) {
+          const res = await teamsApi.getTeam(teamId);
+          const fullMembers = res.data?.members || [];
+          tm = fullMembers.find((m) => m.companyUser?.id === targetMember.id || m.admin?.id === targetMember.id);
+        }
         if (tm) {
           await teamsApi.updateMemberRole(teamId, tm.id, {
             roleId: selectedRoleObj?.id || null,
@@ -558,7 +563,37 @@ export function TeamsPage() {
       key: 'member',
       render: (_, record) => (
         <Space direction="vertical" size={2}>
-          <Text strong style={{ fontSize: 13.5, color: semantic.textPrimary }}>{record.name}</Text>
+          <Space size={6} wrap align="center">
+            <Text strong style={{ fontSize: 13.5, color: semantic.textPrimary }}>{record.name}</Text>
+            {record.memberType === 'PLATFORM_ADMIN' ? (
+              <Tag
+                color="cyan"
+                style={{
+                  borderRadius: 4,
+                  fontSize: 10.5,
+                  margin: 0,
+                  padding: '0 6px',
+                  fontWeight: 600,
+                  lineHeight: '18px',
+                }}
+              >
+                {t('teams.platformAdmin', 'Platform Admin')}
+              </Tag>
+            ) : (
+              <Tag
+                color="blue"
+                style={{
+                  borderRadius: 4,
+                  fontSize: 10.5,
+                  margin: 0,
+                  padding: '0 6px',
+                  lineHeight: '18px',
+                }}
+              >
+                {t('teams.employerMember', 'Employer Member')}
+              </Tag>
+            )}
+          </Space>
           <Text style={{ fontSize: 12, color: semantic.textSecondary }}>{record.email}</Text>
         </Space>
       ),
@@ -568,7 +603,7 @@ export function TeamsPage() {
       key: 'role',
       render: (_, record) => {
         const roleName = record.effectiveRoleName || record.role;
-        const isSys = ['SUPER_ADMIN', 'COMPANY_ADMIN', 'RECRUITER', 'HIRING_MANAGER'].includes(roleName);
+        const isSys = ['SUPER_ADMIN', 'COMPANY_ADMIN', 'RECRUITER', 'HIRING_MANAGER', 'READ_ONLY', 'ADMIN'].includes(roleName);
         return (
           <Space size={8}>
             <Tag
@@ -583,14 +618,16 @@ export function TeamsPage() {
               {isSys ? <CrownOutlined style={{ marginRight: 4 }} /> : null}
               {roleName}
             </Tag>
-            <Button
-              type="link"
-              size="small"
-              onClick={() => handleOpenChangeRole(record)}
-              style={{ padding: 0, fontSize: 12 }}
-            >
-              {t('teams.change', 'Change')}
-            </Button>
+            {can('TEAMS', 'EDIT') && (
+              <Button
+                type="link"
+                size="small"
+                onClick={() => handleOpenChangeRole(record)}
+                style={{ padding: 0, fontSize: 12 }}
+              >
+                {t('teams.change', 'Change')}
+              </Button>
+            )}
           </Space>
         );
       },
@@ -659,6 +696,8 @@ export function TeamsPage() {
       key: 'actions',
       render: (_, record) => {
         const canEditMember = can('TEAMS', 'EDIT');
+        const canChangeStatus = canEditMember && (record.memberType !== 'PLATFORM_ADMIN' || isSuperAdmin);
+
         const items = [
           canEditMember && {
             key: 'role',
@@ -666,20 +705,20 @@ export function TeamsPage() {
             icon: <KeyOutlined />,
             onClick: () => handleOpenChangeRole(record),
           },
-          canEditMember && record.status !== 'ACTIVE' && {
+          canChangeStatus && record.status !== 'ACTIVE' && {
             key: 'activate',
             label: t('teams.activate', 'Activate Member'),
             icon: <CheckCircleOutlined />,
             onClick: () => handleStatusChange(record.id, 'ACTIVE'),
           },
-          canEditMember && record.status !== 'SUSPENDED' && {
+          canChangeStatus && record.status !== 'SUSPENDED' && {
             key: 'suspend',
             label: t('teams.suspend', 'Suspend Access'),
             icon: <StopOutlined />,
             danger: true,
             onClick: () => handleStatusChange(record.id, 'SUSPENDED'),
           },
-          canEditMember && record.status !== 'DEACTIVATED' && {
+          canChangeStatus && record.status !== 'DEACTIVATED' && {
             key: 'deactivate',
             label: t('teams.deactivate', 'Deactivate'),
             icon: <CloseCircleOutlined />,

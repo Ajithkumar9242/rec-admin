@@ -62,6 +62,44 @@ export function AdminShell() {
 
   const { can, isSuperAdmin } = usePermissions();
 
+  const configChildren = [
+    {
+      key: '/admin/configuration/industries',
+      label: t('shell.industries'),
+      visible: isSuperAdmin || can('COMPANIES', 'READ'),
+    },
+    {
+      key: '/admin/configuration/company-documents',
+      label: t('shell.companyDocuments'),
+      visible: isSuperAdmin || can('COMPANIES', 'READ'),
+    },
+    {
+      key: '/admin/configuration/candidate-documents',
+      label: t('shell.candidateDocuments'),
+      visible: isSuperAdmin || can('CANDIDATES', 'READ'),
+    },
+    {
+      key: '/admin/configuration/recruitment-stages',
+      label: t('shell.recruitmentStages'),
+      visible: isSuperAdmin || can('APPLICATIONS', 'READ'),
+    },
+    {
+      key: '/admin/configuration/candidate-settings',
+      label: t('shell.candidateSettings'),
+      visible: isSuperAdmin,
+    },
+    {
+      key: '/admin/configuration/employer-visibility',
+      label: t('shell.employerVisibility'),
+      visible: isSuperAdmin,
+    },
+    {
+      key: '/admin/configuration/job-settings',
+      label: t('shell.jobSettings'),
+      visible: isSuperAdmin,
+    },
+  ].filter((c) => c.visible !== false);
+
   const allMenuItems = [
     {
       key: '/admin',
@@ -79,37 +117,8 @@ export function AdminShell() {
       key: 'configuration-group',
       icon: <SettingOutlined style={{ fontSize: 16 }} />,
       label: t('shell.platformConfiguration'),
-      visible: isSuperAdmin || can('DASHBOARD', 'READ'),
-      children: [
-        {
-          key: '/admin/configuration/industries',
-          label: t('shell.industries'),
-        },
-        {
-          key: '/admin/configuration/company-documents',
-          label: t('shell.companyDocuments'),
-        },
-        {
-          key: '/admin/configuration/candidate-documents',
-          label: t('shell.candidateDocuments'),
-        },
-        {
-          key: '/admin/configuration/recruitment-stages',
-          label: t('shell.recruitmentStages'),
-        },
-        {
-          key: '/admin/configuration/candidate-settings',
-          label: t('shell.candidateSettings'),
-        },
-        {
-          key: '/admin/configuration/employer-visibility',
-          label: t('shell.employerVisibility'),
-        },
-        {
-          key: '/admin/configuration/job-settings',
-          label: t('shell.jobSettings'),
-        },
-      ],
+      visible: configChildren.length > 0,
+      children: configChildren,
     },
     {
       type: 'divider',
