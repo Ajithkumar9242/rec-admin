@@ -16,6 +16,7 @@ import {
   Card,
   Alert,
   Divider,
+  DatePicker,
 } from 'antd';
 import {
   PlusOutlined,
@@ -29,6 +30,7 @@ import {
   SyncOutlined,
   ExclamationCircleOutlined,
 } from '@ant-design/icons';
+import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
 import { useSelector } from 'react-redux';
 import { usePermissions } from '../../hooks/usePermissions.js';
@@ -115,7 +117,13 @@ export function SubscriptionsPage() {
   const handleCreate = async (values) => {
     try {
       setSubmitting(true);
-      await billingApi.createSubscription(values);
+      const payload = { ...values };
+      if (payload.startDate) {
+        payload.startDate = typeof payload.startDate === 'string'
+          ? payload.startDate
+          : (payload.startDate.format ? payload.startDate.format('YYYY-MM-DD') : String(payload.startDate));
+      }
+      await billingApi.createSubscription(payload);
       message.success(t('billing.subscriptions.createSuccess'));
       setIsCreateModalOpen(false);
       createForm.resetFields();
@@ -587,7 +595,21 @@ export function SubscriptionsPage() {
 
       {/* CREATE SUBSCRIPTION MODAL */}
       <Modal
-        title={t('billing.subscriptions.createSubscription')}
+        title={
+          <div className="rt-modal-title-wrapper">
+            <div className="rt-modal-icon-badge">
+              <PlusOutlined />
+            </div>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: semantic.textPrimary }}>
+                {t('billing.subscriptions.createSubscription')}
+              </div>
+              <div className="rt-modal-subtitle">
+                {t('billing.subscriptions.createSubtitle', 'Link an active billing plan package to an employer organization.')}
+              </div>
+            </div>
+          </div>
+        }
         open={isCreateModalOpen}
         onCancel={() => {
           setIsCreateModalOpen(false);
@@ -596,100 +618,220 @@ export function SubscriptionsPage() {
         footer={null}
         destroyOnHidden
         centered
-        width={600}
+        width={620}
+        styles={{
+          body: { padding: '8px 2px 0 2px' },
+        }}
       >
         <Form
           form={createForm}
           layout="vertical"
           onFinish={handleCreate}
-          style={{ marginTop: 12 }}
           initialValues={{
-            startDate: new Date().toISOString().split('T')[0],
+            startDate: dayjs(),
           }}
         >
-          <Form.Item
-            name="companyId"
-            label={t('billing.subscriptions.selectCompany')}
-            rules={[{ required: true, message: 'Please select an employer' }]}
-          >
-            <Select
-              showSearch
-              placeholder={t('billing.subscriptions.selectCompanyPlaceholder')}
-              optionFilterProp="children"
-              filterOption={(input, option) =>
-                (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
-              }
-              options={companies.map((c) => ({
-                value: c.id,
-                label: `${c.name} ${c.taxId ? `(${c.taxId})` : ''}`,
-              }))}
-            />
-          </Form.Item>
+          <div className="rt-modal-form-scroll">
+            <div className="rt-form-section-header">
+              {t('billing.subscriptions.sectionEmployer', 'Employer Selection')}
+            </div>
 
-          <Form.Item
-            name="planId"
-            label={t('billing.subscriptions.selectPlan')}
-            rules={[{ required: true, message: 'Please select an active plan' }]}
-          >
-            <Select
-              showSearch
-              placeholder={t('billing.subscriptions.selectPlanPlaceholder')}
-              onChange={(val) => {
-                const p = plans.find((item) => item.id === val);
-                setSelectedPlanForCreate(p);
+            <Form.Item
+              name="companyId"
+              label={t('billing.subscriptions.selectCompany')}
+              rules={[{ required: true, message: 'Please select an employer' }]}
+            >
+              <Select
+                showSearch
+                placeholder={t('billing.subscriptions.selectCompanyPlaceholder')}
+                optionFilterProp="children"
+                filterOption={(input, option) =>
+                  (option?.label ?? '').toLowerCase().includes(input.toLowerCase())
+                }
+                options={companies.map((c) => ({
+                  value: c.id,
+                  label: `${c.name} ${c.taxId ? `(${c.taxId})` : ''}`,
+                }))}
+                style={{ borderRadius: 8 }}
+              />
+            </Form.Item>
+
+            <div className="rt-form-section-header">
+              {t('billing.subscriptions.sectionPlan', 'Plan Package')}
+            </div>
+
+            <Form.Item
+              name="planId"
+              label={t('billing.subscriptions.selectPlan')}
+              rules={[{ required: true, message: 'Please select an active plan' }]}
+            >
+              <Select
+                showSearch
+                placeholder={t('billing.subscriptions.selectPlanPlaceholder')}
+                onChange={(val) => {
+                  const p = plans.find((item) => item.id === val);
+                  setSelectedPlanForCreate(p);
+                }}
+                options={plans.map((p) => ({
+                  value: p.id,
+                  label: `${p.name} - ${Number(p.price).toFixed(2)} ${p.currency} (${t(`billing.intervals.${p.billingInterval}`)})`,
+                }))}
+                style={{ borderRadius: 8 }}
+              />
+            </Form.Item>
+
+            {/* Real-time Plan Preview Card */}
+            {selectedPlanForCreate && (
+              <Card
+                size="small"
+                style={{
+                  marginBottom: 16,
+                  backgroundColor: isDarkMode ? 'rgba(79, 168, 192, 0.08)' : brandTokens.tealBg,
+                  borderColor: isDarkMode ? 'rgba(79, 168, 192, 0.25)' : brandTokens.border,
+                  borderRadius: 8,
+                }}
+              >
+                <Title level={5} style={{ margin: '0 0 8px 0', fontSize: 13.5, color: semantic.textPrimary }}>
+                  {selectedPlanForCreate.name} — {t('billing.subscriptions.planSummary')}
+                </Title>
+                <Descriptions column={2} size="small">
+                  <Descriptions.Item label={t('billing.plans.price')}>
+                    <strong>{Number(selectedPlanForCreate.offerPrice ?? selectedPlanForCreate.price).toFixed(2)} {selectedPlanForCreate.currency}</strong>
+                  </Descriptions.Item>
+                  <Descriptions.Item label={t('billing.plans.billingInterval')}>
+                    <Tag color="cyan" style={{ borderRadius: 4 }}>{t(`billing.intervals.${selectedPlanForCreate.billingInterval}`)}</Tag>
+                  </Descriptions.Item>
+                  <Descriptions.Item label={t('billing.plans.candidateAccess')}>
+                    {selectedPlanForCreate.candidateAccessLimit} / {t(`billing.intervals.${selectedPlanForCreate.billingInterval}`)}
+                  </Descriptions.Item>
+                  <Descriptions.Item label={t('billing.plans.jobPostings')}>
+                    {selectedPlanForCreate.jobPostingLimit} postings
+                  </Descriptions.Item>
+                  <Descriptions.Item label={t('billing.plans.teamMembers')}>
+                    {selectedPlanForCreate.teamMemberLimit} members
+                  </Descriptions.Item>
+                </Descriptions>
+              </Card>
+            )}
+
+            <div className="rt-form-section-header">
+              {t('billing.subscriptions.sectionSchedule', 'Billing Schedule')}
+            </div>
+
+            <Form.Item
+              name="startDate"
+              label={t('billing.subscriptions.startDate')}
+              rules={[{ required: true }]}
+            >
+              <DatePicker style={{ width: '100%', borderRadius: 8 }} format="YYYY-MM-DD" placeholder="YYYY-MM-DD" />
+            </Form.Item>
+          </div>
+
+          <div className="rt-modal-footer-sticky">
+            <Button
+              onClick={() => {
+                setIsCreateModalOpen(false);
+                setSelectedPlanForCreate(null);
               }}
-              options={plans.map((p) => ({
-                value: p.id,
-                label: `${p.name} - ${Number(p.price).toFixed(2)} ${p.currency} (${t(`billing.intervals.${p.billingInterval}`)})`,
-              }))}
-            />
-          </Form.Item>
-
-          {/* Real-time Plan Preview Card */}
-          {selectedPlanForCreate && (
-            <Card
-              size="small"
+              style={{ borderRadius: 8 }}
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button
+              type="primary"
+              htmlType="submit"
+              loading={submitting}
               style={{
-                marginBottom: 16,
-                backgroundColor: isDarkMode ? 'rgba(79, 168, 192, 0.08)' : brandTokens.tealBg,
-                borderColor: isDarkMode ? 'rgba(79, 168, 192, 0.25)' : brandTokens.border,
+                backgroundColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                borderColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                fontWeight: 600,
                 borderRadius: 8,
               }}
             >
-              <Title level={5} style={{ margin: '0 0 8px 0', fontSize: 14, color: semantic.textPrimary }}>
-                {selectedPlanForCreate.name} — {t('billing.subscriptions.planSummary')}
-              </Title>
-              <Descriptions column={2} size="small">
-                <Descriptions.Item label={t('billing.plans.price')}>
-                  <strong>{Number(selectedPlanForCreate.offerPrice ?? selectedPlanForCreate.price).toFixed(2)} {selectedPlanForCreate.currency}</strong>
-                </Descriptions.Item>
-                <Descriptions.Item label={t('billing.plans.billingInterval')}>
-                  <Tag color="cyan" style={{ borderRadius: 4 }}>{t(`billing.intervals.${selectedPlanForCreate.billingInterval}`)}</Tag>
-                </Descriptions.Item>
-                <Descriptions.Item label={t('billing.plans.candidateAccess')}>
-                  {selectedPlanForCreate.candidateAccessLimit} / {t(`billing.intervals.${selectedPlanForCreate.billingInterval}`)}
-                </Descriptions.Item>
-                <Descriptions.Item label={t('billing.plans.jobPostings')}>
-                  {selectedPlanForCreate.jobPostingLimit} postings
-                </Descriptions.Item>
-                <Descriptions.Item label={t('billing.plans.teamMembers')}>
-                  {selectedPlanForCreate.teamMemberLimit} members
-                </Descriptions.Item>
-              </Descriptions>
-            </Card>
-          )}
+              {t('common.submit')}
+            </Button>
+          </div>
+        </Form>
+      </Modal>
 
-          <Form.Item
-            name="startDate"
-            label={t('billing.subscriptions.startDate')}
-            rules={[{ required: true }]}
-          >
-            <Input type="date" />
-          </Form.Item>
+      {/* ADJUST ENTITLEMENTS MODAL */}
+      <Modal
+        title={
+          <div className="rt-modal-title-wrapper">
+            <div className="rt-modal-icon-badge">
+              <EditOutlined />
+            </div>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: semantic.textPrimary }}>
+                {t('billing.subscriptions.editEntitlements')}
+              </div>
+              <div className="rt-modal-subtitle">
+                {selectedSub?.company?.name} — {selectedSub?.plan?.name}
+              </div>
+            </div>
+          </div>
+        }
+        open={isEditEntitlementsOpen}
+        onCancel={() => setIsEditEntitlementsOpen(false)}
+        footer={null}
+        destroyOnHidden
+        centered
+        width={580}
+        styles={{
+          body: { padding: '8px 2px 0 2px' },
+        }}
+      >
+        {selectedSub && (
+          <Form form={entitlementsForm} layout="vertical" onFinish={handleUpdateEntitlements}>
+            <div className="rt-modal-form-scroll">
+              <Alert
+                message={`Current Candidate Usage: ${selectedSub.candidateAccessUsage} / ${selectedSub.candidateAccessLimit}`}
+                type="info"
+                showIcon
+                style={{ marginBottom: 16, borderRadius: 8 }}
+              />
 
-          <Form.Item style={{ marginTop: 24, textAlign: 'right', marginBottom: 0 }}>
-            <Space>
-              <Button onClick={() => setIsCreateModalOpen(false)}>{t('common.cancel')}</Button>
+              <div className="rt-form-section-header">
+                {t('billing.subscriptions.entitlements', 'Resource Quotas')}
+              </div>
+
+              <Form.Item
+                name="candidateAccessLimit"
+                label={t('billing.plans.candidateAccess')}
+                rules={[{ required: true }]}
+              >
+                <InputNumber min={0} style={{ width: '100%', borderRadius: 8 }} />
+              </Form.Item>
+
+              <Form.Item
+                name="jobPostingLimit"
+                label={t('billing.plans.jobPostings')}
+                rules={[{ required: true }]}
+              >
+                <InputNumber min={0} style={{ width: '100%', borderRadius: 8 }} />
+              </Form.Item>
+
+              <Form.Item
+                name="teamMemberLimit"
+                label={t('billing.plans.teamMembers')}
+                rules={[{ required: true }]}
+              >
+                <InputNumber min={0} style={{ width: '100%', borderRadius: 8 }} />
+              </Form.Item>
+
+              <Form.Item name="confirmBelowUsage" valuePropName="checked" style={{ marginTop: 8 }}>
+                <Checkbox>
+                  <span style={{ fontSize: 13, color: semantic.textPrimary }}>
+                    {t('billing.subscriptions.confirmBelowUsage')}
+                  </span>
+                </Checkbox>
+              </Form.Item>
+            </div>
+
+            <div className="rt-modal-footer-sticky">
+              <Button onClick={() => setIsEditEntitlementsOpen(false)} style={{ borderRadius: 8 }}>
+                {t('common.cancel')}
+              </Button>
               <Button
                 type="primary"
                 htmlType="submit"
@@ -698,203 +840,225 @@ export function SubscriptionsPage() {
                   backgroundColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
                   borderColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
                   fontWeight: 600,
+                  borderRadius: 8,
                 }}
               >
-                {t('common.submit')}
+                {t('common.save')}
               </Button>
-            </Space>
-          </Form.Item>
-        </Form>
-      </Modal>
-
-      {/* ADJUST ENTITLEMENTS MODAL */}
-      <Modal
-        title={t('billing.subscriptions.editEntitlements')}
-        open={isEditEntitlementsOpen}
-        onCancel={() => setIsEditEntitlementsOpen(false)}
-        footer={null}
-        destroyOnHidden
-        centered
-        width={550}
-      >
-        {selectedSub && (
-          <Form form={entitlementsForm} layout="vertical" onFinish={handleUpdateEntitlements} style={{ marginTop: 12 }}>
-            <Alert
-              message={`Current Candidate Usage: ${selectedSub.candidateAccessUsage} / ${selectedSub.candidateAccessLimit}`}
-              type="info"
-              showIcon
-              style={{ marginBottom: 16, borderRadius: 8 }}
-            />
-
-            <Form.Item
-              name="candidateAccessLimit"
-              label={t('billing.plans.candidateAccess')}
-              rules={[{ required: true }]}
-            >
-              <InputNumber min={0} style={{ width: '100%' }} />
-            </Form.Item>
-
-            <Form.Item
-              name="jobPostingLimit"
-              label={t('billing.plans.jobPostings')}
-              rules={[{ required: true }]}
-            >
-              <InputNumber min={0} style={{ width: '100%' }} />
-            </Form.Item>
-
-            <Form.Item
-              name="teamMemberLimit"
-              label={t('billing.plans.teamMembers')}
-              rules={[{ required: true }]}
-            >
-              <InputNumber min={0} style={{ width: '100%' }} />
-            </Form.Item>
-
-            <Form.Item name="confirmBelowUsage" valuePropName="checked">
-              <Checkbox>
-                {t('billing.subscriptions.confirmBelowUsage')}
-              </Checkbox>
-            </Form.Item>
-
-            <Form.Item style={{ marginTop: 20, textAlign: 'right', marginBottom: 0 }}>
-              <Space>
-                <Button onClick={() => setIsEditEntitlementsOpen(false)}>{t('common.cancel')}</Button>
-                <Button
-                  type="primary"
-                  htmlType="submit"
-                  loading={submitting}
-                  style={{
-                    backgroundColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
-                    borderColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
-                    fontWeight: 600,
-                  }}
-                >
-                  {t('common.save')}
-                </Button>
-              </Space>
-            </Form.Item>
+            </div>
           </Form>
         )}
       </Modal>
 
       {/* UPGRADE / DOWNGRADE MODAL */}
       <Modal
-        title={t('billing.subscriptions.upgradeDowngrade')}
+        title={
+          <div className="rt-modal-title-wrapper">
+            <div className="rt-modal-icon-badge">
+              <SwapOutlined />
+            </div>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: semantic.textPrimary }}>
+                {t('billing.subscriptions.upgradeDowngrade')}
+              </div>
+              <div className="rt-modal-subtitle">
+                {selectedSub?.company?.name} — {t('billing.subscriptions.selectPlan')}
+              </div>
+            </div>
+          </div>
+        }
         open={isUpgradeModalOpen}
         onCancel={() => setIsUpgradeModalOpen(false)}
         footer={null}
         destroyOnHidden
         centered
-        width={500}
+        width={520}
+        styles={{
+          body: { padding: '8px 2px 0 2px' },
+        }}
       >
         {selectedSub && (
-          <Form form={upgradeForm} layout="vertical" onFinish={handleUpgrade} style={{ marginTop: 12 }}>
-            <div style={{ marginBottom: 16 }}>
-              <Text style={{ color: semantic.textSecondary }}>Current Plan: </Text>
-              <strong style={{ color: semantic.textPrimary }}>{selectedSub.plan?.name}</strong>{' '}
-              <span style={{ color: semantic.textSecondary }}>({Number(selectedSub.price).toFixed(2)} {selectedSub.currency})</span>
+          <Form form={upgradeForm} layout="vertical" onFinish={handleUpgrade}>
+            <div className="rt-modal-form-scroll">
+              <Card
+                size="small"
+                style={{
+                  marginBottom: 16,
+                  borderRadius: 8,
+                  borderColor: semantic.borderDefault,
+                  background: isDarkMode ? 'rgba(255, 255, 255, 0.03)' : '#f8fafc',
+                }}
+              >
+                <div style={{ fontSize: 12, color: semantic.textSecondary }}>Current Assigned Plan</div>
+                <div style={{ fontSize: 15, fontWeight: 600, color: semantic.textPrimary, marginTop: 2 }}>
+                  {selectedSub.plan?.name}
+                </div>
+                <div style={{ fontSize: 12.5, color: semantic.textSecondary, marginTop: 2 }}>
+                  {Number(selectedSub.price).toFixed(2)} {selectedSub.currency} / {t(`billing.intervals.${selectedSub.billingInterval}`)}
+                </div>
+              </Card>
+
+              <Form.Item
+                name="newPlanId"
+                label="Select Target Plan"
+                rules={[{ required: true }]}
+              >
+                <Select
+                  placeholder="Select new plan..."
+                  style={{ borderRadius: 8 }}
+                  options={plans.map((p) => ({
+                    value: p.id,
+                    label: `${p.name} - ${Number(p.offerPrice ?? p.price).toFixed(2)} ${p.currency} (${t(`billing.intervals.${p.billingInterval}`)})`,
+                  }))}
+                />
+              </Form.Item>
             </div>
 
-            <Form.Item
-              name="newPlanId"
-              label="Select Target Plan"
-              rules={[{ required: true }]}
-            >
-              <Select
-                options={plans.map((p) => ({
-                  value: p.id,
-                  label: `${p.name} - ${Number(p.offerPrice ?? p.price).toFixed(2)} ${p.currency} (${t(`billing.intervals.${p.billingInterval}`)})`,
-                }))}
-              />
-            </Form.Item>
-
-            <Form.Item style={{ marginTop: 24, textAlign: 'right', marginBottom: 0 }}>
-              <Space>
-                <Button onClick={() => setIsUpgradeModalOpen(false)}>{t('common.cancel')}</Button>
-                <Button
-                  type="primary"
-                  htmlType="submit"
-                  loading={submitting}
-                  style={{
-                    backgroundColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
-                    borderColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
-                    fontWeight: 600,
-                  }}
-                >
-                  Confirm Plan Change
-                </Button>
-              </Space>
-            </Form.Item>
+            <div className="rt-modal-footer-sticky">
+              <Button onClick={() => setIsUpgradeModalOpen(false)} style={{ borderRadius: 8 }}>
+                {t('common.cancel')}
+              </Button>
+              <Button
+                type="primary"
+                htmlType="submit"
+                loading={submitting}
+                style={{
+                  backgroundColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                  borderColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                  fontWeight: 600,
+                  borderRadius: 8,
+                }}
+              >
+                Confirm Plan Change
+              </Button>
+            </div>
           </Form>
         )}
       </Modal>
 
       {/* CANCEL MODAL */}
       <Modal
-        title={t('billing.subscriptions.cancel')}
+        title={
+          <div className="rt-modal-title-wrapper">
+            <div className="rt-modal-icon-badge" style={{ background: 'rgba(245, 158, 11, 0.1)', color: brandTokens.amber }}>
+              <CloseCircleOutlined />
+            </div>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: semantic.textPrimary }}>
+                {t('billing.subscriptions.cancel')}
+              </div>
+              <div className="rt-modal-subtitle">
+                {selectedSub?.company?.name} — {selectedSub?.plan?.name}
+              </div>
+            </div>
+          </div>
+        }
         open={isCancelModalOpen}
         onCancel={() => setIsCancelModalOpen(false)}
         footer={null}
         destroyOnHidden
         centered
-        width={450}
+        width={480}
+        styles={{
+          body: { padding: '8px 2px 0 2px' },
+        }}
       >
-        <Form form={cancelForm} layout="vertical" onFinish={handleCancel} style={{ marginTop: 12 }}>
-          <Paragraph style={{ color: semantic.textSecondary }}>{t('billing.subscriptions.cancelConfirm')}</Paragraph>
-          <Form.Item name="reason" label={t('billing.subscriptions.cancelReason')}>
-            <Input.TextArea rows={3} placeholder="Customer requested cancellation, etc." />
-          </Form.Item>
+        <Form form={cancelForm} layout="vertical" onFinish={handleCancel}>
+          <div className="rt-modal-form-scroll">
+            <Alert
+              message={t('billing.subscriptions.cancelConfirm')}
+              type="warning"
+              showIcon
+              style={{ marginBottom: 16, borderRadius: 8 }}
+            />
+            <Form.Item name="reason" label={t('billing.subscriptions.cancelReason')}>
+              <Input.TextArea rows={3} placeholder="Customer requested cancellation, etc." style={{ borderRadius: 8 }} />
+            </Form.Item>
+          </div>
 
-          <Form.Item style={{ textAlign: 'right', marginTop: 20, marginBottom: 0 }}>
-            <Space>
-              <Button onClick={() => setIsCancelModalOpen(false)}>{t('common.cancel')}</Button>
-              <Button danger type="primary" htmlType="submit" loading={submitting}>
-                {t('billing.subscriptions.cancel')}
-              </Button>
-            </Space>
-          </Form.Item>
+          <div className="rt-modal-footer-sticky">
+            <Button onClick={() => setIsCancelModalOpen(false)} style={{ borderRadius: 8 }}>
+              {t('common.cancel')}
+            </Button>
+            <Button danger type="primary" htmlType="submit" loading={submitting} style={{ borderRadius: 8, fontWeight: 600 }}>
+              {t('billing.subscriptions.cancel')}
+            </Button>
+          </div>
         </Form>
       </Modal>
 
       {/* REVOKE MODAL */}
       <Modal
-        title={t('billing.subscriptions.revoke')}
+        title={
+          <div className="rt-modal-title-wrapper">
+            <div className="rt-modal-icon-badge" style={{ background: 'rgba(239, 68, 68, 0.1)', color: brandTokens.error }}>
+              <StopOutlined />
+            </div>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: semantic.textPrimary }}>
+                {t('billing.subscriptions.revoke')}
+              </div>
+              <div className="rt-modal-subtitle">
+                {selectedSub?.company?.name} — Immediate Termination
+              </div>
+            </div>
+          </div>
+        }
         open={isRevokeModalOpen}
         onCancel={() => setIsRevokeModalOpen(false)}
         footer={null}
         destroyOnHidden
         centered
-        width={480}
+        width={500}
+        styles={{
+          body: { padding: '8px 2px 0 2px' },
+        }}
       >
-        <Form form={revokeForm} layout="vertical" onFinish={handleRevoke} style={{ marginTop: 12 }}>
-          <Alert
-            message={t('billing.subscriptions.revokeConfirm')}
-            type="error"
-            showIcon
-            style={{ marginBottom: 16, borderRadius: 8 }}
-          />
-          <Form.Item
-            name="reason"
-            label={t('billing.subscriptions.revokeReason')}
-            rules={[{ required: true, min: 3, message: 'A mandatory revocation reason is required' }]}
-          >
-            <Input.TextArea rows={3} placeholder="Non-payment, terms violation, administrative termination..." />
-          </Form.Item>
+        <Form form={revokeForm} layout="vertical" onFinish={handleRevoke}>
+          <div className="rt-modal-form-scroll">
+            <Alert
+              message={t('billing.subscriptions.revokeConfirm')}
+              type="error"
+              showIcon
+              style={{ marginBottom: 16, borderRadius: 8 }}
+            />
+            <Form.Item
+              name="reason"
+              label={t('billing.subscriptions.revokeReason')}
+              rules={[{ required: true, min: 3, message: 'A mandatory revocation reason is required' }]}
+            >
+              <Input.TextArea rows={3} placeholder="Non-payment, terms violation, administrative termination..." style={{ borderRadius: 8 }} />
+            </Form.Item>
+          </div>
 
-          <Form.Item style={{ textAlign: 'right', marginTop: 20, marginBottom: 0 }}>
-            <Space>
-              <Button onClick={() => setIsRevokeModalOpen(false)}>{t('common.cancel')}</Button>
-              <Button danger type="primary" htmlType="submit" loading={submitting}>
-                {t('billing.subscriptions.revoke')}
-              </Button>
-            </Space>
-          </Form.Item>
+          <div className="rt-modal-footer-sticky">
+            <Button onClick={() => setIsRevokeModalOpen(false)} style={{ borderRadius: 8 }}>
+              {t('common.cancel')}
+            </Button>
+            <Button danger type="primary" htmlType="submit" loading={submitting} style={{ borderRadius: 8, fontWeight: 600 }}>
+              {t('billing.subscriptions.revoke')}
+            </Button>
+          </div>
         </Form>
       </Modal>
 
       {/* VIEW DETAILS & USAGE MODAL */}
       <Modal
-        title={t('billing.subscriptions.viewDetails')}
+        title={
+          <div className="rt-modal-title-wrapper">
+            <div className="rt-modal-icon-badge">
+              <EyeOutlined />
+            </div>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: semantic.textPrimary }}>
+                {t('billing.subscriptions.viewDetails')}
+              </div>
+              <div className="rt-modal-subtitle">
+                {selectedSub?.company?.name} — {selectedSub?.plan?.name}
+              </div>
+            </div>
+          </div>
+        }
         open={isViewModalOpen}
         onCancel={() => {
           setIsViewModalOpen(false);
@@ -902,15 +1066,15 @@ export function SubscriptionsPage() {
         }}
         centered
         footer={[
-          <Button key="close" onClick={() => setIsViewModalOpen(false)}>
+          <Button key="close" onClick={() => setIsViewModalOpen(false)} style={{ borderRadius: 8 }}>
             {t('common.back')}
           </Button>,
         ]}
-        width={680}
+        width={700}
       >
         {selectedSub && (
-          <div style={{ marginTop: 12 }}>
-            <Descriptions bordered size="small" column={2} style={{ marginBottom: 18 }}>
+          <div style={{ marginTop: 8 }}>
+            <Descriptions bordered size="small" column={2} style={{ marginBottom: 18, borderRadius: 8, overflow: 'hidden' }}>
               <Descriptions.Item label={t('billing.subscriptions.selectCompany')} span={1}>
                 <strong>{selectedSub.company?.name}</strong>
               </Descriptions.Item>
@@ -919,15 +1083,26 @@ export function SubscriptionsPage() {
               </Descriptions.Item>
               <Descriptions.Item label={t('billing.plans.name')}>{selectedSub.plan?.name}</Descriptions.Item>
               <Descriptions.Item label={t('billing.subscriptions.status')}>
-                <Tag color={selectedSub.status === 'ACTIVE' ? 'success' : 'default'} style={{ borderRadius: 4 }}>
+                <Tag color={selectedSub.status === 'ACTIVE' ? 'success' : 'default'} style={{ borderRadius: 4, fontWeight: 500 }}>
                   {t(`billing.statuses.${selectedSub.status}`) || selectedSub.status}
                 </Tag>
               </Descriptions.Item>
               <Descriptions.Item label={t('billing.plans.price')}>
-                {Number(selectedSub.price).toFixed(2)} {selectedSub.currency}
+                <span style={{ fontWeight: 600, color: semantic.textPrimary }}>
+                  {Number(selectedSub.price).toFixed(2)} {selectedSub.currency}
+                </span>
               </Descriptions.Item>
               <Descriptions.Item label={t('billing.plans.billingInterval')}>
-                <Tag color="cyan" style={{ borderRadius: 4 }}>
+                <Tag
+                  color="cyan"
+                  style={{
+                    borderRadius: 4,
+                    fontWeight: 500,
+                    border: 'none',
+                    background: isDarkMode ? 'rgba(79, 168, 192, 0.15)' : '#e0f2fe',
+                    color: isDarkMode ? '#7dd3fc' : '#0369a1',
+                  }}
+                >
                   {t(`billing.intervals.${selectedSub.billingInterval}`) || selectedSub.billingInterval}
                 </Tag>
               </Descriptions.Item>
@@ -1019,8 +1194,16 @@ export function SubscriptionsPage() {
                       <td className="rt-matrix-td" style={{ textAlign: 'center', fontWeight: 600 }}>
                         {subDetails?.usageSnapshot?.jobPostings?.currentUsage ?? selectedSub.jobPostingUsage ?? 0}
                       </td>
-                      <td className="rt-matrix-td" style={{ textAlign: 'center', color: brandTokens.success, fontWeight: 600 }}>
-                        {Math.max(0, selectedSub.jobPostingLimit - (subDetails?.usageSnapshot?.jobPostings?.currentUsage ?? selectedSub.jobPostingUsage ?? 0))}
+                      <td className="rt-matrix-td" style={{ textAlign: 'center' }}>
+                        {(subDetails?.usageSnapshot?.jobPostings?.currentUsage ?? selectedSub.jobPostingUsage ?? 0) > selectedSub.jobPostingLimit ? (
+                          <span className="rt-over-quota-badge">
+                            {(subDetails?.usageSnapshot?.jobPostings?.currentUsage ?? selectedSub.jobPostingUsage ?? 0) - selectedSub.jobPostingLimit} over quota
+                          </span>
+                        ) : (
+                          <span style={{ color: brandTokens.success, fontWeight: 600 }}>
+                            {Math.max(0, selectedSub.jobPostingLimit - (subDetails?.usageSnapshot?.jobPostings?.currentUsage ?? selectedSub.jobPostingUsage ?? 0))}
+                          </span>
+                        )}
                       </td>
                     </tr>
                     <tr className="rt-matrix-tr">
@@ -1030,8 +1213,16 @@ export function SubscriptionsPage() {
                       <td className="rt-matrix-td" style={{ textAlign: 'center', fontWeight: 600 }}>
                         {subDetails?.usageSnapshot?.teamMembers?.currentUsage ?? selectedSub.teamMemberUsage ?? 0}
                       </td>
-                      <td className="rt-matrix-td" style={{ textAlign: 'center', color: brandTokens.success, fontWeight: 600 }}>
-                        {Math.max(0, selectedSub.teamMemberLimit - (subDetails?.usageSnapshot?.teamMembers?.currentUsage ?? selectedSub.teamMemberUsage ?? 0))}
+                      <td className="rt-matrix-td" style={{ textAlign: 'center' }}>
+                        {(subDetails?.usageSnapshot?.teamMembers?.currentUsage ?? selectedSub.teamMemberUsage ?? 0) > selectedSub.teamMemberLimit ? (
+                          <span className="rt-over-quota-badge">
+                            {(subDetails?.usageSnapshot?.teamMembers?.currentUsage ?? selectedSub.teamMemberUsage ?? 0) - selectedSub.teamMemberLimit} over quota
+                          </span>
+                        ) : (
+                          <span style={{ color: brandTokens.success, fontWeight: 600 }}>
+                            {Math.max(0, selectedSub.teamMemberLimit - (subDetails?.usageSnapshot?.teamMembers?.currentUsage ?? selectedSub.teamMemberUsage ?? 0))}
+                          </span>
+                        )}
                       </td>
                     </tr>
                   </tbody>
@@ -1044,19 +1235,35 @@ export function SubscriptionsPage() {
 
       {/* HISTORY MODAL */}
       <Modal
-        title={t('billing.subscriptions.history')}
+        title={
+          <div className="rt-modal-title-wrapper">
+            <div className="rt-modal-icon-badge">
+              <HistoryOutlined />
+            </div>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: semantic.textPrimary }}>
+                {t('billing.subscriptions.history')}
+              </div>
+              <div className="rt-modal-subtitle">
+                {selectedSub?.company?.name} — Audit Timeline
+              </div>
+            </div>
+          </div>
+        }
         open={isHistoryModalOpen}
         onCancel={() => setIsHistoryModalOpen(false)}
         centered
         footer={[
-          <Button key="close" onClick={() => setIsHistoryModalOpen(false)}>
+          <Button key="close" onClick={() => setIsHistoryModalOpen(false)} style={{ borderRadius: 8 }}>
             {t('common.back')}
           </Button>,
         ]}
         width={650}
       >
         {historyLogs.length === 0 ? (
-          <Text style={{ color: semantic.textSecondary }}>No historical audit records found for this subscription.</Text>
+          <div style={{ padding: '24px 0', textAlign: 'center', color: semantic.textSecondary }}>
+            No historical audit records found for this subscription.
+          </div>
         ) : (
           <div style={{ maxHeight: 420, overflowY: 'auto' }}>
             {historyLogs.map((log) => (
@@ -1064,14 +1271,14 @@ export function SubscriptionsPage() {
                 size="small"
                 key={log.id}
                 style={{
-                  marginBottom: 8,
+                  marginBottom: 10,
                   borderRadius: 8,
                   borderColor: semantic.borderDefault,
                   background: semantic.bgCard,
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-                  <Tag color="blue" style={{ borderRadius: 4 }}>{log.action}</Tag>
+                  <Tag color="blue" style={{ borderRadius: 4, fontWeight: 500 }}>{log.action}</Tag>
                   <Text style={{ fontSize: 12, color: semantic.textSecondary }}>
                     {new Date(log.createdAt).toLocaleString()}
                   </Text>

@@ -506,12 +506,12 @@ export function PlansPage() {
       <Tabs
         activeKey={activeTab}
         onChange={setActiveTab}
+        className="rt-billing-tabs"
         items={[
           { key: 'active', label: t('billing.plans.activePlans', 'Active Plans') },
           { key: 'inactive', label: t('billing.plans.inactivePlans', 'Inactive / Archived Plans') },
           { key: 'trash', label: t('billing.plans.trashPlans', 'Trash & Retention') },
         ]}
-        style={{ marginBottom: 16 }}
       />
 
       <DataTable
@@ -539,19 +539,35 @@ export function PlansPage() {
 
       {/* CREATE PLAN MODAL */}
       <Modal
-        title={t('billing.plans.createPlan')}
+        title={
+          <div className="rt-modal-title-wrapper">
+            <div className="rt-modal-icon-badge">
+              <PlusOutlined />
+            </div>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: semantic.textPrimary }}>
+                {t('billing.plans.createPlan')}
+              </div>
+              <div className="rt-modal-subtitle">
+                {t('billing.plans.createSubtitle', 'Configure pricing, intervals, and default resource quotas.')}
+              </div>
+            </div>
+          </div>
+        }
         open={isCreateModalOpen}
         onCancel={() => setIsCreateModalOpen(false)}
         footer={null}
         destroyOnHidden
         centered
-        width={600}
+        width={620}
+        styles={{
+          body: { padding: '8px 2px 0 2px' },
+        }}
       >
         <Form
           form={createForm}
           layout="vertical"
           onFinish={handleCreate}
-          style={{ marginTop: 12 }}
           initialValues={{
             currency: 'EUR',
             billingInterval: 'MONTHLY',
@@ -561,244 +577,337 @@ export function PlansPage() {
             status: 'ACTIVE',
           }}
         >
-          <Form.Item
-            name="name"
-            label={t('billing.plans.name')}
-            rules={[{ required: true, message: 'Plan name is required' }]}
-          >
-            <Input placeholder="e.g. Professional Starter" />
-          </Form.Item>
+          <div className="rt-modal-form-scroll">
+            <div className="rt-form-section-header">
+              {t('billing.plans.sectionInfo', 'Plan Information')}
+            </div>
 
-          <Form.Item name="description" label={t('billing.plans.description')}>
-            <Input.TextArea rows={2} placeholder="Optional plan description" />
-          </Form.Item>
-
-          <Space size={16} style={{ display: 'flex' }}>
             <Form.Item
-              name="price"
-              label={t('billing.plans.price')}
-              rules={[{ required: true, message: 'Price is required' }]}
-              style={{ flex: 1 }}
+              name="name"
+              label={t('billing.plans.name')}
+              rules={[{ required: true, message: 'Plan name is required' }]}
             >
-              <InputNumber min={0} step={0.01} precision={2} style={{ width: '100%' }} />
+              <Input placeholder="e.g. Professional Growth Tier" style={{ borderRadius: 8 }} />
             </Form.Item>
 
-            <Form.Item
-              name="offerPrice"
-              label={t('billing.plans.offerPrice')}
-              style={{ flex: 1 }}
-            >
-              <InputNumber min={0} step={0.01} precision={2} placeholder="Optional" style={{ width: '100%' }} />
+            <Form.Item name="description" label={t('billing.plans.description')}>
+              <Input.TextArea rows={2} placeholder="Optional summary of target audience or features" style={{ borderRadius: 8 }} />
             </Form.Item>
 
+            <div className="rt-form-section-header">
+              {t('billing.plans.sectionPricing', 'Pricing & Billing Cycle')}
+            </div>
+
+            <Space size={16} style={{ display: 'flex' }}>
+              <Form.Item
+                name="price"
+                label={t('billing.plans.price')}
+                rules={[{ required: true, message: 'Price is required' }]}
+                style={{ flex: 1 }}
+              >
+                <InputNumber min={0} step={0.01} precision={2} placeholder="99.00" style={{ width: '100%', borderRadius: 8 }} />
+              </Form.Item>
+
+              <Form.Item
+                name="offerPrice"
+                label={t('billing.plans.offerPrice')}
+                style={{ flex: 1 }}
+              >
+                <InputNumber min={0} step={0.01} precision={2} placeholder="Optional discounted rate" style={{ width: '100%', borderRadius: 8 }} />
+              </Form.Item>
+
+              <Form.Item
+                name="currency"
+                label={t('billing.plans.currency')}
+                rules={[{ required: true }]}
+                style={{ width: 110 }}
+              >
+                <Select style={{ borderRadius: 8 }}>
+                  <Option value="EUR">EUR (€)</Option>
+                  <Option value="USD">USD ($)</Option>
+                  <Option value="GBP">GBP (£)</Option>
+                </Select>
+              </Form.Item>
+            </Space>
+
             <Form.Item
-              name="currency"
-              label={t('billing.plans.currency')}
+              name="billingInterval"
+              label={t('billing.plans.billingInterval')}
               rules={[{ required: true }]}
-              style={{ width: 110 }}
             >
-              <Select>
-                <Option value="EUR">EUR (€)</Option>
-                <Option value="USD">USD ($)</Option>
-                <Option value="GBP">GBP (£)</Option>
+              <Select style={{ borderRadius: 8 }}>
+                <Option value="DAY">{t('billing.intervals.DAY')}</Option>
+                <Option value="MONTHLY">{t('billing.intervals.MONTHLY')}</Option>
+                <Option value="YEARLY">{t('billing.intervals.YEARLY')}</Option>
+                <Option value="ONE_TIME">{t('billing.intervals.ONE_TIME')}</Option>
               </Select>
             </Form.Item>
-          </Space>
 
-          <Form.Item
-            name="billingInterval"
-            label={t('billing.plans.billingInterval')}
-            rules={[{ required: true }]}
-          >
-            <Select>
-              <Option value="DAY">{t('billing.intervals.DAY')}</Option>
-              <Option value="MONTHLY">{t('billing.intervals.MONTHLY')}</Option>
-              <Option value="YEARLY">{t('billing.intervals.YEARLY')}</Option>
-              <Option value="ONE_TIME">{t('billing.intervals.ONE_TIME')}</Option>
-            </Select>
-          </Form.Item>
+            <div className="rt-form-section-header">
+              {t('billing.plans.sectionQuotas', 'Entitlement Quotas')}
+            </div>
 
-          <Space size={16} style={{ display: 'flex' }}>
-            <Form.Item
-              name="candidateAccessLimit"
-              label={t('billing.plans.candidateAccess')}
-              extra={t('billing.plans.candidateAccessHelp')}
-              rules={[{ required: true }]}
-              style={{ flex: 1 }}
-            >
-              <InputNumber min={0} style={{ width: '100%' }} />
-            </Form.Item>
-
-            <Form.Item
-              name="jobPostingLimit"
-              label={t('billing.plans.jobPostings')}
-              rules={[{ required: true }]}
-              style={{ flex: 1 }}
-            >
-              <InputNumber min={0} style={{ width: '100%' }} />
-            </Form.Item>
-
-            <Form.Item
-              name="teamMemberLimit"
-              label={t('billing.plans.teamMembers')}
-              rules={[{ required: true }]}
-              style={{ flex: 1 }}
-            >
-              <InputNumber min={0} style={{ width: '100%' }} />
-            </Form.Item>
-          </Space>
-
-          <Form.Item style={{ marginTop: 24, textAlign: 'right', marginBottom: 0 }}>
-            <Space>
-              <Button onClick={() => setIsCreateModalOpen(false)}>{t('common.cancel')}</Button>
-              <Button
-                type="primary"
-                htmlType="submit"
-                loading={submitting}
-                style={{
-                  backgroundColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
-                  borderColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
-                  fontWeight: 600,
-                }}
+            <Space size={16} style={{ display: 'flex' }}>
+              <Form.Item
+                name="candidateAccessLimit"
+                label={t('billing.plans.candidateAccess')}
+                extra={t('billing.plans.candidateAccessHelp')}
+                rules={[{ required: true }]}
+                style={{ flex: 1 }}
               >
-                {t('common.save')}
-              </Button>
+                <InputNumber min={0} style={{ width: '100%', borderRadius: 8 }} />
+              </Form.Item>
+
+              <Form.Item
+                name="jobPostingLimit"
+                label={t('billing.plans.jobPostings')}
+                rules={[{ required: true }]}
+                style={{ flex: 1 }}
+              >
+                <InputNumber min={0} style={{ width: '100%', borderRadius: 8 }} />
+              </Form.Item>
+
+              <Form.Item
+                name="teamMemberLimit"
+                label={t('billing.plans.teamMembers')}
+                rules={[{ required: true }]}
+                style={{ flex: 1 }}
+              >
+                <InputNumber min={0} style={{ width: '100%', borderRadius: 8 }} />
+              </Form.Item>
             </Space>
-          </Form.Item>
+          </div>
+
+          <div className="rt-modal-footer-sticky">
+            <Button onClick={() => setIsCreateModalOpen(false)} style={{ borderRadius: 8 }}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              type="primary"
+              htmlType="submit"
+              loading={submitting}
+              style={{
+                backgroundColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                borderColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                fontWeight: 600,
+                borderRadius: 8,
+              }}
+            >
+              {t('common.save')}
+            </Button>
+          </div>
         </Form>
       </Modal>
 
       {/* EDIT PLAN MODAL */}
       <Modal
-        title={t('billing.plans.editPlan')}
+        title={
+          <div className="rt-modal-title-wrapper">
+            <div className="rt-modal-icon-badge">
+              <EditOutlined />
+            </div>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: semantic.textPrimary }}>
+                {t('billing.plans.editPlan')}
+              </div>
+              <div className="rt-modal-subtitle">
+                {t('billing.plans.editSubtitle', 'Update plan configurations and resource limits for future assignments.')}
+              </div>
+            </div>
+          </div>
+        }
         open={isEditModalOpen}
         onCancel={() => setIsEditModalOpen(false)}
         footer={null}
         destroyOnHidden
         centered
-        width={600}
+        width={620}
+        styles={{
+          body: { padding: '8px 2px 0 2px' },
+        }}
       >
-        <Form form={editForm} layout="vertical" onFinish={handleEdit} style={{ marginTop: 12 }}>
-          <Form.Item name="name" label={t('billing.plans.name')} rules={[{ required: true }]}>
-            <Input />
-          </Form.Item>
+        <Form form={editForm} layout="vertical" onFinish={handleEdit}>
+          <div className="rt-modal-form-scroll">
+            <div className="rt-form-section-header">
+              {t('billing.plans.sectionInfo', 'Plan Information')}
+            </div>
 
-          <Form.Item name="description" label={t('billing.plans.description')}>
-            <Input.TextArea rows={2} />
-          </Form.Item>
-
-          <Space size={16} style={{ display: 'flex' }}>
-            <Form.Item name="price" label={t('billing.plans.price')} rules={[{ required: true }]} style={{ flex: 1 }}>
-              <InputNumber min={0} step={0.01} precision={2} style={{ width: '100%' }} />
+            <Form.Item name="name" label={t('billing.plans.name')} rules={[{ required: true }]}>
+              <Input style={{ borderRadius: 8 }} />
             </Form.Item>
 
-            <Form.Item name="offerPrice" label={t('billing.plans.offerPrice')} style={{ flex: 1 }}>
-              <InputNumber min={0} step={0.01} precision={2} style={{ width: '100%' }} />
+            <Form.Item name="description" label={t('billing.plans.description')}>
+              <Input.TextArea rows={2} style={{ borderRadius: 8 }} />
             </Form.Item>
 
-            <Form.Item name="currency" label={t('billing.plans.currency')} rules={[{ required: true }]} style={{ width: 110 }}>
-              <Select>
-                <Option value="EUR">EUR (€)</Option>
-                <Option value="USD">USD ($)</Option>
-                <Option value="GBP">GBP (£)</Option>
+            <Form.Item name="status" label={t('billing.plans.status')} rules={[{ required: true }]}>
+              <Select style={{ borderRadius: 8 }}>
+                <Option value="ACTIVE">{t('billing.statuses.ACTIVE')}</Option>
+                <Option value="INACTIVE">{t('billing.statuses.INACTIVE')}</Option>
               </Select>
             </Form.Item>
-          </Space>
 
-          <Form.Item name="billingInterval" label={t('billing.plans.billingInterval')} rules={[{ required: true }]}>
-            <Select>
-              <Option value="DAY">{t('billing.intervals.DAY')}</Option>
-              <Option value="MONTHLY">{t('billing.intervals.MONTHLY')}</Option>
-              <Option value="YEARLY">{t('billing.intervals.YEARLY')}</Option>
-              <Option value="ONE_TIME">{t('billing.intervals.ONE_TIME')}</Option>
-            </Select>
-          </Form.Item>
+            <div className="rt-form-section-header">
+              {t('billing.plans.sectionPricing', 'Pricing & Billing Cycle')}
+            </div>
 
-          <Space size={16} style={{ display: 'flex' }}>
-            <Form.Item name="candidateAccessLimit" label={t('billing.plans.candidateAccess')} rules={[{ required: true }]} style={{ flex: 1 }}>
-              <InputNumber min={0} style={{ width: '100%' }} />
-            </Form.Item>
+            <Space size={16} style={{ display: 'flex' }}>
+              <Form.Item name="price" label={t('billing.plans.price')} rules={[{ required: true }]} style={{ flex: 1 }}>
+                <InputNumber min={0} step={0.01} precision={2} style={{ width: '100%', borderRadius: 8 }} />
+              </Form.Item>
 
-            <Form.Item name="jobPostingLimit" label={t('billing.plans.jobPostings')} rules={[{ required: true }]} style={{ flex: 1 }}>
-              <InputNumber min={0} style={{ width: '100%' }} />
-            </Form.Item>
+              <Form.Item name="offerPrice" label={t('billing.plans.offerPrice')} style={{ flex: 1 }}>
+                <InputNumber min={0} step={0.01} precision={2} style={{ width: '100%', borderRadius: 8 }} />
+              </Form.Item>
 
-            <Form.Item name="teamMemberLimit" label={t('billing.plans.teamMembers')} rules={[{ required: true }]} style={{ flex: 1 }}>
-              <InputNumber min={0} style={{ width: '100%' }} />
-            </Form.Item>
-          </Space>
-
-          <Form.Item name="status" label={t('billing.plans.status')} rules={[{ required: true }]}>
-            <Select>
-              <Option value="ACTIVE">{t('billing.statuses.ACTIVE')}</Option>
-              <Option value="INACTIVE">{t('billing.statuses.INACTIVE')}</Option>
-            </Select>
-          </Form.Item>
-
-          <Form.Item style={{ marginTop: 24, textAlign: 'right', marginBottom: 0 }}>
-            <Space>
-              <Button onClick={() => setIsEditModalOpen(false)}>{t('common.cancel')}</Button>
-              <Button
-                type="primary"
-                htmlType="submit"
-                loading={submitting}
-                style={{
-                  backgroundColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
-                  borderColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
-                  fontWeight: 600,
-                }}
-              >
-                {t('common.save')}
-              </Button>
+              <Form.Item name="currency" label={t('billing.plans.currency')} rules={[{ required: true }]} style={{ width: 110 }}>
+                <Select style={{ borderRadius: 8 }}>
+                  <Option value="EUR">EUR (€)</Option>
+                  <Option value="USD">USD ($)</Option>
+                  <Option value="GBP">GBP (£)</Option>
+                </Select>
+              </Form.Item>
             </Space>
-          </Form.Item>
+
+            <Form.Item name="billingInterval" label={t('billing.plans.billingInterval')} rules={[{ required: true }]}>
+              <Select style={{ borderRadius: 8 }}>
+                <Option value="DAY">{t('billing.intervals.DAY')}</Option>
+                <Option value="MONTHLY">{t('billing.intervals.MONTHLY')}</Option>
+                <Option value="YEARLY">{t('billing.intervals.YEARLY')}</Option>
+                <Option value="ONE_TIME">{t('billing.intervals.ONE_TIME')}</Option>
+              </Select>
+            </Form.Item>
+
+            <div className="rt-form-section-header">
+              {t('billing.plans.sectionQuotas', 'Entitlement Quotas')}
+            </div>
+
+            <Space size={16} style={{ display: 'flex' }}>
+              <Form.Item name="candidateAccessLimit" label={t('billing.plans.candidateAccess')} rules={[{ required: true }]} style={{ flex: 1 }}>
+                <InputNumber min={0} style={{ width: '100%', borderRadius: 8 }} />
+              </Form.Item>
+
+              <Form.Item name="jobPostingLimit" label={t('billing.plans.jobPostings')} rules={[{ required: true }]} style={{ flex: 1 }}>
+                <InputNumber min={0} style={{ width: '100%', borderRadius: 8 }} />
+              </Form.Item>
+
+              <Form.Item name="teamMemberLimit" label={t('billing.plans.teamMembers')} rules={[{ required: true }]} style={{ flex: 1 }}>
+                <InputNumber min={0} style={{ width: '100%', borderRadius: 8 }} />
+              </Form.Item>
+            </Space>
+          </div>
+
+          <div className="rt-modal-footer-sticky">
+            <Button onClick={() => setIsEditModalOpen(false)} style={{ borderRadius: 8 }}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              type="primary"
+              htmlType="submit"
+              loading={submitting}
+              style={{
+                backgroundColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                borderColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                fontWeight: 600,
+                borderRadius: 8,
+              }}
+            >
+              {t('common.save')}
+            </Button>
+          </div>
         </Form>
       </Modal>
 
       {/* VIEW PLAN MODAL */}
       <Modal
-        title={t('billing.plans.viewPlan')}
+        title={
+          <div className="rt-modal-title-wrapper">
+            <div className="rt-modal-icon-badge">
+              <EyeOutlined />
+            </div>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: semantic.textPrimary }}>
+                {selectedPlan?.name || t('billing.plans.viewPlan')}
+              </div>
+              <div className="rt-modal-subtitle">
+                {selectedPlan?.code ? `Code: ${selectedPlan.code}` : t('billing.plans.planSummary')}
+              </div>
+            </div>
+          </div>
+        }
         open={isViewModalOpen}
         onCancel={() => setIsViewModalOpen(false)}
         centered
         footer={[
-          <Button key="close" onClick={() => setIsViewModalOpen(false)}>
+          <Button key="close" onClick={() => setIsViewModalOpen(false)} style={{ borderRadius: 8 }}>
             {t('common.back')}
           </Button>,
         ]}
-        width={550}
+        width={580}
       >
         {selectedPlan && (
-          <Descriptions bordered column={1} size="small" style={{ marginTop: 12 }}>
-            <Descriptions.Item label={t('billing.plans.name')}>{selectedPlan.name}</Descriptions.Item>
-            <Descriptions.Item label={t('billing.plans.description')}>{selectedPlan.description || '-'}</Descriptions.Item>
-            <Descriptions.Item label={t('billing.plans.price')}>
-              {Number(selectedPlan.price).toFixed(2)} {selectedPlan.currency}
-            </Descriptions.Item>
-            <Descriptions.Item label={t('billing.plans.offerPrice')}>
-              {selectedPlan.offerPrice ? `${Number(selectedPlan.offerPrice).toFixed(2)} ${selectedPlan.currency}` : '-'}
-            </Descriptions.Item>
-            <Descriptions.Item label={t('billing.plans.billingInterval')}>
-              <Tag color="cyan">{t(`billing.intervals.${selectedPlan.billingInterval}`)}</Tag>
-            </Descriptions.Item>
-            <Descriptions.Item label={t('billing.plans.candidateAccess')}>
-              <strong>{selectedPlan.candidateAccessLimit}</strong> {t('billing.subscriptions.candidateAccess')} / {t(`billing.intervals.${selectedPlan.billingInterval}`)}
-            </Descriptions.Item>
-            <Descriptions.Item label={t('billing.plans.jobPostings')}>
-              <strong>{selectedPlan.jobPostingLimit}</strong> {t('billing.subscriptions.jobPostings')}
-            </Descriptions.Item>
-            <Descriptions.Item label={t('billing.plans.teamMembers')}>
-              <strong>{selectedPlan.teamMemberLimit}</strong> {t('billing.subscriptions.teamMembers')}
-            </Descriptions.Item>
-            <Descriptions.Item label={t('billing.plans.status')}>
-              <Tag color={selectedPlan.status === 'ACTIVE' ? 'success' : 'default'}>
-                {t(`billing.statuses.${selectedPlan.status}`)}
-              </Tag>
-            </Descriptions.Item>
-            <Descriptions.Item label={t('billing.plans.activeSubscriptions')}>
-              {selectedPlan._count?.subscriptions || 0}
-            </Descriptions.Item>
-          </Descriptions>
+          <div style={{ marginTop: 8 }}>
+            <Descriptions bordered column={1} size="small" style={{ borderRadius: 8, overflow: 'hidden' }}>
+              <Descriptions.Item label={t('billing.plans.name')}>{selectedPlan.name}</Descriptions.Item>
+              <Descriptions.Item label={t('billing.plans.description')}>{selectedPlan.description || '-'}</Descriptions.Item>
+              <Descriptions.Item label={t('billing.plans.price')}>
+                <span style={{ fontWeight: 600, color: semantic.textPrimary }}>
+                  {Number(selectedPlan.price).toFixed(2)} {selectedPlan.currency}
+                </span>
+              </Descriptions.Item>
+              <Descriptions.Item label={t('billing.plans.offerPrice')}>
+                {selectedPlan.offerPrice ? (
+                  <span style={{ fontWeight: 600, color: '#f59e0b' }}>
+                    {Number(selectedPlan.offerPrice).toFixed(2)} {selectedPlan.currency}
+                  </span>
+                ) : (
+                  '-'
+                )}
+              </Descriptions.Item>
+              <Descriptions.Item label={t('billing.plans.billingInterval')}>
+                <Tag
+                  color="cyan"
+                  style={{
+                    borderRadius: 4,
+                    fontWeight: 500,
+                    border: 'none',
+                    background: isDarkMode ? 'rgba(79, 168, 192, 0.15)' : '#e0f2fe',
+                    color: isDarkMode ? '#7dd3fc' : '#0369a1',
+                  }}
+                >
+                  {t(`billing.intervals.${selectedPlan.billingInterval}`)}
+                </Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label={t('billing.plans.candidateAccess')}>
+                <strong>{selectedPlan.candidateAccessLimit}</strong> {t('billing.subscriptions.candidateAccess')} / {t(`billing.intervals.${selectedPlan.billingInterval}`)}
+              </Descriptions.Item>
+              <Descriptions.Item label={t('billing.plans.jobPostings')}>
+                <strong>{selectedPlan.jobPostingLimit}</strong> {t('billing.subscriptions.jobPostings')}
+              </Descriptions.Item>
+              <Descriptions.Item label={t('billing.plans.teamMembers')}>
+                <strong>{selectedPlan.teamMemberLimit}</strong> {t('billing.subscriptions.teamMembers')}
+              </Descriptions.Item>
+              <Descriptions.Item label={t('billing.plans.status')}>
+                <Tag
+                  color={selectedPlan.status === 'ACTIVE' ? 'success' : selectedPlan.status === 'ARCHIVED' ? 'magenta' : 'default'}
+                  style={{ borderRadius: 4, fontWeight: 500 }}
+                >
+                  {t(`billing.statuses.${selectedPlan.status}`)}
+                </Tag>
+              </Descriptions.Item>
+              <Descriptions.Item label={t('billing.plans.activeSubscriptions')}>
+                <Badge
+                  count={selectedPlan._count?.subscriptions || 0}
+                  overflowCount={999}
+                  style={{
+                    backgroundColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                    borderRadius: 6,
+                    fontWeight: 600,
+                  }}
+                />
+              </Descriptions.Item>
+            </Descriptions>
+          </div>
         )}
       </Modal>
 

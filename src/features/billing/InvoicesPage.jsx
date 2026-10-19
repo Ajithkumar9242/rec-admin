@@ -15,6 +15,7 @@ import {
   Card,
   Alert,
   Divider,
+  DatePicker,
 } from 'antd';
 import {
   PlusOutlined,
@@ -25,6 +26,7 @@ import {
   SearchOutlined,
   CreditCardOutlined,
 } from '@ant-design/icons';
+import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
 import { useSelector } from 'react-redux';
 import { DataTable } from '../../components/common/DataTable.jsx';
@@ -127,7 +129,13 @@ export function InvoicesPage() {
   const handleCreate = async (values) => {
     try {
       setSubmitting(true);
-      await billingApi.createInvoice(values);
+      const payload = { ...values };
+      if (payload.dueDate) {
+        payload.dueDate = typeof payload.dueDate === 'string'
+          ? payload.dueDate
+          : (payload.dueDate.format ? payload.dueDate.format('YYYY-MM-DD') : String(payload.dueDate));
+      }
+      await billingApi.createInvoice(payload);
       message.success(t('billing.invoices.createSuccess'));
       setIsCreateModalOpen(false);
       createForm.resetFields();
@@ -372,71 +380,199 @@ export function InvoicesPage() {
 
       {/* CREATE INVOICE MODAL */}
       <Modal
-        title={t('billing.invoices.createInvoice')}
+        title={
+          <div className="rt-modal-title-wrapper">
+            <div className="rt-modal-icon-badge">
+              <PlusOutlined />
+            </div>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: semantic.textPrimary }}>
+                {t('billing.invoices.createInvoice')}
+              </div>
+              <div className="rt-modal-subtitle">
+                {t('billing.invoices.createSubtitle', 'Generate an itemized billing invoice for an employer organization.')}
+              </div>
+            </div>
+          </div>
+        }
         open={isCreateModalOpen}
         onCancel={() => setIsCreateModalOpen(false)}
         footer={null}
         destroyOnHidden
         centered
-        width={550}
+        width={580}
+        styles={{
+          body: { padding: '8px 2px 0 2px' },
+        }}
       >
         <Form
           form={createForm}
           layout="vertical"
           onFinish={handleCreate}
-          style={{ marginTop: 12 }}
           initialValues={{
             currency: 'EUR',
             netAmount: 100,
-            dueDate: new Date(Date.now() + 14 * 86400000).toISOString().split('T')[0],
+            dueDate: dayjs().add(14, 'day'),
           }}
         >
-          <Form.Item
-            name="companyId"
-            label={t('billing.invoices.employer')}
-            rules={[{ required: true }]}
-          >
-            <Select
-              showSearch
-              placeholder={t('billing.subscriptions.selectCompanyPlaceholder')}
-              options={companies.map((c) => ({
-                value: c.id,
-                label: `${c.name} ${c.taxId ? `(${c.taxId})` : ''}`,
-              }))}
-            />
-          </Form.Item>
-
-          <Space size={16} style={{ display: 'flex' }}>
-            <Form.Item
-              name="netAmount"
-              label={t('billing.invoices.netAmount')}
-              rules={[{ required: true }]}
-              style={{ flex: 1 }}
-            >
-              <InputNumber min={0} step={0.01} precision={2} style={{ width: '100%' }} />
-            </Form.Item>
+          <div className="rt-modal-form-scroll">
+            <div className="rt-form-section-header">
+              {t('billing.invoices.sectionRecipient', 'Recipient & Currency')}
+            </div>
 
             <Form.Item
-              name="currency"
-              label={t('billing.invoices.currency')}
+              name="companyId"
+              label={t('billing.invoices.employer')}
               rules={[{ required: true }]}
-              style={{ width: 110 }}
             >
-              <Select>
-                <Option value="EUR">EUR (€)</Option>
-                <Option value="USD">USD ($)</Option>
-                <Option value="GBP">GBP (£)</Option>
-              </Select>
+              <Select
+                showSearch
+                placeholder={t('billing.subscriptions.selectCompanyPlaceholder')}
+                options={companies.map((c) => ({
+                  value: c.id,
+                  label: `${c.name} ${c.taxId ? `(${c.taxId})` : ''}`,
+                }))}
+                style={{ borderRadius: 8 }}
+              />
             </Form.Item>
-          </Space>
 
-          <Form.Item name="dueDate" label={t('billing.invoices.dueDate')} rules={[{ required: true }]}>
-            <Input type="date" />
-          </Form.Item>
+            <Space size={16} style={{ display: 'flex' }}>
+              <Form.Item
+                name="netAmount"
+                label={t('billing.invoices.netAmount')}
+                rules={[{ required: true }]}
+                style={{ flex: 1 }}
+              >
+                <InputNumber min={0} step={0.01} precision={2} style={{ width: '100%', borderRadius: 8 }} />
+              </Form.Item>
 
-          <Form.Item style={{ marginTop: 24, textAlign: 'right', marginBottom: 0 }}>
-            <Space>
-              <Button onClick={() => setIsCreateModalOpen(false)}>{t('common.cancel')}</Button>
+              <Form.Item
+                name="currency"
+                label={t('billing.invoices.currency')}
+                rules={[{ required: true }]}
+                style={{ width: 110 }}
+              >
+                <Select style={{ borderRadius: 8 }}>
+                  <Option value="EUR">EUR (€)</Option>
+                  <Option value="USD">USD ($)</Option>
+                  <Option value="GBP">GBP (£)</Option>
+                </Select>
+              </Form.Item>
+            </Space>
+
+            <div className="rt-form-section-header">
+              {t('billing.invoices.sectionTerms', 'Payment Terms')}
+            </div>
+
+            <Form.Item name="dueDate" label={t('billing.invoices.dueDate')} rules={[{ required: true }]}>
+              <DatePicker style={{ width: '100%', borderRadius: 8 }} format="YYYY-MM-DD" placeholder="YYYY-MM-DD" />
+            </Form.Item>
+          </div>
+
+          <div className="rt-modal-footer-sticky">
+            <Button onClick={() => setIsCreateModalOpen(false)} style={{ borderRadius: 8 }}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              type="primary"
+              htmlType="submit"
+              loading={submitting}
+              style={{
+                backgroundColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                borderColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
+                fontWeight: 600,
+                borderRadius: 8,
+              }}
+            >
+              {t('billing.invoices.createInvoice')}
+            </Button>
+          </div>
+        </Form>
+      </Modal>
+
+      {/* RECORD PAYMENT MODAL */}
+      <Modal
+        title={
+          <div className="rt-modal-title-wrapper">
+            <div className="rt-modal-icon-badge">
+              <DollarOutlined />
+            </div>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: semantic.textPrimary }}>
+                {t('billing.invoices.recordPayment')}
+              </div>
+              <div className="rt-modal-subtitle">
+                {selectedInvoice?.invoiceNumber ? `Invoice ${selectedInvoice.invoiceNumber}` : 'Record manual receipt'}
+              </div>
+            </div>
+          </div>
+        }
+        open={isPaymentModalOpen}
+        onCancel={() => setIsPaymentModalOpen(false)}
+        footer={null}
+        destroyOnHidden
+        centered
+        width={480}
+        styles={{
+          body: { padding: '8px 2px 0 2px' },
+        }}
+      >
+        {selectedInvoice && (
+          <Form form={paymentForm} layout="vertical" onFinish={handleRecordPayment}>
+            <div className="rt-modal-form-scroll">
+              <Card
+                size="small"
+                style={{
+                  marginBottom: 16,
+                  borderRadius: 8,
+                  borderColor: semantic.borderDefault,
+                  background: isDarkMode ? 'rgba(255, 255, 255, 0.03)' : '#f8fafc',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <Text style={{ color: semantic.textSecondary, fontSize: 12 }}>Invoice Number</Text>
+                    <div style={{ fontWeight: 600, color: semantic.textPrimary }}>{selectedInvoice.invoiceNumber}</div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <Text style={{ color: semantic.textSecondary, fontSize: 12 }}>Gross Total</Text>
+                    <div style={{ fontWeight: 700, color: isDarkMode ? brandTokens.teal : brandTokens.navy }}>
+                      {Number(selectedInvoice.grossTotal).toFixed(2)} {selectedInvoice.currency}
+                    </div>
+                  </div>
+                </div>
+              </Card>
+
+              <Form.Item
+                name="amount"
+                label={t('billing.invoices.paymentAmount')}
+                rules={[{ required: true }]}
+              >
+                <InputNumber min={0.01} step={0.01} precision={2} style={{ width: '100%', borderRadius: 8 }} />
+              </Form.Item>
+
+              <Form.Item
+                name="paymentMethod"
+                label={t('billing.invoices.paymentMethod')}
+                rules={[{ required: true }]}
+              >
+                <Select style={{ borderRadius: 8 }}>
+                  <Option value="manual_bank_transfer">SEPA / Bank Transfer (Manual)</Option>
+                  <Option value="manual_credit_card">Credit Card (Terminal / Offline)</Option>
+                  <Option value="manual_cash">Cash / Direct</Option>
+                  <Option value="manual_other">Other Manual Accounting</Option>
+                </Select>
+              </Form.Item>
+
+              <Form.Item name="reference" label={t('billing.invoices.paymentRef')}>
+                <Input placeholder="e.g. Bank reference TXN-94819" style={{ borderRadius: 8 }} />
+              </Form.Item>
+            </div>
+
+            <div className="rt-modal-footer-sticky">
+              <Button onClick={() => setIsPaymentModalOpen(false)} style={{ borderRadius: 8 }}>
+                {t('common.cancel')}
+              </Button>
               <Button
                 type="primary"
                 htmlType="submit"
@@ -445,137 +581,104 @@ export function InvoicesPage() {
                   backgroundColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
                   borderColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
                   fontWeight: 600,
+                  borderRadius: 8,
                 }}
               >
-                {t('billing.invoices.createInvoice')}
+                Confirm Payment
               </Button>
-            </Space>
-          </Form.Item>
-        </Form>
-      </Modal>
-
-      {/* RECORD PAYMENT MODAL */}
-      <Modal
-        title={t('billing.invoices.recordPayment')}
-        open={isPaymentModalOpen}
-        onCancel={() => setIsPaymentModalOpen(false)}
-        footer={null}
-        destroyOnHidden
-        centered
-        width={450}
-      >
-        {selectedInvoice && (
-          <Form form={paymentForm} layout="vertical" onFinish={handleRecordPayment} style={{ marginTop: 12 }}>
-            <div style={{ marginBottom: 16 }}>
-              <Text style={{ color: semantic.textSecondary }}>Invoice: </Text>
-              <strong style={{ color: semantic.textPrimary }}>{selectedInvoice.invoiceNumber}</strong>
-              <div style={{ marginTop: 2 }}>
-                <Text style={{ color: semantic.textSecondary }}>Gross Total: </Text>
-                <strong style={{ color: semantic.textPrimary }}>{Number(selectedInvoice.grossTotal).toFixed(2)} {selectedInvoice.currency}</strong>
-              </div>
             </div>
-
-            <Form.Item
-              name="amount"
-              label={t('billing.invoices.paymentAmount')}
-              rules={[{ required: true }]}
-            >
-              <InputNumber min={0.01} step={0.01} precision={2} style={{ width: '100%' }} />
-            </Form.Item>
-
-            <Form.Item
-              name="paymentMethod"
-              label={t('billing.invoices.paymentMethod')}
-              rules={[{ required: true }]}
-            >
-              <Select>
-                <Option value="manual_bank_transfer">SEPA / Bank Transfer (Manual)</Option>
-                <Option value="manual_credit_card">Credit Card (Terminal / Offline)</Option>
-                <Option value="manual_cash">Cash / Direct</Option>
-                <Option value="manual_other">Other Manual Accounting</Option>
-              </Select>
-            </Form.Item>
-
-            <Form.Item name="reference" label={t('billing.invoices.paymentRef')}>
-              <Input placeholder="e.g. Bank reference TXN-94819" />
-            </Form.Item>
-
-            <Form.Item style={{ textAlign: 'right', marginTop: 20, marginBottom: 0 }}>
-              <Space>
-                <Button onClick={() => setIsPaymentModalOpen(false)}>{t('common.cancel')}</Button>
-                <Button
-                  type="primary"
-                  htmlType="submit"
-                  loading={submitting}
-                  style={{
-                    backgroundColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
-                    borderColor: isDarkMode ? brandTokens.teal : brandTokens.navy,
-                    fontWeight: 600,
-                  }}
-                >
-                  Confirm Payment
-                </Button>
-              </Space>
-            </Form.Item>
           </Form>
         )}
       </Modal>
 
       {/* VOID MODAL */}
       <Modal
-        title={t('billing.invoices.void')}
+        title={
+          <div className="rt-modal-title-wrapper">
+            <div className="rt-modal-icon-badge" style={{ background: 'rgba(239, 68, 68, 0.1)', color: brandTokens.error }}>
+              <CloseCircleOutlined />
+            </div>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: semantic.textPrimary }}>
+                {t('billing.invoices.void')}
+              </div>
+              <div className="rt-modal-subtitle">
+                {selectedInvoice?.invoiceNumber ? `Void Invoice ${selectedInvoice.invoiceNumber}` : 'Cancel invoice record'}
+              </div>
+            </div>
+          </div>
+        }
         open={isVoidModalOpen}
         onCancel={() => setIsVoidModalOpen(false)}
         footer={null}
         destroyOnHidden
         centered
-        width={450}
+        width={480}
+        styles={{
+          body: { padding: '8px 2px 0 2px' },
+        }}
       >
-        <Form form={voidForm} layout="vertical" onFinish={handleVoid} style={{ marginTop: 12 }}>
-          <Alert
-            message={t('billing.invoices.voidConfirm')}
-            type="warning"
-            showIcon
-            style={{ marginBottom: 16, borderRadius: 8 }}
-          />
-          <Form.Item
-            name="reason"
-            label={t('billing.invoices.voidReason')}
-            rules={[{ required: true, min: 3, message: 'Please enter a valid void reason' }]}
-          >
-            <Input.TextArea rows={3} placeholder="Issued in error, duplicate, contract canceled..." />
-          </Form.Item>
+        <Form form={voidForm} layout="vertical" onFinish={handleVoid}>
+          <div className="rt-modal-form-scroll">
+            <Alert
+              message={t('billing.invoices.voidConfirm')}
+              type="warning"
+              showIcon
+              style={{ marginBottom: 16, borderRadius: 8 }}
+            />
+            <Form.Item
+              name="reason"
+              label={t('billing.invoices.voidReason')}
+              rules={[{ required: true, min: 3, message: 'Please enter a valid void reason' }]}
+            >
+              <Input.TextArea rows={3} placeholder="Issued in error, duplicate, contract canceled..." style={{ borderRadius: 8 }} />
+            </Form.Item>
+          </div>
 
-          <Form.Item style={{ textAlign: 'right', marginTop: 20, marginBottom: 0 }}>
-            <Space>
-              <Button onClick={() => setIsVoidModalOpen(false)}>{t('common.cancel')}</Button>
-              <Button danger type="primary" htmlType="submit" loading={submitting}>
-                {t('billing.invoices.void')}
-              </Button>
-            </Space>
-          </Form.Item>
+          <div className="rt-modal-footer-sticky">
+            <Button onClick={() => setIsVoidModalOpen(false)} style={{ borderRadius: 8 }}>
+              {t('common.cancel')}
+            </Button>
+            <Button danger type="primary" htmlType="submit" loading={submitting} style={{ borderRadius: 8, fontWeight: 600 }}>
+              {t('billing.invoices.void')}
+            </Button>
+          </div>
         </Form>
       </Modal>
 
       {/* VIEW INVOICE MODAL */}
       <Modal
-        title={`${t('billing.invoices.viewInvoice')} — ${selectedInvoice?.invoiceNumber || ''}`}
+        title={
+          <div className="rt-modal-title-wrapper">
+            <div className="rt-modal-icon-badge">
+              <EyeOutlined />
+            </div>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 600, color: semantic.textPrimary }}>
+                {t('billing.invoices.viewInvoice')}
+              </div>
+              <div className="rt-modal-subtitle">
+                {selectedInvoice?.invoiceNumber || ''}
+              </div>
+            </div>
+          </div>
+        }
         open={isViewModalOpen}
         onCancel={() => setIsViewModalOpen(false)}
         centered
         footer={[
-          <Button key="print" icon={<PrinterOutlined />} onClick={handlePrint} style={{ borderRadius: 6 }}>
+          <Button key="print" icon={<PrinterOutlined />} onClick={handlePrint} style={{ borderRadius: 8 }}>
             {t('billing.invoices.downloadPrint')}
           </Button>,
-          <Button key="close" onClick={() => setIsViewModalOpen(false)} style={{ borderRadius: 6 }}>
+          <Button key="close" onClick={() => setIsViewModalOpen(false)} style={{ borderRadius: 8 }}>
             {t('common.back')}
           </Button>,
         ]}
-        width={650}
+        width={680}
       >
         {selectedInvoice && (
-          <div style={{ padding: '8px 0' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+          <div className="rt-invoice-sheet" style={{ marginTop: 8 }}>
+            <div className="rt-invoice-header">
               <div>
                 <Title level={4} style={{ margin: 0, color: isDarkMode ? brandTokens.teal : brandTokens.navy }}>
                   Recrui<span style={{ color: brandTokens.teal }}>Train</span>
@@ -585,7 +688,10 @@ export function InvoicesPage() {
               </div>
 
               <div style={{ textAlign: 'right' }}>
-                <Tag color={selectedInvoice.status === 'PAID' ? 'success' : 'default'} style={{ fontSize: 12.5, padding: '2px 8px', borderRadius: 4 }}>
+                <Tag
+                  color={selectedInvoice.status === 'PAID' ? 'success' : selectedInvoice.status === 'VOID' ? 'default' : 'orange'}
+                  style={{ fontSize: 12, padding: '2px 8px', borderRadius: 4, fontWeight: 500 }}
+                >
                   {t(`billing.statuses.${selectedInvoice.status}`)}
                 </Tag>
                 <div style={{ fontWeight: 600, marginTop: 4, color: semantic.textPrimary }}>{selectedInvoice.invoiceNumber}</div>
@@ -623,12 +729,16 @@ export function InvoicesPage() {
             </Card>
 
             {/* Itemized Reconciled Arithmetic */}
-            <Descriptions bordered column={1} size="small" style={{ marginBottom: 20 }}>
+            <Descriptions bordered column={1} size="small" style={{ marginBottom: 20, borderRadius: 8, overflow: 'hidden' }}>
               <Descriptions.Item label={t('billing.invoices.netAmount')}>
-                {Number(selectedInvoice.netAmount).toFixed(2)} {selectedInvoice.currency}
+                <span style={{ fontWeight: 500, color: semantic.textPrimary }}>
+                  {Number(selectedInvoice.netAmount).toFixed(2)} {selectedInvoice.currency}
+                </span>
               </Descriptions.Item>
               <Descriptions.Item label={`${t('billing.invoices.taxAmount')} (${(Number(selectedInvoice.taxRate) * 100).toFixed(0)}%)`}>
-                {Number(selectedInvoice.taxAmount).toFixed(2)} {selectedInvoice.currency}
+                <span style={{ color: semantic.textSecondary }}>
+                  {Number(selectedInvoice.taxAmount).toFixed(2)} {selectedInvoice.currency}
+                </span>
               </Descriptions.Item>
               <Descriptions.Item label={<strong>{t('billing.invoices.grossTotal')}</strong>}>
                 <strong style={{ fontSize: 16, color: isDarkMode ? brandTokens.teal : brandTokens.navy }}>
@@ -639,8 +749,8 @@ export function InvoicesPage() {
 
             {/* Payments List */}
             {selectedInvoice.payments?.length > 0 && (
-              <div>
-                <Title level={5} style={{ fontSize: 14, color: semantic.textPrimary, marginBottom: 10 }}>
+              <div style={{ marginTop: 16 }}>
+                <Title level={5} style={{ fontSize: 13.5, color: semantic.textPrimary, marginBottom: 10 }}>
                   {t('billing.invoices.paymentHistory')}
                 </Title>
                 <Table

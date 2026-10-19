@@ -12,6 +12,7 @@ import {
   Alert,
   Typography,
   Spin,
+  DatePicker,
 } from 'antd';
 import {
   ReloadOutlined,
@@ -20,7 +21,9 @@ import {
   ClockCircleOutlined,
   WarningOutlined,
   PieChartOutlined,
+  ClearOutlined,
 } from '@ant-design/icons';
+import dayjs from 'dayjs';
 import { useTranslation } from 'react-i18next';
 import { useSelector } from 'react-redux';
 import { billingApi, formatBillingError } from '../../services/billingApi.js';
@@ -172,54 +175,43 @@ export function BillingAnalyticsPage() {
 
       {/* Filter Bar */}
       <Card
+        className="rt-filter-card"
         variant="outlined"
         size="small"
         style={{
           marginBottom: 20,
-          borderRadius: 10,
+          borderRadius: 12,
           border: `1px solid ${semantic.borderDefault}`,
           background: semantic.bgCard,
         }}
-        styles={{ body: { padding: '12px 16px' } }}
+        styles={{ body: { padding: '12px 18px' } }}
       >
         <Space wrap size={16} align="center">
           <div>
-            <Text style={{ color: semantic.textSecondary, marginRight: 8 }}>{t('dashboard.from')}:</Text>
-            <input
-              type="date"
-              value={from}
-              onChange={(e) => setFrom(e.target.value)}
-              style={{
-                padding: '5px 10px',
-                borderRadius: 6,
-                border: `1px solid ${semantic.borderDefault}`,
-                background: semantic.bgSurface,
-                color: semantic.textPrimary,
-                fontSize: 13,
-              }}
+            <Text style={{ color: semantic.textSecondary, marginRight: 8, fontSize: 13 }}>{t('dashboard.from')}:</Text>
+            <DatePicker
+              placeholder={t('dashboard.from')}
+              value={from ? dayjs(from) : null}
+              onChange={(d, dateStr) => setFrom(dateStr || '')}
+              format="YYYY-MM-DD"
+              style={{ width: 140, borderRadius: 8 }}
             />
           </div>
 
           <div>
-            <Text style={{ color: semantic.textSecondary, marginRight: 8 }}>{t('dashboard.to')}:</Text>
-            <input
-              type="date"
-              value={to}
-              onChange={(e) => setTo(e.target.value)}
-              style={{
-                padding: '5px 10px',
-                borderRadius: 6,
-                border: `1px solid ${semantic.borderDefault}`,
-                background: semantic.bgSurface,
-                color: semantic.textPrimary,
-                fontSize: 13,
-              }}
+            <Text style={{ color: semantic.textSecondary, marginRight: 8, fontSize: 13 }}>{t('dashboard.to')}:</Text>
+            <DatePicker
+              placeholder={t('dashboard.to')}
+              value={to ? dayjs(to) : null}
+              onChange={(d, dateStr) => setTo(dateStr || '')}
+              format="YYYY-MM-DD"
+              style={{ width: 140, borderRadius: 8 }}
             />
           </div>
 
           <div>
-            <Text style={{ color: semantic.textSecondary, marginRight: 8 }}>{t('billing.analytics.groupBy')}:</Text>
-            <Select value={groupBy} onChange={setGroupBy} style={{ width: 110 }}>
+            <Text style={{ color: semantic.textSecondary, marginRight: 8, fontSize: 13 }}>{t('billing.analytics.groupBy')}:</Text>
+            <Select value={groupBy} onChange={setGroupBy} style={{ width: 110, borderRadius: 8 }}>
               <Option value="day">{t('dashboard.day')}</Option>
               <Option value="month">{t('dashboard.month')}</Option>
               <Option value="year">{t('dashboard.year')}</Option>
@@ -230,10 +222,25 @@ export function BillingAnalyticsPage() {
             icon={<ReloadOutlined />}
             onClick={fetchAnalytics}
             loading={loading}
-            style={{ borderRadius: 6 }}
+            style={{ borderRadius: 8 }}
           >
             {t('billing.analytics.refresh')}
           </Button>
+
+          {(from || to || groupBy !== 'month') && (
+            <Button
+              type="text"
+              icon={<ClearOutlined />}
+              onClick={() => {
+                setFrom('');
+                setTo('');
+                setGroupBy('month');
+              }}
+              style={{ borderRadius: 8, color: semantic.textSecondary }}
+            >
+              {t('common.resetFilters', 'Reset')}
+            </Button>
+          )}
         </Space>
       </Card>
 
