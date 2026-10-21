@@ -40,7 +40,8 @@ import { ThemeSwitcher } from './ThemeSwitcher.jsx';
 import { BrandLogo } from './BrandLogo.jsx';
 import { NotificationCenter } from './NotificationCenter.jsx';
 import { fetchNotifications, fetchUnreadCount } from '../store/notificationSlice.js';
-import { setupForegroundMessageListener } from '../services/firebaseClient.js';
+import { setupForegroundMessageListener, displayForegroundNativeNotification } from '../services/firebaseClient.js';
+import { validateDeepLink } from '../utils/deepLink.js';
 import { brandTokens, lightSemanticTokens, darkSemanticTokens } from '../theme/tokens.js';
 
 const { Header, Sider, Content } = Layout;
@@ -76,15 +77,26 @@ export function AdminShell() {
       }
       const title = payload?.notification?.title || payload?.data?.title || 'RecruTrain Notification';
       const body = payload?.notification?.body || payload?.data?.body || '';
-      const deepLink = payload?.data?.deepLinkUrl || payload?.data?.deepLink;
+      const rawDeepLink = payload?.data?.deepLinkUrl || payload?.data?.deepLink || payload?.data?.linkUrl;
+      const safeDeepLink = validateDeepLink(rawDeepLink);
 
+      // 1. In-app Ant Design toast
       antdNotification.info({
         message: title,
         description: body,
         placement: 'topRight',
         onClick: () => {
-          if (deepLink && typeof deepLink === 'string' && deepLink.startsWith('/')) {
-            navigate(deepLink);
+          if (safeDeepLink) {
+            navigate(safeDeepLink);
+          }
+        },
+      });
+
+      // 2. Native OS/browser desktop notification while tab is in foreground
+      displayForegroundNativeNotification(payload, {
+        onClick: (targetPath) => {
+          if (targetPath) {
+            navigate(targetPath);
           }
         },
       });

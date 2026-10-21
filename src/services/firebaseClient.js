@@ -7,6 +7,7 @@ import {
   isSupported as isMessagingSupported,
 } from 'firebase/messaging';
 import { notificationApi } from './notificationApi.js';
+import { validateDeepLink } from '../utils/deepLink.js';
 
 const STORAGE_KEY_TOKEN = 'rt_fcm_device_token';
 const STORAGE_KEY_ENABLED = 'rt_fcm_push_enabled';
@@ -269,3 +270,123 @@ export async function setupForegroundMessageListener(onNotificationReceived) {
     return null;
   }
 }
+
+// In-memory deduplication cache with a 10-second TTL to avoid duplicate notifications
+const recentNotificationTags = new Map();
+
+/**
+ * Resets the in-memory notification tag cache (used for unit testing).
+ */
+export function _resetRecentNotificationTags() {
+  recentNotificationTags.clear();
+}
+
+/**
+ * Checks whether a notification tag was displayed recently.
+ */
+function isRecentlyDisplayed(tag) {
+  if (!tag) return false;
+  const now = Date.now();
+  for (const [key, timestamp] of recentNotificationTags.entries()) {
+    if (now - timestamp > 10000) {
+      recentNotificationTags.delete(key);
+    }
+  }
+  if (recentNotificationTags.has(tag)) {
+    return true;
+  }
+  recentNotificationTags.set(tag, now);
+  return false;
+}
+
+/**
+ * Displays a native browser desktop notification while the tab is active/foreground,
+ * if supported by the browser and permission is currently granted.
+ *
+ * @param {object} payload - The raw FCM payload received from onMessage
+ * @param {object} [options] - Optional settings
+ * @param {function} [options.onClick] - Callback invoked when notification is clicked with validated safe path
+ * @returns {Notification|null} The created Notification instance, or null if skipped/unsupported
+ */
+export function displayForegroundNativeNotification(payload, { onClick } = {}) {
+  if (!payload || typeof window === 'undefined' || !('Notification' in window)) {
+    return null;
+  }
+
+  // Strictly require permission to already be 'granted'; NEVER prompt automatically
+  if (Notification.permission !== 'granted') {
+    return null;
+  }
+
+  const rawTitle = payload?.notification?.title || payload?.data?.title;
+  const rawBody = payload?.notification?.body || payload?.data?.body;
+
+  // Ignore payloads that carry neither title nor body (e.g. internal sync pings)
+  if (!rawTitle && !rawBody) {
+    return null;
+  }
+
+  const title = String(rawTitle || 'RecruiTrain Notification');
+  const body = String(rawBody || '');
+  const rawDeepLink = payload?.data?.deepLinkUrl || payload?.data?.deepLink || payload?.data?.linkUrl;
+  const safeDeepLink = validateDeepLink(rawDeepLink);
+
+  const tag =
+    payload?.data?.eventId ||
+    payload?.messageId ||
+    payload?.fcmMessageId ||
+    `recrui_${payload?.data?.eventType || 'event'}_${title}_${body}`;
+
+  // Prevent duplicate native notifications
+  if (isRecentlyDisplayed(tag)) {
+    return null;
+  }
+
+  const notificationOptions = {
+    body,
+    icon: '/logo.png',
+    badge: '/logo.png',
+    tag,
+    data: {
+      ...payload?.data,
+      deepLinkUrl: safeDeepLink,
+    },
+  };
+
+  try {
+    const notification = new Notification(title, notificationOptions);
+
+    notification.onclick = (event) => {
+      event.preventDefault();
+      try {
+        window.focus();
+      } catch {
+        // Ignore focus errors
+      }
+
+      if (typeof onClick === 'function') {
+        onClick(safeDeepLink);
+      }
+
+      try {
+        notification.close();
+      } catch {
+        // Ignore close errors
+      }
+    };
+
+    return notification;
+  } catch {
+    // In environments where new Notification() throws (e.g. mobile environments requiring SW),
+    // attempt fallback via registration.showNotification
+    if ('serviceWorker' in navigator && navigator.serviceWorker.ready) {
+      navigator.serviceWorker.ready
+        .then((registration) => {
+          registration.showNotification(title, notificationOptions);
+        })
+        .catch(() => {});
+    }
+    return null;
+  }
+}
+

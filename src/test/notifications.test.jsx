@@ -16,6 +16,8 @@ import {
   getNotificationPermission,
   enablePushNotifications,
   disablePushNotifications,
+  displayForegroundNativeNotification,
+  _resetRecentNotificationTags,
 } from '../services/firebaseClient.js';
 import { notificationApi } from '../services/notificationApi.js';
 import '../i18n/index.js';
@@ -373,6 +375,178 @@ describe('RecruiTrain Push & In-App Notifications Suite', () => {
       expect(fullHtml).not.toContain('mock-fcm-device-token');
       expect(fullHtml).not.toContain('FIREBASE_PRIVATE_KEY');
       expect(fullHtml).not.toContain('private_key');
+    });
+  });
+
+  describe('7. Foreground Native Desktop Notification Handling', () => {
+    let originalNotification;
+    let originalFocus;
+    let mockNotificationInstances = [];
+
+    beforeEach(() => {
+      _resetRecentNotificationTags();
+      mockNotificationInstances = [];
+      originalNotification = window.Notification;
+      originalFocus = window.focus;
+      window.focus = vi.fn();
+
+      // Mock HTML5 Notification constructor and static properties
+      class MockNotification {
+        static permission = 'granted';
+        static requestPermission = vi.fn().mockResolvedValue('granted');
+
+        constructor(title, options) {
+          this.title = title;
+          this.options = options;
+          this.close = vi.fn();
+          this.onclick = null;
+          mockNotificationInstances.push(this);
+        }
+      }
+
+      window.Notification = MockNotification;
+    });
+
+    afterEach(() => {
+      window.Notification = originalNotification;
+      window.focus = originalFocus;
+      _resetRecentNotificationTags();
+    });
+
+    it('creates a native desktop notification when permission is granted in the foreground', () => {
+      const payload = {
+        notification: {
+          title: 'RecruTrain — Job Published',
+          body: 'Senior Cloud Architect role is now live.',
+        },
+        data: {
+          eventId: 'JOB_PUB_123',
+          deepLinkUrl: '/jobs/123',
+        },
+      };
+
+      const result = displayForegroundNativeNotification(payload);
+
+      expect(result).not.toBeNull();
+      expect(mockNotificationInstances.length).toBe(1);
+      expect(mockNotificationInstances[0].title).toBe('RecruTrain — Job Published');
+      expect(mockNotificationInstances[0].options.body).toBe('Senior Cloud Architect role is now live.');
+      expect(mockNotificationInstances[0].options.tag).toBe('JOB_PUB_123');
+      expect(mockNotificationInstances[0].options.data.deepLinkUrl).toBe('/jobs/123');
+    });
+
+    it('silently skips native notification when permission is denied or default (without prompting)', () => {
+      window.Notification.permission = 'denied';
+
+      const payload = {
+        notification: {
+          title: 'Test Notification',
+          body: 'This should not appear natively.',
+        },
+      };
+
+      const result = displayForegroundNativeNotification(payload);
+
+      expect(result).toBeNull();
+      expect(mockNotificationInstances.length).toBe(0);
+      expect(window.Notification.requestPermission).not.toHaveBeenCalled();
+    });
+
+    it('silently handles unsupported Notification API without throwing', () => {
+      delete window.Notification;
+
+      const payload = {
+        notification: {
+          title: 'Test Unsupported',
+          body: 'API is missing.',
+        },
+      };
+
+      const result = displayForegroundNativeNotification(payload);
+      expect(result).toBeNull();
+    });
+
+    it('prevents duplicate native desktop notifications using stable tag deduplication', () => {
+      const payload = {
+        notification: {
+          title: 'Candidate Registered',
+          body: 'John Doe registered.',
+        },
+        data: {
+          eventId: 'CANDIDATE_REG_999',
+        },
+      };
+
+      // First dispatch should show
+      const first = displayForegroundNativeNotification(payload);
+      expect(first).not.toBeNull();
+      expect(mockNotificationInstances.length).toBe(1);
+
+      // Second duplicate dispatch with same eventId should be rejected by deduplication
+      const duplicate = displayForegroundNativeNotification(payload);
+      expect(duplicate).toBeNull();
+      expect(mockNotificationInstances.length).toBe(1);
+    });
+
+    it('handles native notification click, invokes window focus, closes notification, and navigates safely', () => {
+      const focusSpy = vi.spyOn(window, 'focus').mockImplementation(() => {});
+      const onClickSpy = vi.fn();
+
+      const payload = {
+        notification: {
+          title: 'Company Created',
+          body: 'Acme Corp registered.',
+        },
+        data: {
+          eventId: 'COMP_CREATE_555',
+          deepLinkUrl: '/companies/555',
+        },
+      };
+
+      const notification = displayForegroundNativeNotification(payload, { onClick: onClickSpy });
+      expect(notification).not.toBeNull();
+
+      // Trigger notification click event
+      const mockEvent = { preventDefault: vi.fn() };
+      notification.onclick(mockEvent);
+
+      expect(mockEvent.preventDefault).toHaveBeenCalled();
+      expect(focusSpy).toHaveBeenCalled();
+      expect(notification.close).toHaveBeenCalled();
+      expect(onClickSpy).toHaveBeenCalledWith('/companies/555');
+
+      focusSpy.mockRestore();
+    });
+
+    it('rejects unsafe external deep links on native notification click navigation', () => {
+      const onClickSpy = vi.fn();
+
+      const payload = {
+        notification: {
+          title: 'Malicious Link Alert',
+          body: 'Phishing attempt.',
+        },
+        data: {
+          eventId: 'PHISH_1',
+          deepLinkUrl: 'https://attacker.evil.com/login',
+        },
+      };
+
+      const notification = displayForegroundNativeNotification(payload, { onClick: onClickSpy });
+      expect(notification).not.toBeNull();
+
+      const mockEvent = { preventDefault: vi.fn() };
+      notification.onclick(mockEvent);
+
+      // Deep link validation returns null for external URLs
+      expect(onClickSpy).toHaveBeenCalledWith(null);
+    });
+
+    it('returns null and does not display notification for empty or invalid payload', () => {
+      expect(displayForegroundNativeNotification(null)).toBeNull();
+      expect(displayForegroundNativeNotification({})).toBeNull();
+      expect(displayForegroundNativeNotification({ data: {} })).toBeNull();
+      expect(mockNotificationInstances.length).toBe(0);
     });
   });
 });
