@@ -1,6 +1,6 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import { MemoryRouter } from 'react-router-dom';
@@ -330,6 +330,148 @@ describe('Dashboard & Data Management Standards Suite', () => {
           }),
         })
       );
+    });
+  });
+
+  describe('7. Job Postings & Candidate Registrations Analytics Graphs', () => {
+    const mockConnectedDashboardData = {
+      success: true,
+      dateRange: {
+        from: '2026-09-14T00:00:00.000Z',
+        to: '2026-10-14T23:59:59.999Z',
+        groupBy: 'day',
+      },
+      kpis: {
+        activeJobs: { count: 12, connected: true, label: 'Active Jobs' },
+        inactiveJobs: { count: 3, connected: true, label: 'Inactive Jobs' },
+        totalCompanies: { count: null, connected: false, label: 'Total Employers' },
+        totalCandidates: { count: 45, connected: true, label: 'Total Candidates' },
+        totalAdmins: { count: 1, connected: true, label: 'Total Administrators' },
+        activeAdmins: { count: 1, connected: true, label: 'Active Accounts' },
+        mfaAdoption: { count: 1, percentage: 100, connected: true, label: 'MFA Adoption Rate' },
+        totalAuditEvents: { count: 35, connected: true, label: 'Security Audit Events' },
+      },
+      charts: {
+        auditActivity: {
+          connected: true,
+          label: 'Security & Audit Events',
+          groupBy: 'day',
+          series: [{ bucket: '2026-10-14T00:00:00.000Z', count: 5 }],
+        },
+        jobPostings: {
+          connected: true,
+          label: 'Job Postings',
+          groupBy: 'day',
+          series: [
+            { bucket: '2026-10-10T00:00:00.000Z', count: 4 },
+            { bucket: '2026-10-12T00:00:00.000Z', count: 8 },
+          ],
+          total: 15,
+          active: 12,
+          inactive: 3,
+          counts: { PUBLISHED: 12, DRAFT: 2, PENDING_APPROVAL: 1 },
+        },
+        candidateRegistrations: {
+          connected: true,
+          label: 'Candidate Registrations',
+          groupBy: 'day',
+          series: [
+            { bucket: '2026-10-08T00:00:00.000Z', count: 15 },
+            { bucket: '2026-10-11T00:00:00.000Z', count: 30 },
+          ],
+          total: 45,
+          active: 38,
+          pending: 5,
+          inactive: 2,
+          counts: { ACTIVE: 38, PENDING_APPROVAL: 5, INACTIVE: 2 },
+        },
+        employerRegistrations: { connected: false, series: [] },
+      },
+      recentNotifications: {
+        connected: false,
+        items: [],
+        unreadCount: 0,
+      },
+      recentActivity: [],
+    };
+
+    it('renders Job Postings tab, switches to it, and renders job analytics metrics summary and chart', async () => {
+      vi.spyOn(api, 'get').mockImplementation(async (url) => {
+        if (url.includes('/admin/dashboard')) {
+          return { data: mockConnectedDashboardData };
+        }
+        return { data: { items: [], counts: {}, pagination: { total: 0 } } };
+      });
+
+      renderWithProviders(<DashboardPage />);
+
+      const jobTabs = screen.getAllByText('Job Postings');
+      expect(jobTabs.length).toBeGreaterThanOrEqual(1);
+      fireEvent.click(jobTabs[0]);
+
+      await waitFor(() => {
+        expect(screen.getByText('Job Postings Trend & Volume')).toBeInTheDocument();
+        expect(screen.getByText('Total Jobs:')).toBeInTheDocument();
+      });
+
+      expect(screen.getByText('15')).toBeInTheDocument();
+      expect(screen.getByText('Published:')).toBeInTheDocument();
+      expect(screen.getAllByText('12').length).toBeGreaterThanOrEqual(1);
+    });
+
+    it('renders Candidate Registrations tab, switches to it, and renders candidate analytics metrics summary and chart', async () => {
+      vi.spyOn(api, 'get').mockImplementation(async (url) => {
+        if (url.includes('/admin/dashboard')) {
+          return { data: mockConnectedDashboardData };
+        }
+        return { data: { items: [], counts: {}, pagination: { total: 0 } } };
+      });
+
+      renderWithProviders(<DashboardPage />);
+
+      const candTabs = screen.getAllByText('Candidate Registrations');
+      expect(candTabs.length).toBeGreaterThanOrEqual(1);
+      fireEvent.click(candTabs[0]);
+
+      await waitFor(() => {
+        expect(screen.getByText('Candidate Registrations Trend')).toBeInTheDocument();
+        expect(screen.getByText('Total Candidates:')).toBeInTheDocument();
+      });
+
+      expect(screen.getAllByText('45').length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByText('Active:')).toBeInTheDocument();
+      expect(screen.getByText('38')).toBeInTheDocument();
+    });
+
+    it('renders empty state message when series data is empty', async () => {
+      const mockEmptyData = {
+        ...mockConnectedDashboardData,
+        charts: {
+          ...mockConnectedDashboardData.charts,
+          jobPostings: {
+            ...mockConnectedDashboardData.charts.jobPostings,
+            series: [],
+            total: 0,
+            counts: {},
+          },
+        },
+      };
+
+      vi.spyOn(api, 'get').mockImplementation(async (url) => {
+        if (url.includes('/admin/dashboard')) {
+          return { data: mockEmptyData };
+        }
+        return { data: { items: [], counts: {}, pagination: { total: 0 } } };
+      });
+
+      renderWithProviders(<DashboardPage />);
+
+      const jobTabs = screen.getAllByText('Job Postings');
+      fireEvent.click(jobTabs[0]);
+
+      await waitFor(() => {
+        expect(screen.getByText('No activity recorded in the selected date range.')).toBeInTheDocument();
+      });
     });
   });
 });

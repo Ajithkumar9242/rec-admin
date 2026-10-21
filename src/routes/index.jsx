@@ -30,6 +30,7 @@ import { JobDetailsPage } from '../features/jobs/JobDetailsPage.jsx';
 import { CandidatesPage } from '../features/candidates/CandidatesPage.jsx';
 import { CandidateDetailsPage } from '../features/candidates/CandidateDetailsPage.jsx';
 import { TeamsPage } from '../features/teams/TeamsPage.jsx';
+import { PipelinePage } from '../features/pipeline/PipelinePage.jsx';
 
 function RootRedirect() {
   const { isAuthenticated, isInitialized } = useSelector((state) => state.auth);
@@ -110,6 +111,10 @@ export function AppRoutes() {
         <Route path="jobs/new" element={<JobCreateEditPage />} />
         <Route path="jobs/:id" element={<JobDetailsPage />} />
         <Route path="jobs/:id/edit" element={<JobCreateEditPage />} />
+        <Route path="jobs/:jobId/pipeline" element={<PipelinePage />} />
+
+        {/* Hiring Pipeline Routes */}
+        <Route path="pipeline" element={<PipelinePage />} />
 
         {/* Phase 5: Candidate Management Routes */}
         <Route path="candidates" element={<CandidatesPage />} />

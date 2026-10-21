@@ -189,7 +189,26 @@ export function DashboardPage() {
       }
 
       // 1. Process Jobs Analytics & Stats
-      if (jobsRes.status === 'fulfilled') {
+      if (dashRes.status === 'fulfilled' && dashRes.value.data?.charts?.jobPostings?.connected) {
+        const chartJob = dashRes.value.data.charts.jobPostings;
+        const counts = chartJob.counts || {};
+        const active = typeof chartJob.active === 'number' ? chartJob.active : (counts.PUBLISHED || 0);
+        const inactive = typeof chartJob.inactive === 'number'
+          ? chartJob.inactive
+          : (counts.DRAFT || 0) + (counts.PENDING_APPROVAL || 0) + (counts.CLOSED || 0) + (counts.ARCHIVED || 0);
+        const total = typeof chartJob.total === 'number' ? chartJob.total : (active + inactive);
+
+        setJobStats({
+          loading: false,
+          error: null,
+          total,
+          active,
+          inactive,
+          counts,
+          series: Array.isArray(chartJob.series) ? chartJob.series : [],
+          connected: true,
+        });
+      } else if (jobsRes.status === 'fulfilled') {
         const jobsPayload = jobsRes.value;
         const counts = jobsPayload?.counts || {};
         const active = typeof counts.PUBLISHED === 'number' ? counts.PUBLISHED : 0;
@@ -198,7 +217,9 @@ export function DashboardPage() {
           ? jobsPayload.pagination.total
           : (active + inactive);
 
-        const jobsList = Array.isArray(jobsPayload?.data) ? jobsPayload.data : [];
+        const jobsList = Array.isArray(jobsPayload?.items)
+          ? jobsPayload.items
+          : (Array.isArray(jobsPayload?.data) ? jobsPayload.data : []);
         const series = aggregateTimeSeries(jobsList, 'createdAt', customGroup, fromDateObj, toDateObj);
 
         setJobStats({
@@ -222,7 +243,7 @@ export function DashboardPage() {
         const total = typeof summary.ALL === 'number' ? summary.ALL : 0;
         const compList = compListRes.status === 'fulfilled' && Array.isArray(compListRes.value?.data)
           ? compListRes.value.data
-          : [];
+          : (Array.isArray(compListRes.value?.items) ? compListRes.value.items : []);
         const series = aggregateTimeSeries(compList, 'createdAt', customGroup, fromDateObj, toDateObj);
 
         setCompanyStats({
@@ -239,15 +260,36 @@ export function DashboardPage() {
       }
 
       // 3. Process Candidates Analytics & Stats
-      if (candRes.status === 'fulfilled' && candRes.value?.pagination) {
+      if (dashRes.status === 'fulfilled' && dashRes.value.data?.charts?.candidateRegistrations?.connected) {
+        const chartCand = dashRes.value.data.charts.candidateRegistrations;
+        const total = typeof chartCand.total === 'number'
+          ? chartCand.total
+          : (dashRes.value.data.kpis?.totalCandidates?.count || 0);
+        const active = typeof chartCand.active === 'number' ? chartCand.active : 0;
+        const pending = typeof chartCand.pending === 'number' ? chartCand.pending : 0;
+        const inactive = typeof chartCand.inactive === 'number' ? chartCand.inactive : 0;
+
+        setCandidateStats({
+          loading: false,
+          error: null,
+          total,
+          active,
+          pending,
+          inactive,
+          series: Array.isArray(chartCand.series) ? chartCand.series : [],
+          connected: true,
+        });
+      } else if (candRes.status === 'fulfilled' && (candRes.value?.pagination || candRes.value?.items || candRes.value?.data)) {
         const candPayload = candRes.value;
-        const total = typeof candPayload.pagination.total === 'number' ? candPayload.pagination.total : 0;
-        const candList = Array.isArray(candPayload.data) ? candPayload.data : [];
+        const candList = Array.isArray(candPayload.items)
+          ? candPayload.items
+          : (Array.isArray(candPayload.data) ? candPayload.data : []);
+        const total = typeof candPayload.pagination?.total === 'number' ? candPayload.pagination.total : candList.length;
         const series = aggregateTimeSeries(candList, 'createdAt', customGroup, fromDateObj, toDateObj);
 
         const active = candList.filter((c) => (c.status || '').toUpperCase() === 'ACTIVE').length;
-        const pending = candList.filter((c) => ['PENDING', 'UNVERIFIED', 'IN_REVIEW'].includes((c.status || '').toUpperCase())).length;
-        const inactive = candList.filter((c) => (c.status || '').toUpperCase() === 'INACTIVE').length;
+        const pending = candList.filter((c) => ['PENDING', 'PENDING_APPROVAL', 'UNVERIFIED', 'IN_REVIEW'].includes((c.status || '').toUpperCase())).length;
+        const inactive = candList.filter((c) => ['INACTIVE', 'SUSPENDED'].includes((c.status || '').toUpperCase())).length;
 
         setCandidateStats({
           loading: false,

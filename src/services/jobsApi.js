@@ -31,4 +31,13 @@ export const jobsApi = {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
       .then((res) => res.data),
+
+  getJobPipeline: (jobId, params) =>
+    api.get(`/jobs/${jobId}/pipeline`, { params }).then((res) => res.data),
+
+  updateApplicationStage: (jobId, applicationId, data) =>
+    api.patch(`/jobs/${jobId}/applications/${applicationId}/stage`, data).then((res) => res.data),
+
+  batchUpdateApplicationStage: (jobId, data) =>
+    api.patch(`/jobs/${jobId}/applications/batch-stage`, data).then((res) => res.data),
 };

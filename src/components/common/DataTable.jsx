@@ -230,7 +230,7 @@ export function DataTable({
                 value={searchText}
                 onChange={(e) => setSearchText(e.target.value)}
                 allowClear
-                style={{ width: 220, borderRadius: 6 }}
+                style={{ width: 220, borderRadius: 8 }}
               />
             )}
 

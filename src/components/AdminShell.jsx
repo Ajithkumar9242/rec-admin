@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Layout,
   Menu,
@@ -12,6 +12,7 @@ import {
   Drawer,
   Tooltip,
   Popover,
+  notification as antdNotification,
 } from 'antd';
 import {
   DashboardOutlined,
@@ -37,6 +38,9 @@ import { usePermissions } from '../hooks/usePermissions.js';
 import { LanguageSwitcher } from './LanguageSwitcher.jsx';
 import { ThemeSwitcher } from './ThemeSwitcher.jsx';
 import { BrandLogo } from './BrandLogo.jsx';
+import { NotificationCenter } from './NotificationCenter.jsx';
+import { fetchNotifications, fetchUnreadCount } from '../store/notificationSlice.js';
+import { setupForegroundMessageListener } from '../services/firebaseClient.js';
 import { brandTokens, lightSemanticTokens, darkSemanticTokens } from '../theme/tokens.js';
 
 const { Header, Sider, Content } = Layout;
@@ -44,6 +48,7 @@ const { Header, Sider, Content } = Layout;
 export function AdminShell() {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const screens = Grid.useBreakpoint() || {};
   const navigate = useNavigate();
   const location = useLocation();
@@ -51,9 +56,56 @@ export function AdminShell() {
   const { t } = useTranslation();
   const { user } = useSelector((state) => state.auth);
   const isDarkMode = useSelector((state) => state.theme.isDarkMode);
+  const unreadCount = useSelector((state) => state.notifications?.unreadCount || 0);
 
   const semantic = isDarkMode ? darkSemanticTokens : lightSemanticTokens;
   const isMobile = Boolean(screens.xs);
+
+  // Initial unread count fetch and gentle 60s background refresh
+  useEffect(() => {
+    dispatch(fetchUnreadCount());
+    const interval = setInterval(() => {
+      dispatch(fetchUnreadCount());
+    }, 60000);
+
+    let unsubscribeFCM = null;
+    setupForegroundMessageListener((payload) => {
+      dispatch(fetchUnreadCount());
+      if (notificationsOpen) {
+        dispatch(fetchNotifications({ page: 1, limit: 20 }));
+      }
+      const title = payload?.notification?.title || payload?.data?.title || 'RecruTrain Notification';
+      const body = payload?.notification?.body || payload?.data?.body || '';
+      const deepLink = payload?.data?.deepLinkUrl || payload?.data?.deepLink;
+
+      antdNotification.info({
+        message: title,
+        description: body,
+        placement: 'topRight',
+        onClick: () => {
+          if (deepLink && typeof deepLink === 'string' && deepLink.startsWith('/')) {
+            navigate(deepLink);
+          }
+        },
+      });
+    }).then((unsub) => {
+      unsubscribeFCM = unsub;
+    });
+
+    return () => {
+      clearInterval(interval);
+      if (typeof unsubscribeFCM === 'function') {
+        unsubscribeFCM();
+      }
+    };
+  }, [dispatch, notificationsOpen]);
+
+  // Fetch notifications list whenever popover is opened
+  useEffect(() => {
+    if (notificationsOpen) {
+      dispatch(fetchNotifications({ page: 1, limit: 20 }));
+    }
+  }, [notificationsOpen, dispatch]);
 
   const handleLogout = async () => {
     await dispatch(logoutUser());
@@ -173,10 +225,9 @@ export function AdminShell() {
       visible: can('TEAMS', 'READ'),
     },
     {
-      key: 'pipeline-future',
+      key: '/admin/pipeline',
       icon: <ProjectOutlined style={{ fontSize: 16 }} />,
-      label: t('shell.pipeline'),
-      disabled: true,
+      label: t('shell.pipeline', 'Hiring Pipeline'),
       visible: can('APPLICATIONS', 'READ'),
     },
     {
@@ -242,15 +293,7 @@ export function AdminShell() {
   ];
 
   const notificationsPopoverContent = (
-    <div style={{ padding: '8px 4px', width: 260, textAlign: 'center' }}>
-      <BellOutlined style={{ fontSize: 24, color: brandTokens.teal, marginBottom: 8 }} />
-      <div style={{ fontWeight: 600, fontSize: 13, color: semantic.textPrimary, marginBottom: 4 }}>
-        {t('dashboard.recentNotifications')}
-      </div>
-      <div style={{ fontSize: 12, color: semantic.textSecondary }}>
-        {t('dashboard.noNotifications')}
-      </div>
-    </div>
+    <NotificationCenter onClose={() => setNotificationsOpen(false)} />
   );
 
   // Render navigation menu content (shared between desktop Sider and mobile Drawer)
@@ -299,7 +342,7 @@ export function AdminShell() {
       >
         <Menu
           mode="inline"
-          selectedKeys={[location.pathname]}
+          selectedKeys={[location.pathname.includes('/pipeline') ? '/admin/pipeline' : location.pathname]}
           items={menuItems}
           onClick={handleMenuClick}
           inlineCollapsed={isCollapsedMode}
@@ -599,6 +642,9 @@ export function AdminShell() {
               content={notificationsPopoverContent}
               trigger="click"
               placement="bottomRight"
+              open={notificationsOpen}
+              onOpenChange={setNotificationsOpen}
+              overlayInnerStyle={{ padding: 0 }}
             >
               <Tooltip title={t('dashboard.recentNotifications')}>
                 <Button
@@ -614,7 +660,7 @@ export function AdminShell() {
                     color: semantic.textSecondary,
                   }}
                   icon={
-                    <Badge dot={false} offset={[2, -2]}>
+                    <Badge count={unreadCount} overflowCount={99} offset={[2, -2]} size="small">
                       <BellOutlined style={{ fontSize: 17 }} />
                     </Badge>
                   }

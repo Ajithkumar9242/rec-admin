@@ -34,6 +34,7 @@ import {
   EyeOutlined,
   UserOutlined,
   BankOutlined,
+  ProjectOutlined,
 } from '@ant-design/icons';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -421,6 +422,14 @@ export function JobDetailsPage() {
           {/* Action Buttons */}
           <Col xs={24} md={8} style={{ textAlign: 'right' }}>
             <Space wrap>
+              {!job.deletedAt && (
+                <Button
+                  icon={<ProjectOutlined />}
+                  onClick={() => navigate(`/admin/jobs/${id}/pipeline`)}
+                >
+                  {t('pipeline.title', 'Hiring Pipeline')}
+                </Button>
+              )}
               {!job.deletedAt && (
                 <Button
                   icon={<EditOutlined />}

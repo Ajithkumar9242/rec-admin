@@ -899,9 +899,9 @@ export function TeamsPage() {
                           onChange={(e) => setTeamsSearch(e.target.value)}
                           onPressEnter={fetchTeams}
                           allowClear
-                          style={{ width: 220, borderRadius: 6 }}
+                          style={{ width: 220, borderRadius: 8 }}
                         />
-                        <Button icon={<ReloadOutlined />} onClick={fetchTeams} style={{ borderRadius: 6 }} />
+                        <Button icon={<ReloadOutlined />} onClick={fetchTeams} style={{ borderRadius: 8 }} />
                       </Space>
                     </div>
 
@@ -933,7 +933,7 @@ export function TeamsPage() {
                           onChange={(e) => setMembersSearch(e.target.value)}
                           onPressEnter={fetchMembers}
                           allowClear
-                          style={{ width: 220, borderRadius: 6 }}
+                          style={{ width: 220, borderRadius: 8 }}
                         />
                         <Select
                           placeholder={t('teams.filterRole', 'Filter by Role')}

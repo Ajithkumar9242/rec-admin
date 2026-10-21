@@ -240,8 +240,10 @@
   margin-right: 4px !important;
 }
 
-/* Modern Input, Select, InputNumber & DatePicker Heights and Borders */
-.ant-input,
+/* Modern Form Controls: Standalone Inputs, Affix Wrappers (Search, Password, Icons), Selects, InputNumbers & DatePickers */
+input.ant-input:not(.ant-input-affix-wrapper input),
+textarea.ant-input,
+.ant-input-affix-wrapper,
 .ant-select-single:not(.ant-select-customize-input) .ant-select-selector,
 .ant-input-number,
 .ant-picker {
@@ -253,7 +255,9 @@
               background-color 0.18s ease !important;
 }
 
-.dark .ant-input,
+.dark input.ant-input:not(.ant-input-affix-wrapper input),
+.dark textarea.ant-input,
+.dark .ant-input-affix-wrapper,
 .dark .ant-select-single:not(.ant-select-customize-input) .ant-select-selector,
 .dark .ant-input-number,
 .dark .ant-picker {
@@ -262,9 +266,59 @@
   color: #eaf5f8 !important;
 }
 
+/* Eliminate Inner Duplicate Borders for Affix Inputs (Search, Password, Login, Icons) */
+.ant-input-affix-wrapper > input.ant-input,
+.ant-input-affix-wrapper input.ant-input,
+.ant-input-affix-wrapper .ant-input-inner {
+  border: none !important;
+  border-width: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  border-radius: 0 !important;
+}
+
+.ant-input-affix-wrapper > input.ant-input:focus,
+.ant-input-affix-wrapper input.ant-input:focus,
+.ant-input-affix-wrapper > input.ant-input:hover,
+.ant-input-affix-wrapper input.ant-input:hover,
+.ant-input-affix-wrapper > input.ant-input:active,
+.ant-input-affix-wrapper input.ant-input:active {
+  border: none !important;
+  border-width: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+.dark .ant-input-affix-wrapper > input.ant-input,
+.dark .ant-input-affix-wrapper input.ant-input {
+  background: transparent !important;
+  background-color: transparent !important;
+  color: #eaf5f8 !important;
+}
+
+/* Ensure InputNumber inner input does not render duplicate borders */
+.ant-input-number .ant-input-number-input {
+  border: none !important;
+  outline: none !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+.dark .ant-input-number .ant-input-number-input {
+  background: transparent !important;
+  color: #eaf5f8 !important;
+}
+
 /* Input Focus States */
-.ant-input:focus,
-.ant-input-focused,
+input.ant-input:not(.ant-input-affix-wrapper input):focus,
+textarea.ant-input:focus,
+.ant-input-focused:not(.ant-input-affix-wrapper input),
+.ant-input-affix-wrapper-focused,
+.ant-input-affix-wrapper:focus-within,
 .ant-select-focused:not(.ant-select-disabled) .ant-select-selector,
 .ant-input-number-focused,
 .ant-picker-focused {
@@ -272,8 +326,11 @@
   box-shadow: 0 0 0 2.5px rgba(79, 168, 192, 0.25) !important;
 }
 
-.dark .ant-input:focus,
-.dark .ant-input-focused,
+.dark input.ant-input:not(.ant-input-affix-wrapper input):focus,
+.dark textarea.ant-input:focus,
+.dark .ant-input-focused:not(.ant-input-affix-wrapper input),
+.dark .ant-input-affix-wrapper-focused,
+.dark .ant-input-affix-wrapper:focus-within,
 .dark .ant-select-focused:not(.ant-select-disabled) .ant-select-selector,
 .dark .ant-input-number-focused,
 .dark .ant-picker-focused {
@@ -282,11 +339,149 @@
 }
 
 /* Input Hover States */
-.ant-input:hover:not(:focus),
+input.ant-input:not(.ant-input-affix-wrapper input):hover:not(:focus),
+textarea.ant-input:hover:not(:focus),
+.ant-input-affix-wrapper:hover:not(.ant-input-affix-wrapper-focused):not(.ant-input-affix-wrapper-disabled),
 .ant-select:hover:not(.ant-select-disabled) .ant-select-selector,
-.ant-input-number:hover:not(.ant-input-number-focused),
-.ant-picker:hover:not(.ant-picker-focused) {
+.ant-input-number:hover:not(.ant-input-number-focused):not(.ant-input-number-disabled),
+.ant-picker:hover:not(.ant-picker-focused):not(.ant-picker-disabled) {
   border-color: #4fa8c0 !important;
+}
+
+/* Disabled States */
+input.ant-input[disabled],
+.ant-input-disabled,
+textarea.ant-input[disabled],
+.ant-input-affix-wrapper-disabled,
+.ant-select-disabled .ant-select-selector,
+.ant-input-number-disabled,
+.ant-picker.ant-picker-disabled {
+  background-color: #f1f5f7 !important;
+  border-color: #dce9ed !important;
+  color: #94a3b8 !important;
+  cursor: not-allowed !important;
+}
+
+.dark input.ant-input[disabled],
+.dark .ant-input-disabled,
+.dark textarea.ant-input[disabled],
+.dark .ant-input-affix-wrapper-disabled,
+.dark .ant-select-disabled .ant-select-selector,
+.dark .ant-input-number-disabled,
+.dark .ant-picker.ant-picker-disabled {
+  background-color: #0e1e27 !important;
+  border-color: #1f3948 !important;
+  color: #64748b !important;
+}
+
+.ant-input-affix-wrapper-disabled input.ant-input {
+  cursor: not-allowed !important;
+  color: #94a3b8 !important;
+  background: transparent !important;
+}
+
+.dark .ant-input-affix-wrapper-disabled input.ant-input {
+  color: #64748b !important;
+  background: transparent !important;
+}
+
+/* Validation Error States */
+input.ant-input-status-error:not(.ant-input-affix-wrapper input),
+textarea.ant-input-status-error,
+.ant-input-affix-wrapper-status-error,
+.ant-select-status-error .ant-select-selector,
+.ant-input-number-status-error,
+.ant-picker-status-error {
+  border-color: #cf3838 !important;
+}
+
+input.ant-input-status-error:not(.ant-input-affix-wrapper input):focus,
+textarea.ant-input-status-error:focus,
+.ant-input-affix-wrapper-status-error.ant-input-affix-wrapper-focused,
+.ant-input-affix-wrapper-status-error:focus-within,
+.ant-select-status-error.ant-select-focused .ant-select-selector,
+.ant-input-number-status-error.ant-input-number-focused,
+.ant-picker-status-error.ant-picker-focused {
+  border-color: #cf3838 !important;
+  box-shadow: 0 0 0 2.5px rgba(207, 56, 56, 0.22) !important;
+}
+
+.dark input.ant-input-status-error:not(.ant-input-affix-wrapper input),
+.dark textarea.ant-input-status-error,
+.dark .ant-input-affix-wrapper-status-error,
+.dark .ant-select-status-error .ant-select-selector,
+.dark .ant-input-number-status-error,
+.dark .ant-picker-status-error {
+  border-color: #e55353 !important;
+}
+
+.dark input.ant-input-status-error:not(.ant-input-affix-wrapper input):focus,
+.dark textarea.ant-input-status-error:focus,
+.dark .ant-input-affix-wrapper-status-error.ant-input-affix-wrapper-focused,
+.dark .ant-input-affix-wrapper-status-error:focus-within,
+.dark .ant-select-status-error.ant-select-focused .ant-select-selector,
+.dark .ant-input-number-status-error.ant-input-number-focused,
+.dark .ant-picker-status-error.ant-picker-focused {
+  border-color: #e55353 !important;
+  box-shadow: 0 0 0 2.5px rgba(229, 83, 83, 0.25) !important;
+}
+
+/* Validation Warning States */
+input.ant-input-status-warning:not(.ant-input-affix-wrapper input),
+textarea.ant-input-status-warning,
+.ant-input-affix-wrapper-status-warning,
+.ant-select-status-warning .ant-select-selector,
+.ant-input-number-status-warning,
+.ant-picker-status-warning {
+  border-color: #d97706 !important;
+}
+
+input.ant-input-status-warning:not(.ant-input-affix-wrapper input):focus,
+textarea.ant-input-status-warning:focus,
+.ant-input-affix-wrapper-status-warning.ant-input-affix-wrapper-focused,
+.ant-input-affix-wrapper-status-warning:focus-within,
+.ant-select-status-warning.ant-select-focused .ant-select-selector,
+.ant-input-number-status-warning.ant-input-number-focused,
+.ant-picker-status-warning.ant-picker-focused {
+  border-color: #d97706 !important;
+  box-shadow: 0 0 0 2.5px rgba(217, 119, 6, 0.22) !important;
+}
+
+/* Space.Compact Support */
+.ant-space-compact > .ant-input:not(:first-child):not(:last-child),
+.ant-space-compact > .ant-input-affix-wrapper:not(:first-child):not(:last-child),
+.ant-space-compact > .ant-select:not(:first-child):not(:last-child) .ant-select-selector,
+.ant-space-compact > .ant-input-number:not(:first-child):not(:last-child) {
+  border-radius: 0 !important;
+}
+
+.ant-space-compact > .ant-input:first-child:not(:last-child),
+.ant-space-compact > .ant-input-affix-wrapper:first-child:not(:last-child),
+.ant-space-compact > .ant-select:first-child:not(:last-child) .ant-select-selector,
+.ant-space-compact > .ant-input-number:first-child:not(:last-child) {
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+
+.ant-space-compact > .ant-input:last-child:not(:first-child),
+.ant-space-compact > .ant-input-affix-wrapper:last-child:not(:first-child),
+.ant-space-compact > .ant-select:last-child:not(:first-child) .ant-select-selector,
+.ant-space-compact > .ant-input-number:last-child:not(:first-child) {
+  border-top-left-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
+}
+
+/* Prefix and Suffix Icon Alignment */
+.ant-input-affix-wrapper .ant-input-prefix {
+  margin-inline-end: 8px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.ant-input-affix-wrapper .ant-input-suffix {
+  margin-inline-start: 8px;
+  display: inline-flex;
+  align-items: center;
 }
 
 /* Placeholder Contrast */

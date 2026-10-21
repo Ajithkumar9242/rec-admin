@@ -34,6 +34,7 @@ import {
   TeamOutlined,
   UndoOutlined,
   ExclamationCircleOutlined,
+  ProjectOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -470,9 +471,16 @@ export function JobsPage() {
             label: t('jobs.actions.edit'),
             onClick: () => navigate(`/admin/jobs/${record.id}/edit`),
           },
+          {
+            key: 'pipeline',
+            icon: <ProjectOutlined />,
+            label: t('pipeline.title', 'Hiring Pipeline'),
+            onClick: () => navigate(`/admin/jobs/${record.id}/pipeline`),
+          },
         ];
 
         // Moderation items based on status
+
         if (record.status === 'DRAFT' || record.status === 'CLOSED') {
           items.push({
             key: 'publish',
@@ -523,6 +531,14 @@ export function JobsPage() {
                 size="small"
                 icon={<EditOutlined />}
                 onClick={() => navigate(`/admin/jobs/${record.id}/edit`)}
+              />
+            </Tooltip>
+            <Tooltip title={t('pipeline.title', 'Hiring Pipeline')}>
+              <Button
+                type="text"
+                size="small"
+                icon={<ProjectOutlined />}
+                onClick={() => navigate(`/admin/jobs/${record.id}/pipeline`)}
               />
             </Tooltip>
             <Dropdown menu={{ items }} trigger={['click']}>
